@@ -398,6 +398,15 @@ return { move, sprint: false, kick };
 }
 
 
+## Installation
+
+- Node.js 18+ is recommended. Using very old runtimes (e.g. Node 8) with a recent npm triggers errors such as `Cannot find module 'node:path'` during `npm install`.
+- Install dependencies (even though none are declared, this will honor the `engines` warning):
+
+```bash
+npm install
+```
+
 ## Run locally
 
 You can run the zero-dependency static server with:
