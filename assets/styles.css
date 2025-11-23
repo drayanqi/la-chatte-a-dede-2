@@ -1,0 +1,3 @@
+body { margin:0; background:#111; font-family: sans-serif; }
+canvas { background:#2b7a2b; display:block; margin: 8px auto; border: 2px solid #222; }
+#ui a { color:#9cf; }
