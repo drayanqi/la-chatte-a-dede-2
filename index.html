@@ -6,11 +6,27 @@
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-  <div id="ui" style="text-align:center;color:#fff;padding:8px;">
-    <h1>Futsal AI — MVP</h1>
-    <p>Use <code>node serve.js</code> or <code>npm start</code> and open <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+  <div id="ui">
+    <div class="title-block">
+      <h1>Futsal AI — MVP</h1>
+      <p>Chargez les scripts de chaque équipe puis démarrez le match.</p>
+    </div>
+    <div class="upload-grid">
+      <label class="upload-card">
+        <span class="label">Script équipe bleue</span>
+        <input type="file" id="teamAInput" accept=".js,.ts,.mjs,.cjs" />
+        <span class="filename" id="teamAFile">Aucun fichier</span>
+      </label>
+      <label class="upload-card">
+        <span class="label">Script équipe orange</span>
+        <input type="file" id="teamBInput" accept=".js,.ts,.mjs,.cjs" />
+        <span class="filename" id="teamBFile">Aucun fichier</span>
+      </label>
+    </div>
+    <button id="startButton" disabled>Start game</button>
+    <div id="statusText">En attente des scripts...</div>
   </div>
-  <canvas id="gameCanvas" width="900" height="600" style="display:block;margin:0 auto;"></canvas>
+  <canvas id="gameCanvas" width="900" height="600"></canvas>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
