@@ -54,6 +54,7 @@ const state = {
   aiOrange: null,
   players: [],
   ball: createBall(),
+  ballControl: { playerId: null, cooldownUntil: 0 },
   score: { blue: 0, orange: 0 },
   half: 1,
   timeRemaining: HALF_DURATION,
@@ -91,6 +92,7 @@ function createPlayers() {
 function resetForKickoff(team) {
   createPlayers();
   Object.assign(state.ball, createBall());
+  state.ballControl = { playerId: null, cooldownUntil: 0 };
   state.kickoffTeam = team;
   state.pendingKickoff = performance.now() + DEFAULT_CONFIG.game.postGoalPause * 1000;
 }
@@ -159,20 +161,77 @@ function initUI() {
 }
 
 function defaultAggressiveAI(gameState) {
-  const { me, ball } = gameState;
+  const { me, ball, field, players } = gameState;
   const attackDir = me.team === 'blue' ? 1 : -1;
-  const targetX = ball.x + attackDir * 12;
-  const targetY = ball.y;
-  return buildDecision(me, ball, targetX, targetY, me.team === 'blue');
+  const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
+  const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
+  const closeToBall = distToBall < DEFAULT_CONFIG.kick.controlRadius * 1.1;
+  const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
+
+  const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
+  const opponents = players.filter((p) => p.team !== me.team);
+  const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
+
+  const moveTarget = closeToBall && bestPass
+    ? { x: bestPass.x, y: bestPass.y }
+    : { x: ball.x + attackDir * 10, y: ball.y };
+
+  let kick = null;
+  if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+    const alignedWithGoal = Math.abs(ball.y - goal.y) < 120;
+    if (distToGoal < 220 && alignedWithGoal) {
+      kick = aimKick(ball, goal, 0.92);
+    } else if (bestPass) {
+      const lead = attackDir * 16;
+      const target = { x: bestPass.x + lead, y: bestPass.y };
+      kick = aimKick(ball, target, 0.65);
+    } else {
+      const pushTarget = { x: ball.x + attackDir * 60, y: ball.y };
+      kick = aimKick(ball, pushTarget, 0.45);
+    }
+  }
+
+  const dx = moveTarget.x - me.x;
+  const dy = moveTarget.y - me.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 110, kick };
 }
 
 function defaultDefensiveAI(gameState) {
-  const { me, ball, field } = gameState;
-  const defendX = me.team === 'blue' ? field.width * 0.25 : field.width * 0.75;
-  const defendY = field.height / 2 + (me.number % 2 === 0 ? -60 : 60);
-  const targetX = (ball.x * 0.2) + defendX * 0.8;
-  const targetY = (ball.y * 0.2) + defendY * 0.8;
-  return buildDecision(me, ball, targetX, targetY, me.team === 'blue');
+  const { me, ball, field, players } = gameState;
+  const defendX = me.team === 'blue' ? field.width * 0.28 : field.width * 0.72;
+  const defendY = field.height / 2 + (me.number % 2 === 0 ? -70 : 70);
+  const attackDir = me.team === 'blue' ? 1 : -1;
+  const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
+
+  const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
+  const stayHome = Math.abs(ball.x - defendX) > 120;
+  const moveTarget = stayHome
+    ? { x: defendX, y: defendY }
+    : { x: ball.x * 0.25 + defendX * 0.75, y: ball.y * 0.3 + defendY * 0.7 };
+
+  const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
+  const opponents = players.filter((p) => p.team !== me.team);
+  const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
+
+  let kick = null;
+  if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+    const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
+    if (distToGoal < 250 && Math.abs(me.y - goal.y) < 140) {
+      kick = aimKick(ball, goal, 0.85);
+    } else if (bestPass) {
+      const target = { x: bestPass.x + attackDir * 12, y: bestPass.y };
+      kick = aimKick(ball, target, 0.6);
+    } else {
+      const clearance = { x: ball.x + attackDir * 90, y: field.height / 2 };
+      kick = aimKick(ball, clearance, 0.5);
+    }
+  }
+
+  const dx = moveTarget.x - me.x;
+  const dy = moveTarget.y - me.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 120, kick };
 }
 
 function buildDecision(me, ball, targetX, targetY, isLeftSide) {
@@ -194,6 +253,43 @@ function buildDecision(me, ball, targetX, targetY, isLeftSide) {
   }
 
   return { move, sprint, kick };
+}
+
+function aimKick(from, target, power) {
+  const dx = target.x - from.x;
+  const dy = target.y - from.y;
+  const norm = Math.hypot(dx, dy) || 1;
+  return { power, dirX: dx / norm, dirY: dy / norm };
+}
+
+function pickPassTarget(me, teammates, opponents, attackDir) {
+  let best = null;
+  let bestScore = -Infinity;
+  const maxDist = 260;
+
+  for (const mate of teammates) {
+    const dx = mate.x - me.x;
+    const dy = mate.y - me.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxDist || attackDir * dx < -24) continue;
+
+    const nearestOpponent = opponents.reduce((min, opp) => Math.min(min, Math.hypot(opp.x - mate.x, opp.y - mate.y)), Infinity);
+    const progression = attackDir * dx;
+    const spacingScore = Math.min(nearestOpponent, 180) * 0.6;
+    const verticalBalance = Math.max(0, 80 - Math.abs(dy)) * 0.2;
+    const score = progression * 0.8 + spacingScore + verticalBalance;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = mate;
+    }
+  }
+
+  return best;
+}
+
+function getPlayerId(player) {
+  return `${player.team}-${player.number}`;
 }
 
 function getAIForPlayer(player) {
@@ -220,8 +316,9 @@ function applyDecision(player, decision, dt) {
 
   if (decision.kick && Math.hypot(player.x - state.ball.x, player.y - state.ball.y) < DEFAULT_CONFIG.kick.kickRange) {
     const power = DEFAULT_CONFIG.kick.maxPower * decision.kick.power;
-    state.ball.vx = decision.kick.dirX * power * dt;
-    state.ball.vy = decision.kick.dirY * power * dt;
+    state.ball.vx = decision.kick.dirX * power;
+    state.ball.vy = decision.kick.dirY * power;
+    state.ballControl = { playerId: null, cooldownUntil: performance.now() + DEFAULT_CONFIG.kick.controlTimeoutOnKick };
   }
 }
 
@@ -229,6 +326,46 @@ function clampToField(player) {
   const r = DEFAULT_CONFIG.player.radius + 6;
   player.x = Math.min(field.width - r, Math.max(r, player.x));
   player.y = Math.min(field.height - r, Math.max(r, player.y));
+}
+
+function updateBallControl(now) {
+  const controlRadius = DEFAULT_CONFIG.kick.controlRadius;
+  const currentController = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
+
+  if (currentController) {
+    const dist = Math.hypot(currentController.x - state.ball.x, currentController.y - state.ball.y);
+    if (dist > controlRadius * 1.4) {
+      state.ballControl.playerId = null;
+    }
+  }
+
+  if (!state.ballControl.playerId && now >= state.ballControl.cooldownUntil) {
+    let bestPlayer = null;
+    let bestDist = controlRadius;
+    for (const player of state.players) {
+      const dist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestPlayer = player;
+      }
+    }
+    if (bestPlayer) {
+      state.ballControl.playerId = getPlayerId(bestPlayer);
+    }
+  }
+
+  const controller = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
+  if (controller) {
+    const offsetDirX = controller.vx || (controller.team === 'blue' ? 1 : -1);
+    const offsetDirY = controller.vy || 0;
+    const norm = Math.hypot(offsetDirX, offsetDirY) || 1;
+    const offset = DEFAULT_CONFIG.player.radius + state.ball.radius + 2;
+
+    state.ball.x = controller.x + (offsetDirX / norm) * offset;
+    state.ball.y = controller.y + (offsetDirY / norm) * offset;
+    state.ball.vx = controller.vx;
+    state.ball.vy = controller.vy;
+  }
 }
 
 function updateBall(dt) {
@@ -434,6 +571,7 @@ function update() {
   if (state.started && !state.paused) {
     maybeStartKickoff(now);
     processAI(dt);
+    updateBallControl(now);
     updateBall(dt);
     updateTimer(dt);
     state.tick += 1;
