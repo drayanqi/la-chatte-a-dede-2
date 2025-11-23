@@ -4,7 +4,7 @@
   "description": "Futsal AI - MVP (static server included)",
   "main": "src/main.js",
   "scripts": {
-    "start": "node serve.js 3000"
+    "start": "node serve.js"
   },
   "author": "",
   "license": "MIT"
