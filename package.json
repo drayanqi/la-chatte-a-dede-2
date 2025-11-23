@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Futsal AI - MVP (static server included)",
   "main": "src/main.js",
+  "engines": {
+    "node": ">=18",
+    "npm": ">=8"
+  },
   "scripts": {
     "start": "node serve.js"
   },
