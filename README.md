@@ -15,11 +15,11 @@ Le but : programmer les meilleurs comportements pour gagner un match sans interv
 
 2 équipes : Équipe A et Équipe B
 
-Chaque équipe est composée de 5 joueurs
+Chaque équipe est composée de 3 joueurs : 1 gardien et 2 joueurs de champ (joueur1 et joueur2)
 
-Les joueurs sont représentés par de simples cercles portant un numéro 1 → 5
+Les joueurs sont représentés par de simples cercles portant un numéro 1 → 3
 
-Pas de gardien dédié — tous les joueurs sont équivalents (les IA décident des rôles)
+Le gardien est toujours le numéro 1 ; les IA définissent la stratégie pour joueur1 (#2) et joueur2 (#3)
 
 ⚽ 1.3 Le terrain
 
@@ -66,9 +66,9 @@ Jeu fluide type HaxBall, mais basé sur une vraie physique 2D.
 
 Le joueur humain ne contrôle rien pendant le match.
 
-Chaque joueur du match (10 au total) est contrôlé par un module IA distinct :
+Chaque joueur du match (6 au total) est contrôlé par un module IA distinct :
 
-1 fichier .js par joueur (donc 10 fichiers en tout)
+1 fichier .js par joueur (donc 6 fichiers en tout)
 
 Chaque IA expose une seule fonction obligatoire :
 
@@ -78,6 +78,20 @@ return { move, sprint, kick };
 
 
 Cette fonction est appelée 30 fois par seconde pour chaque joueur.
+
+🔧 API haut niveau
+
+Pour faciliter l’écriture des IA, un module `createPlayerAPI` est exposé (fichier `src/ai/PlayerAPI.js`).
+Il fournit un builder d’action et des helpers de lecture :
+
+```
+import { createPlayerAPI } from './ai/PlayerAPI.js';
+
+export function onTick(gameState) {
+  const api = createPlayerAPI(gameState, gameState.me);
+  return api.goToBall().kickIfClose(0.8).build();
+}
+```
 
 ⏱️ 1.6 Le déroulement du match
 

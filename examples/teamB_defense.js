@@ -1,37 +1,46 @@
-// Balanced defensive AI that protects its own goal and counters quickly
+// IA défensive compacte pour 3 joueurs : 1 gardien + 2 joueurs de champ
 function onTick(gameState, dt) {
-  const { me, ball, field, players } = gameState;
+  const api = createPlayerAPI(gameState, gameState.me);
+  const role = api.getMe().number;
 
-  // Determine defensive home position near our half
-  const defendX = me.team === 0 ? field.width * 0.35 : field.width * 0.65;
-  const defendY = field.height / 2 + (me.number - 3) * 8; // spread players vertically
+  if (role === 1) return guardBox(api);
+  return holdLine(api, role === 2 ? -1 : 1);
+}
 
-  // Prioritize ball if it is close to our goal, otherwise hold shape
-  const dangerZone = me.team === 0 ? ball.x < field.width * 0.45 : ball.x > field.width * 0.55;
-  const targetX = dangerZone ? ball.x : defendX;
-  const targetY = dangerZone ? ball.y : defendY;
+function guardBox(api) {
+  const ball = api.getBallPosition();
+  const ownGoal = api.getOwnGoalPosition();
+  const isBlue = api.getTeam() === 0 || api.getTeam() === 'blue';
+  const anchorX = ownGoal.x + (isBlue ? 56 : -56);
+  const target = { x: anchorX, y: Math.min(Math.max(ball.y, ownGoal.y - 70), ownGoal.y + 70) };
+  let builder = api.goTo(target).sprintIfFar(36);
 
-  const dx = targetX - me.x;
-  const dy = targetY - me.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  const move = { x: dx / dist, y: dy / dist };
-
-  // Sprint only when recovering or countering from deep
-  const sprint = dangerZone && dist > 18 && me.stamina > 0.2;
-
-  // Clear the ball toward a teammate lane or counter with a through pass
-  let kick = null;
-  if (Math.hypot(ball.x - me.x, ball.y - me.y) < 18) {
-    const forwardX = me.team === 0 ? field.width : 0;
-    const verticalBias = (me.number % 2 === 0 ? -1 : 1) * 10;
-    const targetYPass = field.height / 2 + verticalBias;
-    const kx = forwardX - ball.x;
-    const ky = targetYPass - ball.y;
-    const kNorm = Math.hypot(kx, ky) || 1;
-    kick = { power: 0.85, dirX: kx / kNorm, dirY: ky / kNorm };
+  if (api.isBallClose(18)) {
+    builder = builder.clearBall(0.9);
   }
 
-  return { move, sprint, kick };
+  return builder.build();
+}
+
+function holdLine(api, verticalSign) {
+  const field = api.getFieldSize();
+  const center = api.getCenter();
+  const attackDir = api.getTeam() === 0 || api.getTeam() === 'blue' ? 1 : -1;
+  const ball = api.getBallPosition();
+  const anchor = {
+    x: center.x + attackDir * -field.width * 0.08,
+    y: center.y + verticalSign * 38,
+  };
+
+  const danger = attackDir === 1 ? ball.x < center.x : ball.x > center.x;
+  const target = danger ? ball : anchor;
+
+  let builder = api.goTo(target).sprintIfFar(danger ? 30 : 24);
+  if (api.isBallClose(19)) {
+    builder = builder.clearBall(0.85);
+  }
+
+  return builder.build();
 }
 
 module.exports = { onTick };
