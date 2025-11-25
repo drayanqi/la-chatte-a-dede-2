@@ -1,4 +1,5 @@
 import { DEFAULT_CONFIG } from './config.js';
+import { createPlayerAPI } from './ai/PlayerAPI.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -12,6 +13,11 @@ const COLORS = {
   shadow: '#0e2230aa',
   ball: '#fff',
 };
+
+if (typeof window !== 'undefined') {
+  window.PlayerAPI = { createPlayerAPI };
+  window.createPlayerAPI = createPlayerAPI;
+}
 
 const PITCH = {
   margin: 28,
@@ -40,17 +46,13 @@ const field = {
 const FORMATIONS = {
   blue: [
     { x: 0.11, y: 0.50 },
-    { x: 0.30, y: 0.32 },
-    { x: 0.30, y: 0.68 },
-    { x: 0.56, y: 0.38 },
-    { x: 0.56, y: 0.62 },
+    { x: 0.35, y: 0.34 },
+    { x: 0.35, y: 0.66 },
   ],
   orange: [
     { x: 0.89, y: 0.50 },
-    { x: 0.70, y: 0.32 },
-    { x: 0.70, y: 0.68 },
-    { x: 0.44, y: 0.38 },
-    { x: 0.44, y: 0.62 },
+    { x: 0.65, y: 0.34 },
+    { x: 0.65, y: 0.66 },
   ],
 };
 
@@ -131,8 +133,8 @@ function updateButtonState() {
 function compileAIScript(source, fallback = null) {
   try {
     const module = { exports: {} };
-    const factory = new Function('module', 'exports', `${source}; return module.exports.onTick || onTick;`);
-    const onTick = factory(module, module.exports);
+    const factory = new Function('module', 'exports', 'createPlayerAPI', `${source}; return module.exports.onTick || onTick;`);
+    const onTick = factory(module, module.exports, createPlayerAPI);
     return typeof onTick === 'function' ? onTick : fallback;
   } catch (err) {
     console.error('Erreur de compilation IA', err);
@@ -592,7 +594,7 @@ function drawWaitingOverlay() {
 function maybeStartKickoff(now) {
   if (state.pendingKickoff && now >= state.pendingKickoff) {
     state.pendingKickoff = null;
-    const kickerIndex = state.kickoffTeam === 'blue' ? 0 : 5;
+    const kickerIndex = state.kickoffTeam === 'blue' ? 0 : 3;
     const kicker = state.players[kickerIndex];
     kicker.x = field.width / 2 + (state.kickoffTeam === 'blue' ? -DEFAULT_CONFIG.player.radius : DEFAULT_CONFIG.player.radius);
     kicker.y = field.height / 2;
