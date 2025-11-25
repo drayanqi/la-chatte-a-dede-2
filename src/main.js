@@ -64,6 +64,7 @@ const state = {
   aiAccumulator: 0,
   aiBlue: null,
   aiOrange: null,
+  defaultAIs: { blue: null, orange: null },
   players: [],
   ball: createBall(),
   ballControl: { playerId: null, cooldownUntil: 0 },
@@ -114,10 +115,28 @@ function updateStatus(text) {
 }
 
 function updateButtonState() {
-  const ready = true; // allow using bundled AIs even without uploads
+  const blueReady = Boolean(state.aiBlue || state.defaultAIs.blue);
+  const orangeReady = Boolean(state.aiOrange || state.defaultAIs.orange);
+  const ready = blueReady && orangeReady;
   ui.startButton.disabled = !ready;
   if (!state.started) {
-    updateStatus('Prêt à lancer la partie !');
+    if (ready) {
+      updateStatus('Prêt à lancer la partie !');
+    } else {
+      updateStatus('Chargement des scripts IA...');
+    }
+  }
+}
+
+function compileAIScript(source, fallback = null) {
+  try {
+    const module = { exports: {} };
+    const factory = new Function('module', 'exports', `${source}; return module.exports.onTick || onTick;`);
+    const onTick = factory(module, module.exports);
+    return typeof onTick === 'function' ? onTick : fallback;
+  } catch (err) {
+    console.error('Erreur de compilation IA', err);
+    return fallback;
   }
 }
 
@@ -125,20 +144,21 @@ function parseFileAI(file, fallback) {
   return new Promise((resolve) => {
     if (!file) return resolve(fallback);
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const module = { exports: {} };
-        const factory = new Function('module', 'exports', `${reader.result}; return module.exports.onTick || onTick;`);
-        const onTick = factory(module, module.exports);
-        resolve(typeof onTick === 'function' ? onTick : fallback);
-      } catch (err) {
-        console.error('Erreur de chargement IA', err);
-        resolve(fallback);
-      }
-    };
+    reader.onload = () => resolve(compileAIScript(reader.result, fallback));
     reader.onerror = () => resolve(fallback);
     reader.readAsText(file);
   });
+}
+
+async function loadAIFromUrl(url) {
+  try {
+    const res = await fetch(url);
+    const source = await res.text();
+    return compileAIScript(source, null);
+  } catch (err) {
+    console.error('Impossible de charger le script IA par défaut', err);
+    return null;
+  }
 }
 
 function handleFile(teamKey, file) {
@@ -151,12 +171,13 @@ function handleFile(teamKey, file) {
   const target = teamKey === 'teamAFile' ? ui.teamAFile : ui.teamBFile;
   target.textContent = file ? file.name : 'Aucun fichier';
 
-  const fallback = teamKey === 'teamAFile' ? defaultAggressiveAI : defaultDefensiveAI;
+  const fallback = teamKey === 'teamAFile' ? state.defaultAIs.blue : state.defaultAIs.orange;
 
   parseFileAI(file, fallback)
     .then((ai) => {
       if (teamKey === 'teamAFile') state.aiBlue = ai; else state.aiOrange = ai;
       updateStatus('IA chargée, prête à jouer.');
+      updateButtonState();
     });
 
   updateButtonState();
@@ -174,142 +195,37 @@ function initUI() {
   updateButtonState();
 }
 
-  function defaultAggressiveAI(gameState) {
-    const { me, ball, field, players } = gameState;
-    const attackDir = me.team === 'blue' ? 1 : -1;
-    const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
-    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-    const closeToBall = distToBall < DEFAULT_CONFIG.kick.controlRadius * 1.1;
-    const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
+async function loadDefaultAIs() {
+  const defaults = [
+    { team: 'blue', url: './examples/teamA_offense.js' },
+    { team: 'orange', url: './examples/teamB_defense.js' },
+  ];
 
-    const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
-    const opponents = players.filter((p) => p.team !== me.team);
-    const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
+  const results = await Promise.all(defaults.map(async ({ team, url }) => ({ team, ai: await loadAIFromUrl(url) })));
 
-    const moveTarget = closeToBall && bestPass
-      ? { x: bestPass.x, y: bestPass.y }
-      : { x: ball.x + attackDir * 10, y: ball.y };
-
-    let kick = null;
-    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
-      const alignedWithGoal = Math.abs(ball.y - goal.y) < 120;
-      if (distToGoal < 220 && alignedWithGoal) {
-        kick = aimKick(ball, goal, 0.92);
-      } else if (bestPass) {
-        const lead = attackDir * 16;
-        const target = { x: bestPass.x + lead, y: bestPass.y };
-        kick = aimKick(ball, target, 0.65);
-      } else {
-        const pushTarget = { x: ball.x + attackDir * 60, y: ball.y };
-        kick = aimKick(ball, pushTarget, 0.45);
-      }
-    }
-
-    const dx = moveTarget.x - me.x;
-    const dy = moveTarget.y - me.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 110, kick };
+  for (const { team, ai } of results) {
+    state.defaultAIs[team] = ai;
   }
 
-  function defaultDefensiveAI(gameState) {
-    const { me, ball, field, players } = gameState;
-    const defendX = me.team === 'blue' ? field.width * 0.28 : field.width * 0.72;
-    const defendY = field.height / 2 + (me.number % 2 === 0 ? -70 : 70);
-    const attackDir = me.team === 'blue' ? 1 : -1;
-    const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
-
-    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-    const stayHome = Math.abs(ball.x - defendX) > 120;
-    const moveTarget = stayHome
-      ? { x: defendX, y: defendY }
-      : { x: ball.x * 0.25 + defendX * 0.75, y: ball.y * 0.3 + defendY * 0.7 };
-
-    const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
-    const opponents = players.filter((p) => p.team !== me.team);
-    const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
-
-    let kick = null;
-    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
-      const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
-      if (distToGoal < 250 && Math.abs(me.y - goal.y) < 140) {
-        kick = aimKick(ball, goal, 0.85);
-      } else if (bestPass) {
-        const target = { x: bestPass.x + attackDir * 12, y: bestPass.y };
-        kick = aimKick(ball, target, 0.6);
-      } else {
-        const clearance = { x: ball.x + attackDir * 90, y: field.height / 2 };
-        kick = aimKick(ball, clearance, 0.5);
-      }
-    }
-
-    const dx = moveTarget.x - me.x;
-    const dy = moveTarget.y - me.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 120, kick };
-  }
-
-  function buildDecision(me, ball, targetX, targetY, isLeftSide) {
-    const dx = targetX - me.x;
-    const dy = targetY - me.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const move = { x: dx / dist, y: dy / dist };
-    const sprint = dist > 90;
-
-    let kick = null;
-    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
-      const goalX = isLeftSide ? field.width - 8 : 8;
-      const goalY = field.height / 2;
-      const gx = goalX - ball.x;
-      const gy = goalY - ball.y;
-      const gNorm = Math.hypot(gx, gy) || 1;
-      kick = { power: 0.85, dirX: gx / gNorm, dirY: gy / gNorm };
-    }
-
-    return { move, sprint, kick };
-  }
-
-function aimKick(from, target, power) {
-  const dx = target.x - from.x;
-  const dy = target.y - from.y;
-  const norm = Math.hypot(dx, dy) || 1;
-  return { power, dirX: dx / norm, dirY: dy / norm };
-}
-
-function pickPassTarget(me, teammates, opponents, attackDir) {
-  let best = null;
-  let bestScore = -Infinity;
-  const maxDist = 260;
-
-  for (const mate of teammates) {
-    const dx = mate.x - me.x;
-    const dy = mate.y - me.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > maxDist || attackDir * dx < -24) continue;
-
-    const nearestOpponent = opponents.reduce((min, opp) => Math.min(min, Math.hypot(opp.x - mate.x, opp.y - mate.y)), Infinity);
-    const progression = attackDir * dx;
-    const spacingScore = Math.min(nearestOpponent, 180) * 0.6;
-    const verticalBalance = Math.max(0, 80 - Math.abs(dy)) * 0.2;
-    const score = progression * 0.8 + spacingScore + verticalBalance;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = mate;
+  updateButtonState();
+  if (!state.started) {
+    const missing = results.filter(({ ai }) => !ai).map(({ team }) => team).join(', ');
+    if (missing) {
+      updateStatus(`Échec du chargement IA par défaut (${missing}). Ajoutez vos scripts manuellement.`);
+    } else {
+      updateStatus('Scripts exemples chargés, prêts à jouer ou à remplacer.');
     }
   }
-
-  return best;
 }
 
 function getPlayerId(player) {
   return `${player.team}-${player.number}`;
 }
 
-  function getAIForPlayer(player) {
-    if (player.team === 'blue') return state.aiBlue || defaultAggressiveAI;
-    return state.aiOrange || defaultDefensiveAI;
-  }
+function getAIForPlayer(player) {
+  if (player.team === 'blue') return state.aiBlue || state.defaultAIs.blue;
+  return state.aiOrange || state.defaultAIs.orange;
+}
 
 function applyDecision(player, decision, dt) {
   const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (decision.sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
@@ -350,6 +266,7 @@ function clampToField(player) {
 function updateBallControl(now) {
   const controlRadius = DEFAULT_CONFIG.kick.controlRadius;
   const currentController = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
+  const ballSpeed = Math.hypot(state.ball.vx, state.ball.vy);
 
   if (currentController) {
     const dist = Math.hypot(currentController.x - state.ball.x, currentController.y - state.ball.y);
@@ -358,7 +275,9 @@ function updateBallControl(now) {
     }
   }
 
-  if (!state.ballControl.playerId && now >= state.ballControl.cooldownUntil) {
+  if (!state.ballControl.playerId
+    && now >= state.ballControl.cooldownUntil
+    && ballSpeed < DEFAULT_CONFIG.ball.controlCaptureSpeed) {
     let bestPlayer = null;
     let bestDist = controlRadius;
     for (const player of state.players) {
@@ -483,6 +402,7 @@ function processAI(dt) {
   while (state.aiAccumulator >= aiInterval) {
     for (const player of state.players) {
       const ai = getAIForPlayer(player);
+      if (!ai) continue;
       const decision = ai({
         me: player,
         ball: { ...state.ball },
@@ -711,4 +631,5 @@ function update() {
 
 createPlayers();
 initUI();
+loadDefaultAIs();
 update();
