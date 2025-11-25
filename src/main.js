@@ -6,9 +6,21 @@ const ctx = canvas.getContext('2d');
 const COLORS = {
   blue: '#2b8bff',
   orange: '#ff8c2b',
-  pitch: '#2b7a2b',
-  lines: '#d7f0d7aa',
+  pitch: '#0da3cb',
+  border: '#f45b5b',
+  lines: '#e6f6ff',
+  shadow: '#0e2230aa',
   ball: '#fff',
+};
+
+const PITCH = {
+  margin: 28,
+  lineWidth: 4,
+  areaRadius: 110,
+  penaltySpotOffset: 86,
+  secondarySpotOffset: 150,
+  cornerArcRadius: 12,
+  goal: { height: 170, depth: 28 },
 };
 
 const ui = {
@@ -27,18 +39,18 @@ const field = {
 
 const FORMATIONS = {
   blue: [
-    { x: 0.14, y: 0.50 },
-    { x: 0.28, y: 0.32 },
-    { x: 0.28, y: 0.70 },
-    { x: 0.44, y: 0.36 },
-    { x: 0.44, y: 0.64 },
+    { x: 0.11, y: 0.50 },
+    { x: 0.30, y: 0.32 },
+    { x: 0.30, y: 0.68 },
+    { x: 0.56, y: 0.38 },
+    { x: 0.56, y: 0.62 },
   ],
   orange: [
-    { x: 0.86, y: 0.50 },
-    { x: 0.72, y: 0.32 },
-    { x: 0.72, y: 0.70 },
-    { x: 0.56, y: 0.36 },
-    { x: 0.56, y: 0.64 },
+    { x: 0.89, y: 0.50 },
+    { x: 0.70, y: 0.32 },
+    { x: 0.70, y: 0.68 },
+    { x: 0.44, y: 0.38 },
+    { x: 0.44, y: 0.62 },
   ],
 };
 
@@ -139,7 +151,9 @@ function handleFile(teamKey, file) {
   const target = teamKey === 'teamAFile' ? ui.teamAFile : ui.teamBFile;
   target.textContent = file ? file.name : 'Aucun fichier';
 
-  parseFileAI(file, teamKey === 'teamAFile' ? defaultAggressiveAI : defaultDefensiveAI)
+  const fallback = teamKey === 'teamAFile' ? defaultAggressiveAI : defaultDefensiveAI;
+
+  parseFileAI(file, fallback)
     .then((ai) => {
       if (teamKey === 'teamAFile') state.aiBlue = ai; else state.aiOrange = ai;
       updateStatus('IA chargée, prête à jouer.');
@@ -160,100 +174,100 @@ function initUI() {
   updateButtonState();
 }
 
-function defaultAggressiveAI(gameState) {
-  const { me, ball, field, players } = gameState;
-  const attackDir = me.team === 'blue' ? 1 : -1;
-  const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
-  const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-  const closeToBall = distToBall < DEFAULT_CONFIG.kick.controlRadius * 1.1;
-  const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
-
-  const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
-  const opponents = players.filter((p) => p.team !== me.team);
-  const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
-
-  const moveTarget = closeToBall && bestPass
-    ? { x: bestPass.x, y: bestPass.y }
-    : { x: ball.x + attackDir * 10, y: ball.y };
-
-  let kick = null;
-  if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
-    const alignedWithGoal = Math.abs(ball.y - goal.y) < 120;
-    if (distToGoal < 220 && alignedWithGoal) {
-      kick = aimKick(ball, goal, 0.92);
-    } else if (bestPass) {
-      const lead = attackDir * 16;
-      const target = { x: bestPass.x + lead, y: bestPass.y };
-      kick = aimKick(ball, target, 0.65);
-    } else {
-      const pushTarget = { x: ball.x + attackDir * 60, y: ball.y };
-      kick = aimKick(ball, pushTarget, 0.45);
-    }
-  }
-
-  const dx = moveTarget.x - me.x;
-  const dy = moveTarget.y - me.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 110, kick };
-}
-
-function defaultDefensiveAI(gameState) {
-  const { me, ball, field, players } = gameState;
-  const defendX = me.team === 'blue' ? field.width * 0.28 : field.width * 0.72;
-  const defendY = field.height / 2 + (me.number % 2 === 0 ? -70 : 70);
-  const attackDir = me.team === 'blue' ? 1 : -1;
-  const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
-
-  const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-  const stayHome = Math.abs(ball.x - defendX) > 120;
-  const moveTarget = stayHome
-    ? { x: defendX, y: defendY }
-    : { x: ball.x * 0.25 + defendX * 0.75, y: ball.y * 0.3 + defendY * 0.7 };
-
-  const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
-  const opponents = players.filter((p) => p.team !== me.team);
-  const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
-
-  let kick = null;
-  if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+  function defaultAggressiveAI(gameState) {
+    const { me, ball, field, players } = gameState;
+    const attackDir = me.team === 'blue' ? 1 : -1;
+    const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
+    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
+    const closeToBall = distToBall < DEFAULT_CONFIG.kick.controlRadius * 1.1;
     const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
-    if (distToGoal < 250 && Math.abs(me.y - goal.y) < 140) {
-      kick = aimKick(ball, goal, 0.85);
-    } else if (bestPass) {
-      const target = { x: bestPass.x + attackDir * 12, y: bestPass.y };
-      kick = aimKick(ball, target, 0.6);
-    } else {
-      const clearance = { x: ball.x + attackDir * 90, y: field.height / 2 };
-      kick = aimKick(ball, clearance, 0.5);
+
+    const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
+    const opponents = players.filter((p) => p.team !== me.team);
+    const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
+
+    const moveTarget = closeToBall && bestPass
+      ? { x: bestPass.x, y: bestPass.y }
+      : { x: ball.x + attackDir * 10, y: ball.y };
+
+    let kick = null;
+    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+      const alignedWithGoal = Math.abs(ball.y - goal.y) < 120;
+      if (distToGoal < 220 && alignedWithGoal) {
+        kick = aimKick(ball, goal, 0.92);
+      } else if (bestPass) {
+        const lead = attackDir * 16;
+        const target = { x: bestPass.x + lead, y: bestPass.y };
+        kick = aimKick(ball, target, 0.65);
+      } else {
+        const pushTarget = { x: ball.x + attackDir * 60, y: ball.y };
+        kick = aimKick(ball, pushTarget, 0.45);
+      }
     }
+
+    const dx = moveTarget.x - me.x;
+    const dy = moveTarget.y - me.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 110, kick };
   }
 
-  const dx = moveTarget.x - me.x;
-  const dy = moveTarget.y - me.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 120, kick };
-}
+  function defaultDefensiveAI(gameState) {
+    const { me, ball, field, players } = gameState;
+    const defendX = me.team === 'blue' ? field.width * 0.28 : field.width * 0.72;
+    const defendY = field.height / 2 + (me.number % 2 === 0 ? -70 : 70);
+    const attackDir = me.team === 'blue' ? 1 : -1;
+    const goal = { x: attackDir === 1 ? field.width - 12 : 12, y: field.height / 2 };
 
-function buildDecision(me, ball, targetX, targetY, isLeftSide) {
-  const dx = targetX - me.x;
-  const dy = targetY - me.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  const move = { x: dx / dist, y: dy / dist };
-  const sprint = dist > 90;
+    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
+    const stayHome = Math.abs(ball.x - defendX) > 120;
+    const moveTarget = stayHome
+      ? { x: defendX, y: defendY }
+      : { x: ball.x * 0.25 + defendX * 0.75, y: ball.y * 0.3 + defendY * 0.7 };
 
-  let kick = null;
-  const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
-  if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
-    const goalX = isLeftSide ? field.width - 8 : 8;
-    const goalY = field.height / 2;
-    const gx = goalX - ball.x;
-    const gy = goalY - ball.y;
-    const gNorm = Math.hypot(gx, gy) || 1;
-    kick = { power: 0.85, dirX: gx / gNorm, dirY: gy / gNorm };
+    const teammates = players.filter((p) => p.team === me.team && p.number !== me.number);
+    const opponents = players.filter((p) => p.team !== me.team);
+    const bestPass = pickPassTarget(me, teammates, opponents, attackDir);
+
+    let kick = null;
+    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+      const distToGoal = Math.hypot(goal.x - me.x, goal.y - me.y);
+      if (distToGoal < 250 && Math.abs(me.y - goal.y) < 140) {
+        kick = aimKick(ball, goal, 0.85);
+      } else if (bestPass) {
+        const target = { x: bestPass.x + attackDir * 12, y: bestPass.y };
+        kick = aimKick(ball, target, 0.6);
+      } else {
+        const clearance = { x: ball.x + attackDir * 90, y: field.height / 2 };
+        kick = aimKick(ball, clearance, 0.5);
+      }
+    }
+
+    const dx = moveTarget.x - me.x;
+    const dy = moveTarget.y - me.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    return { move: { x: dx / dist, y: dy / dist }, sprint: dist > 120, kick };
   }
 
-  return { move, sprint, kick };
-}
+  function buildDecision(me, ball, targetX, targetY, isLeftSide) {
+    const dx = targetX - me.x;
+    const dy = targetY - me.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const move = { x: dx / dist, y: dy / dist };
+    const sprint = dist > 90;
+
+    let kick = null;
+    const distToBall = Math.hypot(ball.x - me.x, ball.y - me.y);
+    if (distToBall < DEFAULT_CONFIG.kick.kickRange) {
+      const goalX = isLeftSide ? field.width - 8 : 8;
+      const goalY = field.height / 2;
+      const gx = goalX - ball.x;
+      const gy = goalY - ball.y;
+      const gNorm = Math.hypot(gx, gy) || 1;
+      kick = { power: 0.85, dirX: gx / gNorm, dirY: gy / gNorm };
+    }
+
+    return { move, sprint, kick };
+  }
 
 function aimKick(from, target, power) {
   const dx = target.x - from.x;
@@ -292,10 +306,10 @@ function getPlayerId(player) {
   return `${player.team}-${player.number}`;
 }
 
-function getAIForPlayer(player) {
-  if (player.team === 'blue') return state.aiBlue || defaultAggressiveAI;
-  return state.aiOrange || defaultDefensiveAI;
-}
+  function getAIForPlayer(player) {
+    if (player.team === 'blue') return state.aiBlue || defaultAggressiveAI;
+    return state.aiOrange || defaultDefensiveAI;
+  }
 
 function applyDecision(player, decision, dt) {
   const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (decision.sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
@@ -324,8 +338,13 @@ function applyDecision(player, decision, dt) {
 
 function clampToField(player) {
   const r = DEFAULT_CONFIG.player.radius + 6;
-  player.x = Math.min(field.width - r, Math.max(r, player.x));
-  player.y = Math.min(field.height - r, Math.max(r, player.y));
+  const left = PITCH.margin + r;
+  const right = field.width - PITCH.margin - r;
+  const top = PITCH.margin + r;
+  const bottom = field.height - PITCH.margin - r;
+
+  player.x = Math.min(right, Math.max(left, player.x));
+  player.y = Math.min(bottom, Math.max(top, player.y));
 }
 
 function updateBallControl(now) {
@@ -376,46 +395,86 @@ function updateBall(dt) {
   b.vx *= DEFAULT_CONFIG.ball.friction;
   b.vy *= DEFAULT_CONFIG.ball.rollingResistance;
 
-  const r = b.radius + 8;
+  const margin = PITCH.margin;
+  const leftLine = margin;
+  const rightLine = field.width - margin;
+  const topLine = margin;
+  const bottomLine = field.height - margin;
+  const goalTop = field.height / 2 - PITCH.goal.height / 2;
+  const goalBottom = goalTop + PITCH.goal.height;
+  const inGoalY = b.y >= goalTop && b.y <= goalBottom;
+
+  if (checkGoal(inGoalY)) return;
+
+  const r = b.radius + 6;
   let bounced = false;
-  if (b.x < r) {
-    b.x = r;
-    b.vx = Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-    bounced = true;
-  } else if (b.x > field.width - r) {
-    b.x = field.width - r;
-    b.vx = -Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-    bounced = true;
+
+  if (!inGoalY) {
+    if (b.x < leftLine + r) {
+      b.x = leftLine + r;
+      b.vx = Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    } else if (b.x > rightLine - r) {
+      b.x = rightLine - r;
+      b.vx = -Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    }
+  } else {
+    const leftBack = leftLine - PITCH.goal.depth;
+    const rightBack = rightLine + PITCH.goal.depth;
+    if (b.x < leftBack + r) {
+      b.x = leftBack + r;
+      b.vx = Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    } else if (b.x > rightBack - r) {
+      b.x = rightBack - r;
+      b.vx = -Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    }
   }
-  if (b.y < r) {
-    b.y = r;
+
+  if (b.y < topLine + r) {
+    b.y = topLine + r;
     b.vy = Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
     bounced = true;
-  } else if (b.y > field.height - r) {
-    b.y = field.height - r;
+  } else if (b.y > bottomLine - r) {
+    b.y = bottomLine - r;
     b.vy = -Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
     bounced = true;
   }
 
-  if (!bounced) {
-    checkGoal();
+  if (inGoalY) {
+    if (b.y < goalTop + r) {
+      b.y = goalTop + r;
+      b.vy = Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    } else if (b.y > goalBottom - r) {
+      b.y = goalBottom - r;
+      b.vy = -Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
+      bounced = true;
+    }
   }
 }
 
-function checkGoal() {
-  const goalHeight = 180;
-  const goalTop = field.height / 2 - goalHeight / 2;
-  const inGoalY = state.ball.y >= goalTop && state.ball.y <= goalTop + goalHeight;
+function checkGoal(inGoalY) {
+  const leftLine = PITCH.margin;
+  const rightLine = field.width - PITCH.margin;
+  const scoredLeft = inGoalY && state.ball.x <= leftLine - state.ball.radius;
+  const scoredRight = inGoalY && state.ball.x >= rightLine + state.ball.radius;
 
-  if (state.ball.x <= 16 && inGoalY) {
+  if (scoredLeft) {
     state.score.orange += 1;
     updateStatus('But ! Engagement équipe orange.');
     resetForKickoff('orange');
-  } else if (state.ball.x >= field.width - 16 && inGoalY) {
+    return true;
+  }
+  if (scoredRight) {
     state.score.blue += 1;
     updateStatus('But ! Engagement équipe bleue.');
     resetForKickoff('blue');
+    return true;
   }
+  return false;
 }
 
 function processAI(dt) {
@@ -429,6 +488,7 @@ function processAI(dt) {
         ball: { ...state.ball },
         field: { ...field },
         players: state.players,
+        ballControl: { ...state.ballControl },
       }, aiInterval);
       if (!decision || !decision.move) continue;
       applyDecision(player, decision, aiInterval);
@@ -462,37 +522,97 @@ function formatTimer() {
 
 function drawField() {
   ctx.clearRect(0, 0, field.width, field.height);
-  ctx.fillStyle = COLORS.pitch;
+  ctx.fillStyle = COLORS.border;
   ctx.fillRect(0, 0, field.width, field.height);
 
+  ctx.fillStyle = COLORS.pitch;
+  ctx.fillRect(6, 6, field.width - 12, field.height - 12);
+
+  const m = PITCH.margin;
+  const w = field.width;
+  const h = field.height;
+
   ctx.strokeStyle = COLORS.lines;
-  ctx.lineWidth = 4;
-  ctx.strokeRect(10, 10, field.width - 20, field.height - 20);
+  ctx.lineWidth = PITCH.lineWidth;
+  ctx.lineCap = 'round';
+
+  ctx.strokeRect(m, m, w - 2 * m, h - 2 * m);
+
   ctx.beginPath();
-  ctx.moveTo(field.width / 2, 10);
-  ctx.lineTo(field.width / 2, field.height - 10);
+  ctx.moveTo(w / 2, m);
+  ctx.lineTo(w / 2, h - m);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(w / 2, h / 2, 70, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(m, h / 2, PITCH.areaRadius, -Math.PI / 2, Math.PI / 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(field.width / 2, field.height / 2, 70, 0, Math.PI * 2);
+  ctx.arc(w - m, h / 2, PITCH.areaRadius, Math.PI / 2, -Math.PI / 2);
   ctx.stroke();
+
+  const drawSpot = (x, y, radius = 4) => {
+    ctx.beginPath();
+    ctx.fillStyle = COLORS.lines;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawSpot(w / 2, h / 2, 3);
+  drawSpot(m + PITCH.penaltySpotOffset, h / 2);
+  drawSpot(m + PITCH.secondarySpotOffset, h / 2, 3);
+  drawSpot(w - PITCH.penaltySpotOffset - m, h / 2);
+  drawSpot(w - PITCH.secondarySpotOffset - m, h / 2, 3);
+
+  const r = PITCH.cornerArcRadius;
+  const corners = [
+    { x: m, y: m, start: 0, end: Math.PI / 2 },
+    { x: w - m, y: m, start: Math.PI / 2, end: Math.PI },
+    { x: m, y: h - m, start: -Math.PI / 2, end: 0 },
+    { x: w - m, y: h - m, start: Math.PI, end: Math.PI * 1.5 },
+  ];
+  corners.forEach((corner) => {
+    ctx.beginPath();
+    ctx.arc(corner.x, corner.y, r, corner.start, corner.end);
+    ctx.stroke();
+  });
+
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 6; i += 1) {
+    const stripeWidth = (w - 2 * m) / 6;
+    ctx.fillRect(m + i * stripeWidth, m, stripeWidth * 0.35, h - 2 * m);
+  }
+  ctx.restore();
 
   drawGoals();
 }
 
 function drawGoals() {
-  const goalWidth = 30;
-  const goalHeight = 180;
+  const goalHeight = PITCH.goal.height;
+  const goalDepth = PITCH.goal.depth;
   const y = field.height / 2 - goalHeight / 2;
+  const post = 6;
 
-  ctx.fillStyle = '#e6f2ff';
-  ctx.strokeStyle = '#1b1f2a';
+  ctx.save();
+  ctx.shadowColor = COLORS.shadow;
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = '#f8fbff';
+  ctx.strokeStyle = COLORS.lines;
   ctx.lineWidth = 2;
 
-  ctx.fillRect(14, y, goalWidth, goalHeight);
-  ctx.strokeRect(14, y, goalWidth, goalHeight);
+  ctx.fillRect(PITCH.margin - goalDepth, y + 6, goalDepth, goalHeight - 12);
+  ctx.strokeRect(PITCH.margin - goalDepth, y + 6, goalDepth, goalHeight - 12);
+  ctx.fillRect(field.width - PITCH.margin, y + 6, goalDepth, goalHeight - 12);
+  ctx.strokeRect(field.width - PITCH.margin, y + 6, goalDepth, goalHeight - 12);
 
-  ctx.fillRect(field.width - goalWidth - 14, y, goalWidth, goalHeight);
-  ctx.strokeRect(field.width - goalWidth - 14, y, goalWidth, goalHeight);
+  ctx.fillRect(PITCH.margin - post / 2, y, post, goalHeight);
+  ctx.fillRect(field.width - PITCH.margin - post / 2, y, post, goalHeight);
+  ctx.restore();
 }
 
 function drawBall() {
