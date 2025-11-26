@@ -233,11 +233,41 @@ function getPlayerBallContactRadius() {
   return DEFAULT_CONFIG.player.radius + DEFAULT_CONFIG.ball.radius;
 }
 
+function sanitizeDecision(decision) {
+  const safeMove = (() => {
+    const x = Number.isFinite(decision?.move?.x) ? decision.move.x : 0;
+    const y = Number.isFinite(decision?.move?.y) ? decision.move.y : 0;
+    const norm = Math.hypot(x, y);
+    if (norm > 1) return { x: x / norm, y: y / norm };
+    return { x, y };
+  })();
+
+  const safeKick = (() => {
+    if (!decision?.kick) return null;
+    const power = Number.isFinite(decision.kick.power) ? Math.max(0, Math.min(1, decision.kick.power)) : 0;
+    const dirX = Number.isFinite(decision.kick.dirX) ? decision.kick.dirX : 0;
+    const dirY = Number.isFinite(decision.kick.dirY) ? decision.kick.dirY : 0;
+    const norm = Math.hypot(dirX, dirY) || 1;
+    return { power, dirX: dirX / norm, dirY: dirY / norm };
+  })();
+
+  return {
+    move: safeMove,
+    sprint: Boolean(decision?.sprint),
+    kick: safeKick,
+  };
+}
+
+function playerHasBall(player) {
+  return state.ballControl.playerId === getPlayerId(player);
+}
+
 function applyDecision(player, decision, dt) {
-  const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (decision.sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
+  const { move, sprint, kick } = sanitizeDecision(decision || {});
+  const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
   const accel = DEFAULT_CONFIG.player.maxAccel;
-  player.vx += decision.move.x * accel * dt;
-  player.vy += decision.move.y * accel * dt;
+  player.vx += move.x * accel * dt;
+  player.vy += move.y * accel * dt;
 
   const speed = Math.hypot(player.vx, player.vy);
   if (speed > maxSpeed) {
@@ -251,10 +281,10 @@ function applyDecision(player, decision, dt) {
   clampToField(player);
 
   const ballDist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
-  if (decision.kick && ballDist <= getPlayerBallContactRadius()) {
-    const power = DEFAULT_CONFIG.kick.maxPower * decision.kick.power;
-    state.ball.vx = decision.kick.dirX * power;
-    state.ball.vy = decision.kick.dirY * power;
+  if (kick && playerHasBall(player) && ballDist <= getPlayerBallContactRadius()) {
+    const power = DEFAULT_CONFIG.kick.maxPower * kick.power;
+    state.ball.vx = kick.dirX * power;
+    state.ball.vy = kick.dirY * power;
     state.ballControl = { playerId: null, cooldownUntil: performance.now() + DEFAULT_CONFIG.kick.controlTimeoutOnKick };
   }
 }
@@ -417,7 +447,7 @@ function processAI(dt) {
         players: state.players,
         ballControl: { ...state.ballControl },
       }, aiInterval);
-      if (!decision || !decision.move) continue;
+      if (!decision) continue;
       applyDecision(player, decision, aiInterval);
     }
     state.aiAccumulator -= aiInterval;
@@ -569,21 +599,75 @@ function drawPlayers() {
   }
 }
 
+function drawRoundedRect(x, y, width, height, radius = 12) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function drawOverlay() {
   const timer = formatTimer();
-  ctx.fillStyle = '#0f1115aa';
-  ctx.fillRect(14, 14, 180, 64);
-  ctx.fillRect(field.width - 194, 14, 180, 64);
+  const panelWidth = 380;
+  const panelHeight = 86;
+  const x = field.width / 2 - panelWidth / 2;
+  const y = 14;
 
+  const gradient = ctx.createLinearGradient(x, y, x, y + panelHeight);
+  gradient.addColorStop(0, '#0e1624ee');
+  gradient.addColorStop(1, '#111a2cee');
+
+  ctx.save();
+  ctx.shadowColor = '#0c0f17aa';
+  ctx.shadowBlur = 14;
+  drawRoundedRect(x, y, panelWidth, panelHeight, 16);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#223250';
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#e8ecff';
-  ctx.font = '16px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`Score: ${state.score.blue} - ${state.score.orange}`, 26, 42);
-  ctx.fillText(`Mi-temps: ${state.half}/2`, 26, 64);
 
+  ctx.font = '12px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Mi-temps ${state.half}/2`, field.width / 2, y + 20);
+
+  ctx.font = '28px "Inter", sans-serif';
+  ctx.fillText(`${state.score.blue}  •  ${state.score.orange}`, field.width / 2, y + 44);
+
+  ctx.font = '16px "Inter", sans-serif';
+  ctx.fillText(`Temps ${timer}`, field.width / 2, y + 66);
+
+  const badgeRadius = 12;
+  ctx.fillStyle = COLORS.blue;
+  ctx.beginPath();
+  ctx.arc(x + 22, y + 22, badgeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8ecff';
+  ctx.font = '12px "Inter", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Bleus', x + 38, y + 22);
+
+  ctx.fillStyle = COLORS.orange;
+  ctx.beginPath();
+  ctx.arc(x + panelWidth - 22, y + 22, badgeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8ecff';
   ctx.textAlign = 'right';
-  ctx.fillText(`Temps: ${timer}`, field.width - 26, 42);
-  ctx.fillText(`Engagement: ${state.kickoffTeam === 'blue' ? 'Bleus' : 'Oranges'}`, field.width - 26, 64);
+  ctx.fillText('Oranges', x + panelWidth - 38, y + 22);
+  ctx.restore();
 }
 
 function drawWaitingOverlay() {
