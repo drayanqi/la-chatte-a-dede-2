@@ -233,6 +233,10 @@ function getPlayerBallContactRadius() {
   return DEFAULT_CONFIG.player.radius + DEFAULT_CONFIG.ball.radius;
 }
 
+function getBallCaptureRadius() {
+  return DEFAULT_CONFIG.kick.controlRadius;
+}
+
 function sanitizeDecision(decision) {
   const safeMove = (() => {
     const x = Number.isFinite(decision?.move?.x) ? decision.move.x : 0;
@@ -302,12 +306,13 @@ function clampToField(player) {
 
 function updateBallControl(now) {
   const contactRadius = getPlayerBallContactRadius();
+  const captureRadius = getBallCaptureRadius();
   const currentController = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
   const ballSpeed = Math.hypot(state.ball.vx, state.ball.vy);
 
   if (currentController) {
     const dist = Math.hypot(currentController.x - state.ball.x, currentController.y - state.ball.y);
-    if (dist > contactRadius * 1.2) {
+    if (dist > contactRadius * 1.05) {
       state.ballControl.playerId = null;
     }
   }
@@ -316,7 +321,7 @@ function updateBallControl(now) {
     && now >= state.ballControl.cooldownUntil
     && ballSpeed < DEFAULT_CONFIG.ball.controlCaptureSpeed) {
     let bestPlayer = null;
-    let bestDist = contactRadius;
+    let bestDist = captureRadius;
     for (const player of state.players) {
       const dist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
       if (dist < bestDist) {
@@ -331,6 +336,11 @@ function updateBallControl(now) {
 
   const controller = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
   if (controller) {
+    const dist = Math.hypot(controller.x - state.ball.x, controller.y - state.ball.y);
+    if (dist > contactRadius) {
+      state.ballControl.playerId = null;
+      return;
+    }
     const offsetDirX = controller.vx || (controller.team === 'blue' ? 1 : -1);
     const offsetDirY = controller.vy || 0;
     const norm = Math.hypot(offsetDirX, offsetDirY) || 1;
