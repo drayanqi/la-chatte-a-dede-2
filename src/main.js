@@ -711,11 +711,21 @@ function update() {
 
   if (state.started && !state.paused) {
     maybeStartKickoff(now);
-    processAI(dt);
-    updateBallControl(now);
-    updateBall(dt);
-    updateTimer(dt);
-    state.tick += 1;
+
+    if (state.pendingKickoff) {
+      for (const player of state.players) {
+        player.vx = 0;
+        player.vy = 0;
+      }
+      state.ball.vx = 0;
+      state.ball.vy = 0;
+    } else {
+      processAI(dt);
+      updateBallControl(now);
+      updateBall(dt);
+      updateTimer(dt);
+      state.tick += 1;
+    }
   }
 
   drawField();
