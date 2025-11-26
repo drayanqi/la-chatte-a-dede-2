@@ -283,6 +283,7 @@ function applyDecision(player, decision, dt) {
   player.y += player.vy * dt;
 
   clampToField(player);
+  clampGoalkeeperToArea(player);
 
   const ballDist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
   if (kick && playerHasBall(player) && ballDist <= getPlayerBallContactRadius()) {
@@ -302,6 +303,26 @@ function clampToField(player) {
 
   player.x = Math.min(right, Math.max(left, player.x));
   player.y = Math.min(bottom, Math.max(top, player.y));
+}
+
+function clampGoalkeeperToArea(player) {
+  if (player.number !== 1) return;
+
+  const goalCenter = {
+    x: player.team === 'orange' ? field.width - PITCH.margin : PITCH.margin,
+    y: field.height / 2,
+  };
+
+  const maxDistance = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
+  const dx = player.x - goalCenter.x;
+  const dy = player.y - goalCenter.y;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist > maxDistance) {
+    const scale = maxDistance / dist;
+    player.x = goalCenter.x + dx * scale;
+    player.y = goalCenter.y + dy * scale;
+  }
 }
 
 function updateBallControl(now) {
@@ -358,8 +379,9 @@ function updateBall(dt) {
   b.x += b.vx * dt;
   b.y += b.vy * dt;
 
-  b.vx *= DEFAULT_CONFIG.ball.friction;
-  b.vy *= DEFAULT_CONFIG.ball.rollingResistance;
+  const damping = DEFAULT_CONFIG.ball.friction * DEFAULT_CONFIG.ball.rollingResistance;
+  b.vx *= damping;
+  b.vy *= damping;
 
   const margin = PITCH.margin;
   const leftLine = margin;
