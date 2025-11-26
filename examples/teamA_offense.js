@@ -10,23 +10,13 @@ function onTick(gameState, dt) {
 function playGoalkeeper(api) {
   const ball = api.getBallPosition();
   const ownGoal = api.getOwnGoalPosition();
-  const field = api.getFieldSize();
   const isBlue = api.getTeam() === 0 || api.getTeam() === 'blue';
-  const guardX = ownGoal.x + (isBlue ? 60 : -60);
-  const clampY = Math.min(Math.max(ball.y, ownGoal.y - 80), ownGoal.y + 80);
-  let builder = api.goTo({ x: guardX, y: clampY }).sprintIfFar(42);
+  const anchorX = ownGoal.x + (isBlue ? 56 : -56);
+  const target = { x: anchorX, y: Math.min(Math.max(ball.y, ownGoal.y - 70), ownGoal.y + 70) };
+  let builder = api.goTo(target).sprintIfFar(36);
 
   if (api.isBallClose(18)) {
-    const mate = api.getClosestTeammate();
-    if (mate) {
-      builder = builder.passTo(mate.player, 0.85);
-    } else {
-      builder = builder.clearBall(0.9);
-    }
-  }
-
-  if (ball.x < field.width * 0.4) {
-    builder = builder.sprint(true);
+    builder = builder.clearBall(0.9);
   }
 
   return builder.build();

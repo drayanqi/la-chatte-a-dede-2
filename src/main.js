@@ -229,6 +229,10 @@ function getAIForPlayer(player) {
   return state.aiOrange || state.defaultAIs.orange;
 }
 
+function getPlayerBallContactRadius() {
+  return DEFAULT_CONFIG.player.radius + DEFAULT_CONFIG.ball.radius;
+}
+
 function applyDecision(player, decision, dt) {
   const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (decision.sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
   const accel = DEFAULT_CONFIG.player.maxAccel;
@@ -246,7 +250,8 @@ function applyDecision(player, decision, dt) {
 
   clampToField(player);
 
-  if (decision.kick && Math.hypot(player.x - state.ball.x, player.y - state.ball.y) < DEFAULT_CONFIG.kick.kickRange) {
+  const ballDist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
+  if (decision.kick && ballDist <= getPlayerBallContactRadius()) {
     const power = DEFAULT_CONFIG.kick.maxPower * decision.kick.power;
     state.ball.vx = decision.kick.dirX * power;
     state.ball.vy = decision.kick.dirY * power;
@@ -266,13 +271,13 @@ function clampToField(player) {
 }
 
 function updateBallControl(now) {
-  const controlRadius = DEFAULT_CONFIG.kick.controlRadius;
+  const contactRadius = getPlayerBallContactRadius();
   const currentController = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
   const ballSpeed = Math.hypot(state.ball.vx, state.ball.vy);
 
   if (currentController) {
     const dist = Math.hypot(currentController.x - state.ball.x, currentController.y - state.ball.y);
-    if (dist > controlRadius * 1.4) {
+    if (dist > contactRadius * 1.2) {
       state.ballControl.playerId = null;
     }
   }
@@ -281,7 +286,7 @@ function updateBallControl(now) {
     && now >= state.ballControl.cooldownUntil
     && ballSpeed < DEFAULT_CONFIG.ball.controlCaptureSpeed) {
     let bestPlayer = null;
-    let bestDist = controlRadius;
+    let bestDist = contactRadius;
     for (const player of state.players) {
       const dist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
       if (dist < bestDist) {
@@ -299,7 +304,7 @@ function updateBallControl(now) {
     const offsetDirX = controller.vx || (controller.team === 'blue' ? 1 : -1);
     const offsetDirY = controller.vy || 0;
     const norm = Math.hypot(offsetDirX, offsetDirY) || 1;
-    const offset = DEFAULT_CONFIG.player.radius + state.ball.radius + 2;
+    const offset = contactRadius + 2;
 
     state.ball.x = controller.x + (offsetDirX / norm) * offset;
     state.ball.y = controller.y + (offsetDirY / norm) * offset;
