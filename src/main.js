@@ -313,16 +313,16 @@ function clampGoalkeeperToArea(player) {
     y: field.height / 2,
   };
 
-  const maxDistance = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
-  const dx = player.x - goalCenter.x;
-  const dy = player.y - goalCenter.y;
-  const dist = Math.hypot(dx, dy);
+  const maxForward = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
+  const maxLateral = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
 
-  if (dist > maxDistance) {
-    const scale = maxDistance / dist;
-    player.x = goalCenter.x + dx * scale;
-    player.y = goalCenter.y + dy * scale;
-  }
+  const dir = player.team === 'orange' ? -1 : 1;
+  const forwardLimit = goalCenter.x + dir * maxForward;
+  const minX = Math.min(goalCenter.x + dir * DEFAULT_CONFIG.player.radius, forwardLimit);
+  const maxX = Math.max(goalCenter.x + dir * DEFAULT_CONFIG.player.radius, forwardLimit);
+
+  player.x = Math.min(maxX, Math.max(minX, player.x));
+  player.y = Math.min(goalCenter.y + maxLateral, Math.max(goalCenter.y - maxLateral, player.y));
 }
 
 function updateBallControl(now) {
