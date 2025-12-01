@@ -155,6 +155,7 @@ export class PhysicsEngine {
       const relVelX = ball.vx - p.vx;
       const relVelY = ball.vy - p.vy;
       const velAlongNormal = relVelX * nx + relVelY * ny;
+      if (velAlongNormal > 0) continue;
       const impulse = -(1 + restitution) * velAlongNormal / (1 / ball.mass + 1 / p.mass);
       const ix = impulse * nx;
       const iy = impulse * ny;
