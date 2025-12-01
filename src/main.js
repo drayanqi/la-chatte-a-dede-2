@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG } from './config.js';
 import { createPlayerAPI } from './ai/PlayerAPI.js';
+import PhysicsEngine, { createBallInstance, createPlayerInstances } from './sim/PhysicsEngine.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -67,9 +68,11 @@ const state = {
   aiBlue: null,
   aiOrange: null,
   defaultAIs: { blue: null, orange: null },
+  physics: new PhysicsEngine(DEFAULT_CONFIG, field, PITCH),
   players: [],
-  ball: createBall(),
-  ballControl: { playerId: null, cooldownUntil: 0 },
+  ball: null,
+  ballControl: null,
+  currentDecisions: new Map(),
   score: { blue: 0, orange: 0 },
   half: 1,
   timeRemaining: HALF_DURATION,
@@ -77,37 +80,24 @@ const state = {
   kickoffTeam: 'blue',
 };
 
-function createBall() {
-  return {
-    x: field.width / 2,
-    y: field.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: DEFAULT_CONFIG.ball.radius,
-  };
-}
+state.ball = state.physics.ball;
+state.ballControl = state.physics.ballControl;
 
 function createPlayers() {
-  const toPlayer = (team, idx, pos) => ({
-    team,
-    number: idx + 1,
-    x: pos.x * field.width,
-    y: pos.y * field.height,
-    vx: 0,
-    vy: 0,
-    stamina: 1,
-  });
-
   state.players = [
-    ...FORMATIONS.blue.map((pos, i) => toPlayer('blue', i, pos)),
-    ...FORMATIONS.orange.map((pos, i) => toPlayer('orange', i, pos)),
+    ...createPlayerInstances(FORMATIONS.blue, 'blue', field.width, field.height, DEFAULT_CONFIG),
+    ...createPlayerInstances(FORMATIONS.orange, 'orange', field.width, field.height, DEFAULT_CONFIG),
   ];
+  state.physics.setPlayers(state.players);
 }
 
 function resetForKickoff(team) {
   createPlayers();
-  Object.assign(state.ball, createBall());
-  state.ballControl = { playerId: null, cooldownUntil: 0 };
+  state.ball = createBallInstance(field, DEFAULT_CONFIG);
+  state.physics.setBall(state.ball);
+  state.physics.resetBallControl();
+  state.ballControl = state.physics.ballControl;
+  state.currentDecisions = new Map();
   state.kickoffTeam = team;
   state.pendingKickoff = performance.now() + DEFAULT_CONFIG.game.postGoalPause * 1000;
 }
@@ -229,14 +219,6 @@ function getAIForPlayer(player) {
   return state.aiOrange || state.defaultAIs.orange;
 }
 
-function getPlayerBallContactRadius() {
-  return DEFAULT_CONFIG.player.radius + DEFAULT_CONFIG.ball.radius;
-}
-
-function getBallCaptureRadius() {
-  return DEFAULT_CONFIG.kick.controlRadius;
-}
-
 function sanitizeDecision(decision) {
   const safeMove = (() => {
     const x = Number.isFinite(decision?.move?.x) ? decision.move.x : 0;
@@ -266,184 +248,6 @@ function playerHasBall(player) {
   return state.ballControl.playerId === getPlayerId(player);
 }
 
-function applyDecision(player, decision, dt) {
-  const { move, sprint, kick } = sanitizeDecision(decision || {});
-  const maxSpeed = DEFAULT_CONFIG.player.maxSpeed * (sprint ? DEFAULT_CONFIG.player.sprintMultiplier : 1);
-  const accel = DEFAULT_CONFIG.player.maxAccel;
-  player.vx += move.x * accel * dt;
-  player.vy += move.y * accel * dt;
-
-  const speed = Math.hypot(player.vx, player.vy);
-  if (speed > maxSpeed) {
-    player.vx = (player.vx / speed) * maxSpeed;
-    player.vy = (player.vy / speed) * maxSpeed;
-  }
-
-  player.x += player.vx * dt;
-  player.y += player.vy * dt;
-
-  clampToField(player);
-  clampGoalkeeperToArea(player);
-
-  const ballDist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
-  if (kick && playerHasBall(player) && ballDist <= getPlayerBallContactRadius()) {
-    const power = DEFAULT_CONFIG.kick.maxPower * kick.power;
-    state.ball.vx = kick.dirX * power;
-    state.ball.vy = kick.dirY * power;
-    state.ballControl = { playerId: null, cooldownUntil: performance.now() + DEFAULT_CONFIG.kick.controlTimeoutOnKick };
-  }
-}
-
-function clampToField(player) {
-  const r = DEFAULT_CONFIG.player.radius + 6;
-  const left = PITCH.margin + r;
-  const right = field.width - PITCH.margin - r;
-  const top = PITCH.margin + r;
-  const bottom = field.height - PITCH.margin - r;
-
-  player.x = Math.min(right, Math.max(left, player.x));
-  player.y = Math.min(bottom, Math.max(top, player.y));
-}
-
-function clampGoalkeeperToArea(player) {
-  if (player.number !== 1) return;
-
-  const goalCenter = {
-    x: player.team === 'orange' ? field.width - PITCH.margin : PITCH.margin,
-    y: field.height / 2,
-  };
-
-  const maxForward = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
-  const maxLateral = Math.max(0, PITCH.areaRadius - DEFAULT_CONFIG.player.radius);
-
-  const dir = player.team === 'orange' ? -1 : 1;
-  const forwardLimit = goalCenter.x + dir * maxForward;
-  const minX = Math.min(goalCenter.x + dir * DEFAULT_CONFIG.player.radius, forwardLimit);
-  const maxX = Math.max(goalCenter.x + dir * DEFAULT_CONFIG.player.radius, forwardLimit);
-
-  player.x = Math.min(maxX, Math.max(minX, player.x));
-  player.y = Math.min(goalCenter.y + maxLateral, Math.max(goalCenter.y - maxLateral, player.y));
-}
-
-function updateBallControl(now) {
-  const contactRadius = getPlayerBallContactRadius();
-  const captureRadius = getBallCaptureRadius();
-  const currentController = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
-  const ballSpeed = Math.hypot(state.ball.vx, state.ball.vy);
-
-  if (currentController) {
-    const dist = Math.hypot(currentController.x - state.ball.x, currentController.y - state.ball.y);
-    if (dist > contactRadius * 1.05) {
-      state.ballControl.playerId = null;
-    }
-  }
-
-  if (!state.ballControl.playerId
-    && now >= state.ballControl.cooldownUntil
-    && ballSpeed < DEFAULT_CONFIG.ball.controlCaptureSpeed) {
-    let bestPlayer = null;
-    let bestDist = captureRadius;
-    for (const player of state.players) {
-      const dist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestPlayer = player;
-      }
-    }
-    if (bestPlayer) {
-      state.ballControl.playerId = getPlayerId(bestPlayer);
-    }
-  }
-
-  const controller = state.players.find((p) => getPlayerId(p) === state.ballControl.playerId);
-  if (controller) {
-    const dist = Math.hypot(controller.x - state.ball.x, controller.y - state.ball.y);
-    if (dist > contactRadius) {
-      state.ballControl.playerId = null;
-      return;
-    }
-    const offsetDirX = controller.vx || (controller.team === 'blue' ? 1 : -1);
-    const offsetDirY = controller.vy || 0;
-    const norm = Math.hypot(offsetDirX, offsetDirY) || 1;
-    const offset = contactRadius + 2;
-
-    state.ball.x = controller.x + (offsetDirX / norm) * offset;
-    state.ball.y = controller.y + (offsetDirY / norm) * offset;
-    state.ball.vx = controller.vx;
-    state.ball.vy = controller.vy;
-  }
-}
-
-function updateBall(dt) {
-  const b = state.ball;
-  b.x += b.vx * dt;
-  b.y += b.vy * dt;
-
-  const damping = DEFAULT_CONFIG.ball.friction * DEFAULT_CONFIG.ball.rollingResistance;
-  b.vx *= damping;
-  b.vy *= damping;
-
-  const margin = PITCH.margin;
-  const leftLine = margin;
-  const rightLine = field.width - margin;
-  const topLine = margin;
-  const bottomLine = field.height - margin;
-  const goalTop = field.height / 2 - PITCH.goal.height / 2;
-  const goalBottom = goalTop + PITCH.goal.height;
-  const inGoalY = b.y >= goalTop && b.y <= goalBottom;
-
-  if (checkGoal(inGoalY)) return;
-
-  const r = b.radius + 6;
-  let bounced = false;
-
-  if (!inGoalY) {
-    if (b.x < leftLine + r) {
-      b.x = leftLine + r;
-      b.vx = Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    } else if (b.x > rightLine - r) {
-      b.x = rightLine - r;
-      b.vx = -Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    }
-  } else {
-    const leftBack = leftLine - PITCH.goal.depth;
-    const rightBack = rightLine + PITCH.goal.depth;
-    if (b.x < leftBack + r) {
-      b.x = leftBack + r;
-      b.vx = Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    } else if (b.x > rightBack - r) {
-      b.x = rightBack - r;
-      b.vx = -Math.abs(b.vx) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    }
-  }
-
-  if (b.y < topLine + r) {
-    b.y = topLine + r;
-    b.vy = Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
-    bounced = true;
-  } else if (b.y > bottomLine - r) {
-    b.y = bottomLine - r;
-    b.vy = -Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
-    bounced = true;
-  }
-
-  if (inGoalY) {
-    if (b.y < goalTop + r) {
-      b.y = goalTop + r;
-      b.vy = Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    } else if (b.y > goalBottom - r) {
-      b.y = goalBottom - r;
-      b.vy = -Math.abs(b.vy) * DEFAULT_CONFIG.physics.collisionRestitution;
-      bounced = true;
-    }
-  }
-}
-
 function checkGoal(inGoalY) {
   const leftLine = PITCH.margin;
   const rightLine = field.width - PITCH.margin;
@@ -465,13 +269,24 @@ function checkGoal(inGoalY) {
   return false;
 }
 
+function checkGoalFromBall() {
+  const goalTop = field.height / 2 - PITCH.goal.height / 2;
+  const goalBottom = goalTop + PITCH.goal.height;
+  const inGoalY = state.ball.y >= goalTop && state.ball.y <= goalBottom;
+  return checkGoal(inGoalY);
+}
+
 function processAI(dt) {
   state.aiAccumulator += dt;
   const aiInterval = 1 / DEFAULT_CONFIG.physics.aiTickHz;
   while (state.aiAccumulator >= aiInterval) {
+    const nextDecisions = new Map(state.currentDecisions);
     for (const player of state.players) {
       const ai = getAIForPlayer(player);
-      if (!ai) continue;
+      if (!ai) {
+        nextDecisions.set(getPlayerId(player), sanitizeDecision({}));
+        continue;
+      }
       const decision = ai({
         me: player,
         ball: { ...state.ball },
@@ -480,8 +295,9 @@ function processAI(dt) {
         ballControl: { ...state.ballControl },
       }, aiInterval);
       if (!decision) continue;
-      applyDecision(player, decision, aiInterval);
+      nextDecisions.set(getPlayerId(player), sanitizeDecision(decision));
     }
+    state.currentDecisions = nextDecisions;
     state.aiAccumulator -= aiInterval;
   }
 }
@@ -743,10 +559,13 @@ function update() {
       state.ball.vy = 0;
     } else {
       processAI(dt);
-      updateBallControl(now);
-      updateBall(dt);
-      updateTimer(dt);
-      state.tick += 1;
+      state.physics.step(dt, now, state.currentDecisions);
+      state.ball = state.physics.ball;
+      state.ballControl = state.physics.ballControl;
+      if (!checkGoalFromBall()) {
+        updateTimer(dt);
+        state.tick += 1;
+      }
     }
   }
 
