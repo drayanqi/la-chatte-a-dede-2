@@ -425,14 +425,33 @@ function updatePossessionVisual(now) {
   }
 }
 
-function trackShots(now) {
-  if (!state.physics.consumeLastKick) return;
-  const kick = state.physics.consumeLastKick();
-  if (!kick) return;
-
-  const start = kick.time || now;
-  state.visuals.shots.set(kick.playerId, { start, duration: 820 });
+function startShotFx(playerId, start) {
+  state.visuals.shots.set(playerId, { start, duration: 820 });
   state.visuals.lastShotTime = start;
+}
+
+function trackShots(now) {
+  if (state.physics.consumeLastKick) {
+    let kick = state.physics.consumeLastKick();
+    while (kick) {
+      startShotFx(kick.playerId, kick.time || now);
+      kick = state.physics.consumeLastKick();
+    }
+  }
+
+  for (const [playerId, decision] of state.currentDecisions.entries()) {
+    if (!decision?.kick) continue;
+    const shot = state.visuals.shots.get(playerId);
+    if (shot && now - shot.start < 120) continue;
+
+    const player = findPlayerById(playerId);
+    if (!player) continue;
+    const dist = Math.hypot(player.x - state.ball.x, player.y - state.ball.y);
+    const contactRadius = DEFAULT_CONFIG.player.radius + DEFAULT_CONFIG.ball.radius + 2;
+    if (dist <= contactRadius * 1.1) {
+      startShotFx(playerId, now);
+    }
+  }
 }
 
 function cleanupShotTrails(now) {
@@ -625,7 +644,9 @@ function drawPlayers(now) {
 
     if (shotFlashActive) {
       ctx.strokeStyle = 'white';
-      ctx.lineWidth = 5.5;
+      ctx.lineWidth = 6;
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+      ctx.shadowBlur = 18;
       ctx.beginPath();
       ctx.arc(player.x, player.y, radius * 1.32, 0, Math.PI * 2);
       ctx.stroke();
