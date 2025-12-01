@@ -426,13 +426,13 @@ function updatePossessionVisual(now) {
 }
 
 function trackShots(now) {
-  const holderId = state.ballControl.playerId;
-  if (!holderId) return;
-  const decision = state.currentDecisions.get(holderId);
-  if (decision?.kick) {
-    state.visuals.shots.set(holderId, { start: now, duration: 820 });
-    state.visuals.lastShotTime = now;
-  }
+  if (!state.physics.consumeLastKick) return;
+  const kick = state.physics.consumeLastKick();
+  if (!kick) return;
+
+  const start = kick.time || now;
+  state.visuals.shots.set(kick.playerId, { start, duration: 820 });
+  state.visuals.lastShotTime = start;
 }
 
 function cleanupShotTrails(now) {
@@ -817,10 +817,10 @@ function update() {
       state.ball.vy = 0;
     } else {
       processAI(dt);
-      trackShots(now);
       state.physics.step(dt, now, state.currentDecisions);
       state.ball = state.physics.ball;
       state.ballControl = state.physics.ballControl;
+      trackShots(now);
       updatePossessionVisual(now);
       if (!checkGoalFromBall()) {
         updateTimer(dt);
