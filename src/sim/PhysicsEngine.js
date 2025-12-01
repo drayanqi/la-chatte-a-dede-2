@@ -15,6 +15,7 @@ export class PhysicsEngine {
       mass: config.ball.mass,
     });
     this.ballControl = { playerId: null, cooldownUntil: 0 };
+    this.lastKick = null;
   }
 
   getPlayerId(player) {
@@ -31,6 +32,12 @@ export class PhysicsEngine {
 
   resetBallControl() {
     this.ballControl = { playerId: null, cooldownUntil: 0 };
+  }
+
+  consumeLastKick() {
+    const kick = this.lastKick;
+    this.lastKick = null;
+    return kick;
   }
 
   step(dt, now, decisions) {
@@ -224,6 +231,7 @@ export class PhysicsEngine {
     this.ball.vx = decision.kick.dirX * power;
     this.ball.vy = decision.kick.dirY * power;
     this.ballControl = { playerId: null, cooldownUntil: now + this.config.kick.controlTimeoutOnKick };
+    this.lastKick = { playerId: this.getPlayerId(holder), time: now };
   }
 
   integrateBall(dt) {
