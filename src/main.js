@@ -317,17 +317,23 @@ function checkGoalFromBall() {
 
 function createConfettiPieces(primary, accent) {
   const pieces = [];
-  for (let i = 0; i < 90; i += 1) {
+  const originX = field.width / 2;
+  const originY = field.height / 2;
+
+  for (let i = 0; i < 110; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 260 + Math.random() * 280;
+    const radialLift = -60 + Math.random() * 120;
     pieces.push({
-      x: Math.random() * field.width,
-      y: -Math.random() * 80,
-      vx: (Math.random() - 0.5) * 180,
-      vy: 220 + Math.random() * 240,
+      x: originX + (Math.random() - 0.5) * 140,
+      y: originY + (Math.random() - 0.5) * 140,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed + radialLift,
       size: 6 + Math.random() * 8,
       rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 8,
+      rotationSpeed: (Math.random() - 0.5) * 9,
       color: Math.random() > 0.4 ? primary : accent,
-      wobble: Math.random() * 2,
+      wobble: Math.random() * 2.2,
     });
   }
   return pieces;
@@ -352,13 +358,15 @@ function updateGoalCelebration(now, dt) {
     return;
   }
 
-  const gravity = 820;
+  const gravity = 420;
+  const drag = 0.985;
   celebration.confetti.forEach((piece) => {
     piece.vy += gravity * dt;
     piece.x += piece.vx * dt;
     piece.y += piece.vy * dt;
     piece.rotation += piece.rotationSpeed * dt;
-    piece.vx *= 0.99;
+    piece.vx *= drag;
+    piece.vy *= drag;
   });
 }
 
@@ -579,6 +587,7 @@ function drawPlayers(now) {
     const id = getPlayerId(player);
     const hasBall = playerHasBall(player);
     const shotFx = state.visuals.shots.get(id);
+    const shotFlashActive = shotFx && now - shotFx.start <= 200;
     const radius = DEFAULT_CONFIG.player.radius;
 
     if (shotFx && now - shotFx.start > shotFx.duration) {
@@ -612,6 +621,14 @@ function drawPlayers(now) {
         ctx.lineTo(player.x + Math.cos(angle) * len, player.y + Math.sin(angle) * len);
         ctx.stroke();
       }
+    }
+
+    if (shotFlashActive) {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 5.5;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, radius * 1.32, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     const gradient = ctx.createLinearGradient(player.x - radius, player.y - radius, player.x + radius, player.y + radius);
