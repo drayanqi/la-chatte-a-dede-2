@@ -15,6 +15,31 @@ const COLORS = {
   ball: '#fff',
 };
 
+function hexToRgb(hex) {
+  const normalized = hex.replace('#', '');
+  const bigint = parseInt(normalized, 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+}
+
+function mixColor(hex, amount) {
+  const { r, g, b } = hexToRgb(hex);
+  const t = amount < 0 ? 0 : 255;
+  const p = Math.abs(amount);
+  const R = Math.round((t - r) * p) + r;
+  const G = Math.round((t - g) * p) + g;
+  const B = Math.round((t - b) * p) + b;
+  return `rgb(${R}, ${G}, ${B})`;
+}
+
+function rgba(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 if (typeof window !== 'undefined') {
   window.PlayerAPI = { createPlayerAPI };
   window.createPlayerAPI = createPlayerAPI;
@@ -29,6 +54,8 @@ const PITCH = {
   cornerArcRadius: 12,
   goal: { height: 170, depth: 28 },
 };
+
+const GOAL_FX_DURATION = 2200;
 
 const ui = {
   teamAInput: document.getElementById('teamAInput'),
@@ -78,6 +105,12 @@ const state = {
   timeRemaining: HALF_DURATION,
   pendingKickoff: null,
   kickoffTeam: 'blue',
+  visuals: {
+    possession: { playerId: null, since: performance.now() },
+    shots: new Map(),
+    lastShotTime: 0,
+    goalCelebration: null,
+  },
 };
 
 state.ball = state.physics.ball;
@@ -214,6 +247,10 @@ function getPlayerId(player) {
   return `${player.team}-${player.number}`;
 }
 
+function findPlayerById(id) {
+  return state.players.find((p) => getPlayerId(p) === id);
+}
+
 function getAIForPlayer(player) {
   if (player.team === 'blue') return state.aiBlue || state.defaultAIs.blue;
   return state.aiOrange || state.defaultAIs.orange;
@@ -257,12 +294,14 @@ function checkGoal(inGoalY) {
   if (scoredLeft) {
     state.score.orange += 1;
     updateStatus('But ! Engagement équipe orange.');
+    startGoalCelebration('orange');
     resetForKickoff('orange');
     return true;
   }
   if (scoredRight) {
     state.score.blue += 1;
     updateStatus('But ! Engagement équipe bleue.');
+    startGoalCelebration('blue');
     resetForKickoff('blue');
     return true;
   }
@@ -274,6 +313,53 @@ function checkGoalFromBall() {
   const goalBottom = goalTop + PITCH.goal.height;
   const inGoalY = state.ball.y >= goalTop && state.ball.y <= goalBottom;
   return checkGoal(inGoalY);
+}
+
+function createConfettiPieces(primary, accent) {
+  const pieces = [];
+  for (let i = 0; i < 90; i += 1) {
+    pieces.push({
+      x: Math.random() * field.width,
+      y: -Math.random() * 80,
+      vx: (Math.random() - 0.5) * 180,
+      vy: 220 + Math.random() * 240,
+      size: 6 + Math.random() * 8,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 8,
+      color: Math.random() > 0.4 ? primary : accent,
+      wobble: Math.random() * 2,
+    });
+  }
+  return pieces;
+}
+
+function startGoalCelebration(team) {
+  const primary = team === 'blue' ? COLORS.blue : COLORS.orange;
+  const accent = mixColor(primary, 0.35);
+  state.visuals.goalCelebration = {
+    team,
+    start: performance.now(),
+    confetti: createConfettiPieces(primary, accent),
+  };
+}
+
+function updateGoalCelebration(now, dt) {
+  const celebration = state.visuals.goalCelebration;
+  if (!celebration) return;
+  const elapsed = now - celebration.start;
+  if (elapsed > GOAL_FX_DURATION) {
+    state.visuals.goalCelebration = null;
+    return;
+  }
+
+  const gravity = 820;
+  celebration.confetti.forEach((piece) => {
+    piece.vy += gravity * dt;
+    piece.x += piece.vx * dt;
+    piece.y += piece.vy * dt;
+    piece.rotation += piece.rotationSpeed * dt;
+    piece.vx *= 0.99;
+  });
 }
 
 function processAI(dt) {
@@ -323,6 +409,30 @@ function formatTimer() {
   const minutes = String(Math.floor(total / 60)).padStart(2, '0');
   const seconds = String(total % 60).padStart(2, '0');
   return `${minutes}:${seconds}`;
+}
+
+function updatePossessionVisual(now) {
+  if (state.visuals.possession.playerId !== state.ballControl.playerId) {
+    state.visuals.possession = { playerId: state.ballControl.playerId, since: now };
+  }
+}
+
+function trackShots(now) {
+  const holderId = state.ballControl.playerId;
+  if (!holderId) return;
+  const decision = state.currentDecisions.get(holderId);
+  if (decision?.kick) {
+    state.visuals.shots.set(holderId, { start: now, duration: 820 });
+    state.visuals.lastShotTime = now;
+  }
+}
+
+function cleanupShotTrails(now) {
+  for (const [playerId, shot] of state.visuals.shots.entries()) {
+    if (now - shot.start > shot.duration) {
+      state.visuals.shots.delete(playerId);
+    }
+  }
 }
 
 function drawField() {
@@ -420,7 +530,33 @@ function drawGoals() {
   ctx.restore();
 }
 
-function drawBall() {
+function drawBall(now) {
+  const holder = findPlayerById(state.ballControl.playerId);
+  const holderColor = holder ? (holder.team === 'blue' ? COLORS.blue : COLORS.orange) : COLORS.lines;
+  const shotIntensity = Math.max(0, 1 - (now - state.visuals.lastShotTime) / 520);
+
+  ctx.save();
+  if (shotIntensity > 0.05) {
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 * shotIntensity})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(state.ball.x - state.ball.vx * 0.04, state.ball.y - state.ball.vy * 0.04);
+    ctx.lineTo(state.ball.x, state.ball.y);
+    ctx.stroke();
+  }
+
+  if (holder) {
+    const pulse = 1 + 0.08 * Math.sin((now - state.visuals.possession.since) / 110);
+    const ringRadius = state.ball.radius * 2.1 * pulse;
+    const gradient = ctx.createRadialGradient(state.ball.x, state.ball.y, state.ball.radius, state.ball.x, state.ball.y, ringRadius);
+    gradient.addColorStop(0, rgba(holderColor, 0.22));
+    gradient.addColorStop(1, rgba(holderColor, 0));
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(state.ball.x, state.ball.y, ringRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.beginPath();
   ctx.fillStyle = COLORS.ball;
   ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
@@ -428,22 +564,81 @@ function drawBall() {
   ctx.strokeStyle = '#dcdcdc';
   ctx.lineWidth = 2;
   ctx.stroke();
+  ctx.restore();
 }
 
-function drawPlayers() {
-  ctx.font = 'bold 12px sans-serif';
+function drawPlayers(now) {
+  ctx.font = 'bold 12px "Inter", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   for (const player of state.players) {
     const color = player.team === 'blue' ? COLORS.blue : COLORS.orange;
+    const darker = mixColor(color, -0.35);
+    const lighter = mixColor(color, 0.35);
+    const id = getPlayerId(player);
+    const hasBall = playerHasBall(player);
+    const shotFx = state.visuals.shots.get(id);
+    const radius = DEFAULT_CONFIG.player.radius;
+
+    if (shotFx && now - shotFx.start > shotFx.duration) {
+      state.visuals.shots.delete(id);
+    }
+
+    ctx.save();
+    ctx.shadowColor = rgba(color, hasBall ? 0.6 : 0.35);
+    ctx.shadowBlur = hasBall ? 22 : 12;
+    ctx.shadowOffsetY = 6;
+
+    if (hasBall) {
+      const pulse = 1 + 0.12 * Math.sin((now - state.visuals.possession.since) / 120);
+      ctx.strokeStyle = rgba(lighter, 0.65);
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, radius * 1.32 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (shotFx) {
+      const progress = Math.min(1, (now - shotFx.start) / shotFx.duration);
+      const power = 1 - progress;
+      ctx.strokeStyle = rgba(lighter, 0.6 * power);
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 6; i += 1) {
+        const angle = (Math.PI * 2 * i) / 6 + progress * 2;
+        const len = radius * (1.8 + power * 0.8);
+        ctx.beginPath();
+        ctx.moveTo(player.x + Math.cos(angle) * (radius * 0.75), player.y + Math.sin(angle) * (radius * 0.75));
+        ctx.lineTo(player.x + Math.cos(angle) * len, player.y + Math.sin(angle) * len);
+        ctx.stroke();
+      }
+    }
+
+    const gradient = ctx.createLinearGradient(player.x - radius, player.y - radius, player.x + radius, player.y + radius);
+    gradient.addColorStop(0, darker);
+    gradient.addColorStop(0.45, color);
+    gradient.addColorStop(1, lighter);
+
     ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(player.x, player.y, DEFAULT_CONFIG.player.radius, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.arc(player.x, player.y, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#0b0b0f';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = rgba('#0b0b0f', 0.5);
+    ctx.stroke();
+
+    const badgeRadius = 12;
+    ctx.fillStyle = 'rgba(5, 8, 12, 0.75)';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, badgeRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f6f8ff';
+    ctx.font = 'bold 13px "Inter", sans-serif';
     ctx.fillText(player.number.toString(), player.x, player.y + 1);
+
+    ctx.restore();
   }
 }
 
@@ -462,7 +657,7 @@ function drawRoundedRect(x, y, width, height, radius = 12) {
   ctx.closePath();
 }
 
-function drawOverlay() {
+function drawOverlay(now) {
   const timer = formatTimer();
   const panelWidth = 380;
   const panelHeight = 86;
@@ -492,7 +687,13 @@ function drawOverlay() {
   ctx.textAlign = 'center';
   ctx.fillText(`Mi-temps ${state.half}/2`, field.width / 2, y + 20);
 
+  const shimmer = 0.35 + 0.65 * Math.abs(Math.sin(now / 600));
+  const scoreGradient = ctx.createLinearGradient(x, y, x + panelWidth, y + panelHeight);
+  scoreGradient.addColorStop(0, rgba(COLORS.blue, 0.28 + shimmer * 0.08));
+  scoreGradient.addColorStop(0.5, '#e8ecff');
+  scoreGradient.addColorStop(1, rgba(COLORS.orange, 0.28 + shimmer * 0.08));
   ctx.font = '28px "Inter", sans-serif';
+  ctx.fillStyle = scoreGradient;
   ctx.fillText(`${state.score.blue}  •  ${state.score.orange}`, field.width / 2, y + 44);
 
   ctx.font = '16px "Inter", sans-serif';
@@ -528,6 +729,43 @@ function drawWaitingOverlay() {
   ctx.fillText('Ajoutez les scripts des deux équipes puis cliquez sur Start game', field.width / 2, field.height / 2);
 }
 
+function drawGoalCelebration(now) {
+  const celebration = state.visuals.goalCelebration;
+  if (!celebration) return;
+
+  const elapsed = now - celebration.start;
+  const fade = Math.max(0, 1 - (elapsed / GOAL_FX_DURATION) ** 1.3);
+  const teamColor = celebration.team === 'blue' ? COLORS.blue : COLORS.orange;
+
+  ctx.save();
+  celebration.confetti.forEach((piece) => {
+    ctx.save();
+    ctx.translate(piece.x, piece.y);
+    ctx.rotate(piece.rotation + Math.sin(elapsed / 200) * piece.wobble * 0.1);
+    ctx.fillStyle = rgba(piece.color, 0.9 * fade);
+    ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size * 0.6);
+    ctx.restore();
+  });
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = rgba(teamColor, 0.9);
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = rgba('#0b0b0f', 0.55 * fade);
+  drawRoundedRect(field.width / 2 - 220, field.height / 2 - 90, 440, 180, 26);
+  ctx.fill();
+
+  ctx.fillStyle = rgba(teamColor, 0.95 * fade);
+  ctx.font = '700 42px "Inter", sans-serif';
+  const title = celebration.team === 'blue' ? 'But des Bleus !' : 'But des Oranges !';
+  ctx.fillText(title, field.width / 2, field.height / 2 - 18);
+
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.94 * fade})`;
+  ctx.font = '800 64px "Inter", sans-serif';
+  ctx.fillText(`${state.score.blue} - ${state.score.orange}`, field.width / 2, field.height / 2 + 28);
+  ctx.restore();
+}
+
 function maybeStartKickoff(now) {
   if (state.pendingKickoff && now >= state.pendingKickoff) {
     state.pendingKickoff = null;
@@ -547,6 +785,9 @@ function update() {
   const dt = Math.min(0.05, (now - state.lastUpdate) / 1000);
   state.lastUpdate = now;
 
+  updateGoalCelebration(now, dt);
+  cleanupShotTrails(now);
+
   if (state.started && !state.paused) {
     maybeStartKickoff(now);
 
@@ -559,9 +800,11 @@ function update() {
       state.ball.vy = 0;
     } else {
       processAI(dt);
+      trackShots(now);
       state.physics.step(dt, now, state.currentDecisions);
       state.ball = state.physics.ball;
       state.ballControl = state.physics.ballControl;
+      updatePossessionVisual(now);
       if (!checkGoalFromBall()) {
         updateTimer(dt);
         state.tick += 1;
@@ -571,9 +814,10 @@ function update() {
 
   drawField();
   if (state.started) {
-    drawBall();
-    drawPlayers();
-    drawOverlay();
+    drawBall(now);
+    drawPlayers(now);
+    drawOverlay(now);
+    drawGoalCelebration(now);
   } else {
     drawWaitingOverlay();
   }
