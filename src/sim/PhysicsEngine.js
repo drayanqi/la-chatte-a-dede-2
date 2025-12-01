@@ -171,8 +171,12 @@ export class PhysicsEngine {
     const touchingPlayers = this.players.filter((p) => Math.hypot(p.x - this.ball.x, p.y - this.ball.y) <= contactRadius);
 
     const controller = this.players.find((p) => this.getPlayerId(p) === this.ballControl.playerId);
-    if (controller && !touchingPlayers.includes(controller)) {
-      this.ballControl.playerId = null;
+    if (controller) {
+      const controllerDist = Math.hypot(controller.x - this.ball.x, controller.y - this.ball.y);
+      const releaseRadius = contactRadius + 4;
+      if (controllerDist > releaseRadius) {
+        this.ballControl.playerId = null;
+      }
     }
 
     if (!this.ballControl.playerId
@@ -197,7 +201,7 @@ export class PhysicsEngine {
       const dirX = holder.vx || holder.facing.x || (holder.team === 'blue' ? 1 : -1);
       const dirY = holder.vy || holder.facing.y || 0;
       const norm = Math.hypot(dirX, dirY) || 1;
-      const offset = contactRadius + 2;
+      const offset = Math.max(contactRadius - 2, 0);
       this.ball.x = holder.x + (dirX / norm) * offset;
       this.ball.y = holder.y + (dirY / norm) * offset;
       this.ball.vx = holder.vx;
