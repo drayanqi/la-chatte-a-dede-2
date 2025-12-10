@@ -231,7 +231,11 @@ export class PhysicsEngine {
     this.ball.vx = decision.kick.dirX * power;
     this.ball.vy = decision.kick.dirY * power;
     this.ballControl = { playerId: null, cooldownUntil: now + this.config.kick.controlTimeoutOnKick };
-    this.lastKick = { playerId: this.getPlayerId(holder), time: now };
+    this.lastKick = {
+      playerId: this.getPlayerId(holder),
+      time: now,
+      kick: { ...decision.kick },
+    };
   }
 
   integrateBall(dt) {

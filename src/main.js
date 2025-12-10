@@ -116,6 +116,7 @@ const state = {
     lastShotTime: 0,
     goalCelebration: null,
   },
+  recentKicks: new Map(),
 };
 
 state.ball = state.physics.ball;
@@ -174,8 +175,8 @@ function updateButtonState() {
   }
 }
 
-function describeDecision(decision) {
-  const safe = sanitizeDecision(decision || {});
+function describeDecision(decision, appliedKick = null) {
+  const safe = sanitizeDecision({ ...decision, kick: appliedKick || decision?.kick } || {});
   const moveText = `dx:${safe.move.x.toFixed(2)} dy:${safe.move.y.toFixed(2)}`;
   const sprintText = safe.sprint ? 'Sprint' : 'Marche';
   const kickText = safe.kick
@@ -201,6 +202,7 @@ function appendDecisionLog(frameNumber) {
   sortedPlayers.forEach((player) => {
     const playerId = getPlayerId(player);
     const decision = state.currentDecisions.get(playerId) || {};
+    const appliedKick = state.recentKicks.get(playerId) || null;
     const line = document.createElement('div');
     line.className = 'log-line';
 
@@ -210,7 +212,7 @@ function appendDecisionLog(frameNumber) {
 
     const details = document.createElement('span');
     details.className = 'details';
-    details.textContent = describeDecision(decision);
+    details.textContent = describeDecision(decision, appliedKick);
 
     line.appendChild(label);
     line.appendChild(details);
@@ -529,6 +531,9 @@ function trackShots(now) {
     let kick = state.physics.consumeLastKick();
     while (kick) {
       startShotFx(kick.playerId, kick.time || now);
+      if (kick.kick) {
+        state.recentKicks.set(kick.playerId, kick.kick);
+      }
       kick = state.physics.consumeLastKick();
     }
   }
@@ -923,6 +928,7 @@ function update() {
   const shouldAdvance = state.started && (!state.paused || state.stepOnce);
 
   if (shouldAdvance) {
+    state.recentKicks.clear();
     maybeStartKickoff(now);
 
     if (state.pendingKickoff) {
