@@ -56,6 +56,7 @@ const PITCH = {
 };
 
 const GOAL_FX_DURATION = 2200;
+const LOG_ENTRY_LIMIT = 400;
 
 const ui = {
   teamAInput: document.getElementById('teamAInput'),
@@ -64,6 +65,9 @@ const ui = {
   teamBFile: document.getElementById('teamBFile'),
   startButton: document.getElementById('startButton'),
   statusText: document.getElementById('statusText'),
+  pauseButton: document.getElementById('pauseButton'),
+  nextFrameButton: document.getElementById('nextFrameButton'),
+  decisionLog: document.getElementById('decisionLog'),
 };
 
 const field = {
@@ -100,6 +104,7 @@ const state = {
   ball: null,
   ballControl: null,
   currentDecisions: new Map(),
+  stepOnce: false,
   score: { blue: 0, orange: 0 },
   half: 1,
   timeRemaining: HALF_DURATION,
@@ -111,6 +116,7 @@ const state = {
     lastShotTime: 0,
     goalCelebration: null,
   },
+  recentKicks: new Map(),
 };
 
 state.ball = state.physics.ball;
@@ -139,6 +145,22 @@ function updateStatus(text) {
   ui.statusText.textContent = text;
 }
 
+function setPlaybackControlsEnabled(enabled) {
+  ui.pauseButton.disabled = !enabled;
+  ui.nextFrameButton.disabled = !enabled;
+}
+
+function setPaused(paused) {
+  state.paused = paused;
+  ui.pauseButton.textContent = paused ? 'Reprendre' : 'Pause';
+}
+
+function clearDecisionLog() {
+  if (ui.decisionLog) {
+    ui.decisionLog.innerHTML = '';
+  }
+}
+
 function updateButtonState() {
   const blueReady = Boolean(state.aiBlue || state.defaultAIs.blue);
   const orangeReady = Boolean(state.aiOrange || state.defaultAIs.orange);
@@ -151,6 +173,60 @@ function updateButtonState() {
       updateStatus('Chargement des scripts IA...');
     }
   }
+}
+
+function describeDecision(decision, appliedKick = null) {
+  const safe = sanitizeDecision({ ...decision, kick: appliedKick || decision?.kick } || {});
+  const moveText = `dx:${safe.move.x.toFixed(2)} dy:${safe.move.y.toFixed(2)}`;
+  const sprintText = safe.sprint ? 'Sprint' : 'Marche';
+  const kickText = safe.kick
+    ? `Tir p:${safe.kick.power.toFixed(2)} dir:${safe.kick.dirX.toFixed(2)},${safe.kick.dirY.toFixed(2)}`
+    : 'Pas de tir';
+  return `${moveText} | ${sprintText} | ${kickText}`;
+}
+
+function appendDecisionLog(frameNumber) {
+  if (!ui.decisionLog) return;
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+
+  const frameLabel = document.createElement('div');
+  frameLabel.className = 'log-frame';
+  frameLabel.textContent = `Frame ${frameNumber}`;
+  entry.appendChild(frameLabel);
+
+  const lines = document.createElement('div');
+  lines.className = 'log-lines';
+  const sortedPlayers = [...state.players].sort((a, b) => (a.team === b.team ? a.number - b.number : a.team.localeCompare(b.team)));
+  sortedPlayers.forEach((player) => {
+    const playerId = getPlayerId(player);
+    const decision = state.currentDecisions.get(playerId) || {};
+    const appliedKick = state.recentKicks.get(playerId) || null;
+    const line = document.createElement('div');
+    line.className = 'log-line';
+
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = `${player.team === 'blue' ? 'Bleu' : 'Orange'} #${player.number}`;
+
+    const details = document.createElement('span');
+    details.className = 'details';
+    details.textContent = describeDecision(decision, appliedKick);
+
+    line.appendChild(label);
+    line.appendChild(details);
+    lines.appendChild(line);
+  });
+
+  entry.appendChild(lines);
+  ui.decisionLog.appendChild(entry);
+
+  while (ui.decisionLog.children.length > LOG_ENTRY_LIMIT) {
+    ui.decisionLog.removeChild(ui.decisionLog.firstChild);
+  }
+
+  ui.decisionLog.scrollTop = ui.decisionLog.scrollHeight;
 }
 
 function compileAIScript(source, fallback = null) {
@@ -209,13 +285,33 @@ function handleFile(teamKey, file) {
 }
 
 function initUI() {
+  setPlaybackControlsEnabled(false);
+  setPaused(false);
+
   ui.teamAInput.addEventListener('change', (e) => handleFile('teamAFile', e.target.files[0]));
   ui.teamBInput.addEventListener('change', (e) => handleFile('teamBFile', e.target.files[0]));
   ui.startButton.addEventListener('click', () => {
     if (ui.startButton.disabled) return;
     state.started = true;
+    state.stepOnce = false;
+    clearDecisionLog();
+    setPlaybackControlsEnabled(true);
+    setPaused(false);
     resetForKickoff('blue');
     updateStatus('Match en cours — les scripts sont chargés.');
+  });
+
+  ui.pauseButton.addEventListener('click', () => {
+    if (!state.started) return;
+    setPaused(!state.paused);
+  });
+
+  ui.nextFrameButton.addEventListener('click', () => {
+    if (!state.started) return;
+    if (!state.paused) {
+      setPaused(true);
+    }
+    state.stepOnce = true;
   });
   updateButtonState();
 }
@@ -396,8 +492,8 @@ function processAI(dt) {
   }
 }
 
-function updateTimer(dt) {
-  if (state.paused) return;
+function updateTimer(dt, allowWhilePaused = false) {
+  if (state.paused && !allowWhilePaused) return;
   state.timeRemaining = Math.max(0, state.timeRemaining - dt);
   if (state.timeRemaining === 0) {
     if (state.half === 1) {
@@ -406,7 +502,7 @@ function updateTimer(dt) {
       resetForKickoff('orange');
       updateStatus('Début de la 2ème mi-temps.');
     } else {
-      state.paused = true;
+      setPaused(true);
       updateStatus('Match terminé');
     }
   }
@@ -435,6 +531,9 @@ function trackShots(now) {
     let kick = state.physics.consumeLastKick();
     while (kick) {
       startShotFx(kick.playerId, kick.time || now);
+      if (kick.kick) {
+        state.recentKicks.set(kick.playerId, kick.kick);
+      }
       kick = state.physics.consumeLastKick();
     }
   }
@@ -826,7 +925,10 @@ function update() {
   updateGoalCelebration(now, dt);
   cleanupShotTrails(now);
 
-  if (state.started && !state.paused) {
+  const shouldAdvance = state.started && (!state.paused || state.stepOnce);
+
+  if (shouldAdvance) {
+    state.recentKicks.clear();
     maybeStartKickoff(now);
 
     if (state.pendingKickoff) {
@@ -843,11 +945,12 @@ function update() {
       state.ballControl = state.physics.ballControl;
       trackShots(now);
       updatePossessionVisual(now);
-      if (!checkGoalFromBall()) {
-        updateTimer(dt);
-        state.tick += 1;
-      }
+      checkGoalFromBall();
+      updateTimer(dt, state.stepOnce);
+      state.tick += 1;
+      appendDecisionLog(state.tick);
     }
+    state.stepOnce = false;
   }
 
   drawField();
