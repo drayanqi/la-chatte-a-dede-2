@@ -26,7 +26,22 @@
     <button id="startButton" disabled>Start game</button>
     <div id="statusText">En attente des scripts...</div>
   </div>
-  <canvas id="gameCanvas" width="900" height="600"></canvas>
+  <div class="play-area">
+    <div class="board-column">
+      <canvas id="gameCanvas" width="900" height="600"></canvas>
+      <div class="controls" aria-label="Contrôles de lecture">
+        <button id="pauseButton" disabled>Pause</button>
+        <button id="nextFrameButton" disabled>Frame suivante</button>
+      </div>
+    </div>
+    <div class="log-panel" aria-label="Journal des décisions">
+      <div class="log-header">
+        <h2>Décisions par frame</h2>
+        <p>Les 400 dernières frames s'affichent ici et défilent automatiquement.</p>
+      </div>
+      <div id="decisionLog" class="log-entries"></div>
+    </div>
+  </div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
