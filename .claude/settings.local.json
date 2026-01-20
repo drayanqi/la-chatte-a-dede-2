@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/hooks/play-tts.sh:*)",
+      "Skill(bmad:core:workflows:brainstorming)",
+      "Skill(bmad:bmm:workflows:workflow-status)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "agentvibes"
+  ]
+}

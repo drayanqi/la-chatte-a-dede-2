@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lachatadédé - UX Design Directions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* VSCode Dark Theme */
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d2d;
+            --border: #3c3c3c;
+            --text-primary: #d4d4d4;
+            --text-muted: #808080;
+            --accent: #007acc;
+            --success: #4ec9b0;
+            --warning: #dcdcaa;
+            --error: #f14c4c;
+
+            /* Team Colors - Rocket League */
+            --team-orange: #ff6b1a;
+            --team-orange-light: #ff8c4a;
+            --team-blue: #1a8cff;
+            --team-blue-light: #4aa3ff;
+
+            /* Pitch Colors */
+            --pitch-bg: #1a2634;
+            --pitch-lines: #3a4a5a;
+
+            /* Spacing */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-6: 24px;
+
+            /* Typography */
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            height: 48px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .logo span {
+            color: var(--team-orange);
+        }
+
+        .dropdown {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .dropdown:hover {
+            border-color: var(--accent);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .btn {
+            padding: var(--space-2) var(--space-4);
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0587d4;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--bg-primary);
+        }
+
+        /* Main Layout */
+        .main {
+            display: flex;
+            height: calc(100vh - 48px - 56px);
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+
+        .panel:last-child {
+            border-right: none;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+        }
+
+        /* Editor Panel */
+        .editor-panel {
+            width: 35%;
+            min-width: 300px;
+        }
+
+        .editor-tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .editor-tab {
+            padding: var(--space-2) var(--space-4);
+            font-size: 13px;
+            color: var(--text-muted);
+            border-right: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .editor-tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent);
+            margin-bottom: -1px;
+        }
+
+        .editor-tab .close {
+            opacity: 0;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .editor-tab:hover .close {
+            opacity: 0.5;
+        }
+
+        .code-editor {
+            padding: var(--space-3);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.6;
+            background: var(--bg-primary);
+            height: 100%;
+        }
+
+        .code-line {
+            display: flex;
+        }
+
+        .line-number {
+            color: var(--text-muted);
+            width: 32px;
+            text-align: right;
+            padding-right: var(--space-3);
+            user-select: none;
+        }
+
+        .code-content {
+            flex: 1;
+        }
+
+        .code-keyword { color: #569cd6; }
+        .code-function { color: #dcdcaa; }
+        .code-string { color: #ce9178; }
+        .code-comment { color: #6a9955; }
+        .code-property { color: #9cdcfe; }
+        .code-number { color: #b5cea8; }
+
+        /* Match Panel */
+        .match-panel {
+            width: 40%;
+            min-width: 400px;
+        }
+
+        .match-viewer {
+            background: var(--pitch-bg);
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pitch {
+            width: 90%;
+            height: 80%;
+            border: 2px solid var(--pitch-lines);
+            border-radius: 8px;
+            position: relative;
+            background: linear-gradient(to right,
+                rgba(255, 107, 26, 0.05) 0%,
+                rgba(255, 107, 26, 0.05) 50%,
+                rgba(26, 140, 255, 0.05) 50%,
+                rgba(26, 140, 255, 0.05) 100%
+            );
+        }
+
+        .pitch-center-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--pitch-lines);
+        }
+
+        .pitch-center-circle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border: 2px solid var(--pitch-lines);
+            border-radius: 50%;
+        }
+
+        .goal {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 60px;
+            border: 2px solid var(--pitch-lines);
+        }
+
+        .goal-left {
+            left: -8px;
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .goal-right {
+            right: -8px;
+            border-right: none;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .player {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .player:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+
+        .player.selected {
+            box-shadow: 0 0 0 3px white, 0 0 12px rgba(255,255,255,0.5);
+        }
+
+        .player-orange {
+            background: var(--team-orange);
+        }
+
+        .player-blue {
+            background: var(--team-blue);
+        }
+
+        .ball {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .score-display {
+            position: absolute;
+            top: var(--space-4);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            background: rgba(0,0,0,0.6);
+            padding: var(--space-2) var(--space-4);
+            border-radius: 8px;
+        }
+
+        .score {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .score-orange { color: var(--team-orange); }
+        .score-blue { color: var(--team-blue); }
+
+        .score-divider {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        /* Debug Panel */
+        .debug-panel {
+            width: 25%;
+            min-width: 280px;
+        }
+
+        .debug-filters {
+            display: flex;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-btn {
+            padding: var(--space-1) var(--space-2);
+            font-size: 11px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .filter-btn.active {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .filter-btn.orange.active {
+            border-color: var(--team-orange);
+            background: rgba(255, 107, 26, 0.2);
+        }
+
+        .filter-btn.blue.active {
+            border-color: var(--team-blue);
+            background: rgba(26, 140, 255, 0.2);
+        }
+
+        .debug-logs {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: var(--space-2);
+        }
+
+        .log-entry {
+            display: flex;
+            gap: var(--space-2);
+            padding: var(--space-1) var(--space-2);
+            border-radius: 3px;
+            margin-bottom: 2px;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .log-tick {
+            color: var(--text-muted);
+            min-width: 48px;
+        }
+
+        .log-player {
+            min-width: 24px;
+            font-weight: 600;
+        }
+
+        .log-player.orange { color: var(--team-orange); }
+        .log-player.blue { color: var(--team-blue); }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .log-value {
+            color: var(--success);
+        }
+
+        /* Timeline */
+        .timeline {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            padding: var(--space-3) var(--space-4);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            height: 56px;
+        }
+
+        .playback-controls {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .playback-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .playback-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .playback-btn.play {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .timeline-scrubber {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .scrubber-track {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .scrubber-progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 35%;
+            background: var(--accent);
+            border-radius: 3px;
+        }
+
+        .scrubber-handle {
+            position: absolute;
+            left: 35%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .timeline-time {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            min-width: 100px;
+        }
+
+        /* Speed Control */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .speed-btn {
+            padding: var(--space-1) var(--space-2);
+            font-size: 11px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .speed-btn.active {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        /* Page Header */
+        .page-header {
+            padding: var(--space-6);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            margin-bottom: var(--space-2);
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Section Divider */
+        .section-divider {
+            padding: var(--space-4) var(--space-6);
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-divider h2 {
+            font-size: 16px;
+            margin-bottom: var(--space-1);
+        }
+
+        .section-divider p {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* Mockup Container */
+        .mockup-container {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin: var(--space-6);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Color Palette */
+        .color-palette {
+            display: flex;
+            gap: var(--space-4);
+            padding: var(--space-6);
+            flex-wrap: wrap;
+        }
+
+        .color-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .color-group-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .color-swatches {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .color-swatch {
+            width: 48px;
+            height: 48px;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-end;
+            padding: var(--space-1);
+        }
+
+        .color-swatch span {
+            font-size: 9px;
+            font-family: var(--font-mono);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Responsive note */
+        .responsive-note {
+            padding: var(--space-4);
+            background: rgba(0, 122, 204, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            margin: var(--space-6);
+            font-size: 13px;
+        }
+
+        .responsive-note strong {
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Lachatadédé - UX Design Direction</h1>
+        <p>VSCode Dark Theme + Rocket League Team Colors + Flexible Panel Layout</p>
+    </div>
+
+    <!-- Color Palette Section -->
+    <div class="section-divider">
+        <h2>Color Palette</h2>
+        <p>VSCode dark theme base with Rocket League-inspired team colors</p>
+    </div>
+
+    <div class="color-palette">
+        <div class="color-group">
+            <div class="color-group-title">Base Theme</div>
+            <div class="color-swatches">
+                <div class="color-swatch" style="background: #1e1e1e;"><span>#1e1e1e</span></div>
+                <div class="color-swatch" style="background: #252526;"><span>#252526</span></div>
+                <div class="color-swatch" style="background: #2d2d2d;"><span>#2d2d2d</span></div>
+                <div class="color-swatch" style="background: #3c3c3c;"><span>#3c3c3c</span></div>
+            </div>
+        </div>
+        <div class="color-group">
+            <div class="color-group-title">Team Orange</div>
+            <div class="color-swatches">
+                <div class="color-swatch" style="background: #ff6b1a;"><span>#ff6b1a</span></div>
+                <div class="color-swatch" style="background: #ff8c4a;"><span>#ff8c4a</span></div>
+            </div>
+        </div>
+        <div class="color-group">
+            <div class="color-group-title">Team Blue</div>
+            <div class="color-swatches">
+                <div class="color-swatch" style="background: #1a8cff;"><span>#1a8cff</span></div>
+                <div class="color-swatch" style="background: #4aa3ff;"><span>#4aa3ff</span></div>
+            </div>
+        </div>
+        <div class="color-group">
+            <div class="color-group-title">Pitch</div>
+            <div class="color-swatches">
+                <div class="color-swatch" style="background: #1a2634;"><span>#1a2634</span></div>
+                <div class="color-swatch" style="background: #3a4a5a;"><span>#3a4a5a</span></div>
+            </div>
+        </div>
+        <div class="color-group">
+            <div class="color-group-title">UI Accent</div>
+            <div class="color-swatches">
+                <div class="color-swatch" style="background: #007acc;"><span>#007acc</span></div>
+                <div class="color-swatch" style="background: #4ec9b0;"><span>#4ec9b0</span></div>
+                <div class="color-swatch" style="background: #f14c4c;"><span>#f14c4c</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace Mockup -->
+    <div class="section-divider">
+        <h2>Main Workspace</h2>
+        <p>Three-panel layout: Editor | Match Viewer | Debug Panel (all resizable)</p>
+    </div>
+
+    <div class="mockup-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">Lachatadédé<span>.</span></div>
+                <div class="dropdown">
+                    striker.js
+                    <span>▼</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-secondary">Queue Ranked</button>
+                <button class="btn btn-primary">Test vs Bot</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Editor Panel -->
+            <div class="panel editor-panel">
+                <div class="editor-tabs">
+                    <div class="editor-tab active">
+                        striker.js
+                        <span class="close">×</span>
+                    </div>
+                    <div class="editor-tab">
+                        defender.js
+                        <span class="close">×</span>
+                    </div>
+                    <div class="editor-tab">
+                        goalie.js
+                        <span class="close">×</span>
+                    </div>
+                </div>
+                <div class="panel-content code-editor">
+                    <div class="code-line">
+                        <span class="line-number">1</span>
+                        <span class="code-content"><span class="code-keyword">function</span> <span class="code-function">onTick</span>(<span class="code-property">me</span>, <span class="code-property">game</span>) {</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">2</span>
+                        <span class="code-content">  <span class="code-comment">// Check if I'm closest to the ball</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">3</span>
+                        <span class="code-content">  <span class="code-keyword">if</span> (<span class="code-property">me</span>.<span class="code-function">isClosestToBall</span>()) {</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">4</span>
+                        <span class="code-content">    <span class="code-comment">// Run towards the ball</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">5</span>
+                        <span class="code-content">    <span class="code-property">me</span>.<span class="code-function">moveTo</span>(<span class="code-property">game</span>.<span class="code-property">ball</span>.<span class="code-property">position</span>);</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">6</span>
+                        <span class="code-content">    </span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">7</span>
+                        <span class="code-content">    <span class="code-comment">// If close enough, kick towards goal</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">8</span>
+                        <span class="code-content">    <span class="code-keyword">if</span> (<span class="code-property">me</span>.<span class="code-function">distanceTo</span>(<span class="code-property">game</span>.<span class="code-property">ball</span>) < <span class="code-number">30</span>) {</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">9</span>
+                        <span class="code-content">      <span class="code-property">me</span>.<span class="code-function">kick</span>(<span class="code-property">game</span>.<span class="code-property">enemyGoal</span>);</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">10</span>
+                        <span class="code-content">    }</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">11</span>
+                        <span class="code-content">  } <span class="code-keyword">else</span> {</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">12</span>
+                        <span class="code-content">    <span class="code-comment">// Support position</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">13</span>
+                        <span class="code-content">    <span class="code-property">me</span>.<span class="code-function">moveTo</span>(<span class="code-property">me</span>.<span class="code-property">defaultPosition</span>);</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">14</span>
+                        <span class="code-content">  }</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">15</span>
+                        <span class="code-content">}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Match Panel -->
+            <div class="panel match-panel">
+                <div class="panel-header">
+                    <span>Match Replay</span>
+                    <span>Tick 1247 / 3600</span>
+                </div>
+                <div class="panel-content match-viewer">
+                    <div class="score-display">
+                        <span class="score score-orange">2</span>
+                        <span class="score-divider">-</span>
+                        <span class="score score-blue">1</span>
+                    </div>
+                    <div class="pitch">
+                        <div class="pitch-center-line"></div>
+                        <div class="pitch-center-circle"></div>
+                        <div class="goal goal-left"></div>
+                        <div class="goal goal-right"></div>
+
+                        <!-- Orange Team (Left) -->
+                        <div class="player player-orange" style="left: 8%; top: 50%;">GK</div>
+                        <div class="player player-orange" style="left: 22%; top: 30%;">2</div>
+                        <div class="player player-orange" style="left: 22%; top: 70%;">3</div>
+                        <div class="player player-orange selected" style="left: 38%; top: 45%;">4</div>
+                        <div class="player player-orange" style="left: 42%; top: 65%;">5</div>
+
+                        <!-- Blue Team (Right) -->
+                        <div class="player player-blue" style="right: 8%; top: 50%;">GK</div>
+                        <div class="player player-blue" style="right: 22%; top: 25%;">2</div>
+                        <div class="player player-blue" style="right: 22%; top: 75%;">3</div>
+                        <div class="player player-blue" style="right: 35%; top: 40%;">4</div>
+                        <div class="player player-blue" style="right: 40%; top: 60%;">5</div>
+
+                        <!-- Ball -->
+                        <div class="ball" style="left: 45%; top: 42%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug Panel -->
+            <div class="panel debug-panel">
+                <div class="panel-header">
+                    <span>Debug Logs</span>
+                    <span>Player #4</span>
+                </div>
+                <div class="debug-filters">
+                    <button class="filter-btn active">All</button>
+                    <button class="filter-btn orange active">Orange</button>
+                    <button class="filter-btn blue">Blue</button>
+                    <button class="filter-btn">#4</button>
+                </div>
+                <div class="panel-content debug-logs">
+                    <div class="log-entry">
+                        <span class="log-tick">1247</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">isClosestToBall() = <span class="log-value">true</span></span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1247</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">moveTo(ball.position)</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1246</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">distanceTo(ball) = <span class="log-value">45.2</span></span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1245</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">isClosestToBall() = <span class="log-value">true</span></span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1244</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">moveTo(ball.position)</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1243</span>
+                        <span class="log-player orange">#5</span>
+                        <span class="log-message">isClosestToBall() = <span class="log-value">false</span></span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1243</span>
+                        <span class="log-player orange">#5</span>
+                        <span class="log-message">moveTo(defaultPosition)</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-tick">1242</span>
+                        <span class="log-player orange">#4</span>
+                        <span class="log-message">distanceTo(ball) = <span class="log-value">52.8</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline">
+            <div class="playback-controls">
+                <button class="playback-btn">⏮</button>
+                <button class="playback-btn play">▶</button>
+                <button class="playback-btn">⏭</button>
+            </div>
+            <div class="timeline-scrubber">
+                <div class="scrubber-track">
+                    <div class="scrubber-progress"></div>
+                    <div class="scrubber-handle"></div>
+                </div>
+            </div>
+            <div class="timeline-time">01:17 / 03:00</div>
+            <div class="speed-control">
+                <button class="speed-btn">0.5x</button>
+                <button class="speed-btn active">1x</button>
+                <button class="speed-btn">2x</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Design Notes -->
+    <div class="responsive-note">
+        <strong>Key UX Features:</strong><br>
+        • Click any player on the pitch to filter debug logs to that player<br>
+        • Drag panel borders to resize (editor, match, debug)<br>
+        • Space bar to pause/play, arrow keys to scrub timeline<br>
+        • Debug logs sync with timeline position (scrub = logs scroll)
+    </div>
+
+</body>
+</html>
