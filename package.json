@@ -19,26 +19,31 @@
     "test": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@pixi/react": "^7.1.2",
+    "pixi.js": "^8.6.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "pixi.js": "^8.6.6",
-    "@pixi/react": "^7.1.2",
-    "zustand": "^5.0.3",
-    "@monaco-editor/react": "^4.6.0"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@faker-js/faker": "^9.3.0",
+    "@playwright/test": "^1.50.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "~5.6.2",
-    "vite": "^6.0.5",
-    "eslint": "^9.17.0",
-    "@playwright/test": "^1.50.0",
-    "vitest": "^2.1.0",
     "@vitest/coverage-v8": "^2.1.0",
-    "@testing-library/react": "^16.1.0",
-    "@testing-library/jest-dom": "^6.6.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^17.0.0",
     "jsdom": "^25.0.0",
-    "@faker-js/faker": "^9.3.0"
+    "typescript": "~5.6.2",
+    "typescript-eslint": "^8.53.1",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.0"
   }
 }
