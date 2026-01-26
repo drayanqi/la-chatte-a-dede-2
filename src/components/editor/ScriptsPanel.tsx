@@ -1,14 +1,39 @@
 /**
- * ScriptsPanel - Liste des scripts et éditeur Monaco
- * PROPRIÉTAIRE: Winston (Software Architect)
+ * ScriptsPanel - Scripts list and Monaco editor placeholder
+ * OWNER: Dev Team
  */
 
 import { useCallback } from 'react';
 import { useEditorStore } from '@/stores';
 import type { Script } from '@/types';
 
+/**
+ * Generate a unique script name that doesn't conflict with existing names
+ */
+const generateUniqueName = (existingNames: Set<string>, baseName = 'NewAI.js'): string => {
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  // Try NewAI (1).js, NewAI (2).js, etc.
+  let counter = 1;
+  const nameWithoutExt = baseName.replace('.js', '');
+  while (existingNames.has(`${nameWithoutExt} (${counter}).js`)) {
+    counter++;
+  }
+  return `${nameWithoutExt} (${counter}).js`;
+};
+
 export const ScriptsPanel: React.FC = () => {
-  const { scripts, activeScriptId, openScript } = useEditorStore();
+  const {
+    scripts,
+    activeScriptId,
+    openScript,
+    isLoadingScripts,
+    isCreatingScript,
+    scriptsError,
+    createScript,
+  } = useEditorStore();
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, script: Script) => {
@@ -24,17 +49,56 @@ export const ScriptsPanel: React.FC = () => {
     []
   );
 
+  const handleCreateScript = useCallback(async () => {
+    // Generate unique name based on existing scripts
+    const existingNames = new Set(
+      Array.from(scripts.values()).map((s) => s.name)
+    );
+    const uniqueName = generateUniqueName(existingNames);
+    await createScript(uniqueName);
+  }, [scripts, createScript]);
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h3 style={styles.title}>Scripts IA</h3>
-        <button style={styles.addButton}>+</button>
+        <h3 style={styles.title}>AI Scripts</h3>
+        <button
+          data-testid="create-script-button"
+          style={{
+            ...styles.addButton,
+            ...(isCreatingScript ? styles.addButtonDisabled : {}),
+          }}
+          onClick={handleCreateScript}
+          disabled={isCreatingScript}
+          title="Create new AI file"
+        >
+          {isCreatingScript ? (
+            <span data-testid="script-creating" style={styles.spinnerIcon}>
+              ...
+            </span>
+          ) : (
+            '+'
+          )}
+        </button>
       </div>
 
-      <div style={styles.scriptList}>
+      <div data-testid="scripts-list" style={styles.scriptList}>
+        {isLoadingScripts && (
+          <div style={styles.loadingState}>Loading scripts...</div>
+        )}
+
+        {scriptsError && (
+          <div style={styles.errorState}>{scriptsError}</div>
+        )}
+
+        {!isLoadingScripts && !scriptsError && scripts.size === 0 && (
+          <div style={styles.emptyState}>No scripts yet</div>
+        )}
+
         {Array.from(scripts.values()).map((script) => (
           <div
             key={script.id}
+            data-testid={`script-item-${script.id}`}
             style={{
               ...styles.scriptItem,
               ...(activeScriptId === script.id ? styles.scriptItemActive : {}),
@@ -45,7 +109,12 @@ export const ScriptsPanel: React.FC = () => {
           >
             <span style={styles.scriptIcon}>📜</span>
             <div style={styles.scriptInfo}>
-              <span style={styles.scriptName}>{script.name}</span>
+              <span
+                data-testid={`script-name-${script.id}`}
+                style={styles.scriptName}
+              >
+                {script.name}
+              </span>
               <span style={styles.scriptLang}>{script.language}</span>
             </div>
             <span style={styles.dragHandle}>⋮⋮</span>
@@ -63,12 +132,12 @@ export const ScriptsPanel: React.FC = () => {
               {scripts.get(activeScriptId)?.code}
             </pre>
             <div style={styles.editorNote}>
-              Monaco Editor sera intégré ici
+              Monaco Editor will be integrated here
             </div>
           </div>
         ) : (
           <div style={styles.noSelection}>
-            Sélectionnez un script ou glissez-le sur un joueur
+            Select a script or drag it onto a player
           </div>
         )}
       </div>
@@ -111,10 +180,36 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: '16px',
   },
+  addButtonDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+  spinnerIcon: {
+    fontSize: '10px',
+    letterSpacing: '1px',
+  },
   scriptList: {
     flex: '0 0 auto',
     maxHeight: '200px',
     overflowY: 'auto',
+  },
+  loadingState: {
+    padding: '16px',
+    color: '#888888',
+    fontSize: '13px',
+    textAlign: 'center',
+  },
+  errorState: {
+    padding: '16px',
+    color: '#f14c4c',
+    fontSize: '13px',
+    textAlign: 'center',
+  },
+  emptyState: {
+    padding: '16px',
+    color: '#666666',
+    fontSize: '13px',
+    textAlign: 'center',
   },
   scriptItem: {
     display: 'flex',

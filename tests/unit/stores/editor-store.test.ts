@@ -2,31 +2,51 @@
  * Editor Store Unit Tests
  *
  * Tests the Zustand store that manages editor state:
+ * - Script fetching from API
  * - Script CRUD operations (add, update, delete)
  * - Active script navigation
  * - Save state tracking
  * - Syntax error tracking
  *
- * @see Epic 2: AI Development Workspace
+ * @see Epic 1: User Authentication & Onboarding
+ * @see Story 1.4: Starter AI Template Provisioning
  * @priority P0
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useEditorStore } from '@/stores/editorStore';
 import type { Script } from '@/types';
+
+// Mock fetch globally
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 describe('Editor Store', () => {
   beforeEach(() => {
     // Reset store to initial state before each test
     useEditorStore.getState().reset();
+    // Clear all mocks
+    vi.clearAllMocks();
+    // Mock localStorage
+    const localStorageMock = {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    };
+    Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('Initial State', () => {
-    it('should have default scripts loaded', () => {
+    it('should have empty scripts Map initially', () => {
       // GIVEN: Fresh store
       const state = useEditorStore.getState();
 
-      // THEN: Should have default demo scripts
-      expect(state.scripts.size).toBeGreaterThan(0);
+      // THEN: Scripts should be empty (loaded from API now)
+      expect(state.scripts.size).toBe(0);
     });
 
     it('should have no active script initially', () => {
@@ -52,13 +72,137 @@ describe('Editor Store', () => {
       // THEN: No syntax errors
       expect(state.syntaxErrors).toEqual([]);
     });
+
+    it('should not be loading scripts initially', () => {
+      // GIVEN: Fresh store
+      const state = useEditorStore.getState();
+
+      // THEN: Should not be loading
+      expect(state.isLoadingScripts).toBe(false);
+    });
+
+    it('should have no scripts error initially', () => {
+      // GIVEN: Fresh store
+      const state = useEditorStore.getState();
+
+      // THEN: Should have no error
+      expect(state.scriptsError).toBeNull();
+    });
+  });
+
+  describe('Fetch Scripts', () => {
+    it('should fetch scripts successfully', async () => {
+      // GIVEN: Authenticated user with token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      const mockScripts = [
+        {
+          id: 'script-1',
+          name: 'StarterAI.js',
+          code: 'function update() {}',
+          language: 'javascript',
+          updated_at: '2026-01-25T12:00:00Z',
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockScripts,
+      });
+
+      // WHEN: Fetching scripts
+      await useEditorStore.getState().fetchScripts();
+
+      // THEN: Scripts should be loaded
+      const state = useEditorStore.getState();
+      expect(state.scripts.size).toBe(1);
+      expect(state.scripts.get('script-1')?.name).toBe('StarterAI.js');
+      expect(state.isLoadingScripts).toBe(false);
+      expect(state.scriptsError).toBeNull();
+    });
+
+    it('should set loading state during fetch', async () => {
+      // GIVEN: Authenticated user with token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      // Use a promise that we control to check loading state
+      let resolvePromise: (value: unknown) => void;
+      const fetchPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+
+      mockFetch.mockReturnValueOnce(fetchPromise);
+
+      // WHEN: Starting fetch
+      const fetchScriptsPromise = useEditorStore.getState().fetchScripts();
+
+      // THEN: Should be loading
+      expect(useEditorStore.getState().isLoadingScripts).toBe(true);
+
+      // Resolve the fetch
+      resolvePromise!({
+        ok: true,
+        json: async () => [],
+      });
+
+      await fetchScriptsPromise;
+
+      // THEN: Should no longer be loading
+      expect(useEditorStore.getState().isLoadingScripts).toBe(false);
+    });
+
+    it('should handle fetch error gracefully', async () => {
+      // GIVEN: Authenticated user with token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ message: 'Unauthorized' }),
+      });
+
+      // WHEN: Fetching scripts fails
+      await useEditorStore.getState().fetchScripts();
+
+      // THEN: Should have error state
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Unauthorized');
+      expect(state.isLoadingScripts).toBe(false);
+    });
+
+    it('should handle network error gracefully', async () => {
+      // GIVEN: Authenticated user with token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      // WHEN: Network fails
+      await useEditorStore.getState().fetchScripts();
+
+      // THEN: Should have error state
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Failed to load scripts. Please try again.');
+      expect(state.isLoadingScripts).toBe(false);
+    });
+
+    it('should not fetch without auth token', async () => {
+      // GIVEN: No auth token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+      // WHEN: Trying to fetch scripts
+      await useEditorStore.getState().fetchScripts();
+
+      // THEN: Should have error and not call fetch
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Not authenticated');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
   });
 
   describe('Script CRUD - Add', () => {
     it('should add a new script', () => {
-      // GIVEN: Initial state
+      // GIVEN: Empty store
       const store = useEditorStore.getState();
-      const initialCount = store.scripts.size;
+      expect(store.scripts.size).toBe(0);
 
       // WHEN: Adding a new script
       const newScript: Script = {
@@ -72,7 +216,7 @@ describe('Editor Store', () => {
 
       // THEN: Script should be added
       const state = useEditorStore.getState();
-      expect(state.scripts.size).toBe(initialCount + 1);
+      expect(state.scripts.size).toBe(1);
       expect(state.scripts.get('test-script-1')).toEqual(newScript);
     });
 
@@ -167,16 +311,16 @@ describe('Editor Store', () => {
     });
 
     it('should not update non-existent script', () => {
-      // GIVEN: Initial state
+      // GIVEN: Empty store
       const store = useEditorStore.getState();
-      const initialScripts = new Map(store.scripts);
+      expect(store.scripts.size).toBe(0);
 
       // WHEN: Updating non-existent script
       store.updateScript('non-existent', 'new code');
 
       // THEN: State should remain unchanged
       const state = useEditorStore.getState();
-      expect(state.scripts.size).toBe(initialScripts.size);
+      expect(state.scripts.size).toBe(0);
     });
   });
 
@@ -247,15 +391,15 @@ describe('Editor Store', () => {
     });
 
     it('should handle deleting non-existent script gracefully', () => {
-      // GIVEN: Initial state
+      // GIVEN: Empty store
       const store = useEditorStore.getState();
-      const initialCount = store.scripts.size;
+      expect(store.scripts.size).toBe(0);
 
       // WHEN: Deleting non-existent script
       store.deleteScript('non-existent-id');
 
       // THEN: No error, state unchanged
-      expect(useEditorStore.getState().scripts.size).toBe(initialCount);
+      expect(useEditorStore.getState().scripts.size).toBe(0);
     });
   });
 
@@ -401,31 +545,239 @@ describe('Editor Store', () => {
     });
   });
 
-  describe('Reset', () => {
-    it('should reset to initial state with default scripts', () => {
-      // GIVEN: Modified state
-      const store = useEditorStore.getState();
-      store.addScript({
-        id: 'custom-script',
-        name: 'Custom',
-        code: 'custom code',
+  describe('Error Handling', () => {
+    it('should clear scripts error', async () => {
+      // GIVEN: Store with error
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(null);
+      await useEditorStore.getState().fetchScripts();
+      expect(useEditorStore.getState().scriptsError).not.toBeNull();
+
+      // WHEN: Clearing error
+      useEditorStore.getState().clearScriptsError();
+
+      // THEN: Error should be cleared
+      expect(useEditorStore.getState().scriptsError).toBeNull();
+    });
+  });
+
+  describe('Create Script', () => {
+    it('should create script successfully via API', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      const newScriptFromApi = {
+        id: 'new-script-123',
+        name: 'NewAI.js',
+        code: '// AI Script: NewAI.js\nfunction update(me, ball) {}',
         language: 'javascript',
-        lastModified: new Date(),
+        updated_at: '2026-01-26T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => newScriptFromApi,
       });
-      store.openScript('custom-script');
-      store.markUnsaved();
-      store.setSyntaxErrors([{ scriptId: 'custom-script', line: 1, message: 'Error' }]);
+
+      // WHEN: Creating a script
+      await useEditorStore.getState().createScript('NewAI.js');
+
+      // THEN: Script should be added to Map
+      const state = useEditorStore.getState();
+      expect(state.scripts.size).toBe(1);
+      expect(state.scripts.get('new-script-123')?.name).toBe('NewAI.js');
+    });
+
+    it('should open created script in editor automatically', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'auto-open-id',
+          name: 'AutoOpen.js',
+          code: 'code',
+          language: 'javascript',
+          updated_at: '2026-01-26T12:00:00Z',
+        }),
+      });
+
+      // WHEN: Creating a script
+      await useEditorStore.getState().createScript('AutoOpen.js');
+
+      // THEN: Created script should be active
+      expect(useEditorStore.getState().activeScriptId).toBe('auto-open-id');
+    });
+
+    it('should set loading state during creation', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      let resolvePromise: (value: unknown) => void;
+      const fetchPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+      mockFetch.mockReturnValueOnce(fetchPromise);
+
+      // WHEN: Starting creation
+      const createPromise = useEditorStore.getState().createScript('Loading.js');
+
+      // THEN: Should be creating
+      expect(useEditorStore.getState().isCreatingScript).toBe(true);
+
+      // Resolve
+      resolvePromise!({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'loading-id',
+          name: 'Loading.js',
+          code: '',
+          language: 'javascript',
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      await createPromise;
+
+      // THEN: Should no longer be creating
+      expect(useEditorStore.getState().isCreatingScript).toBe(false);
+    });
+
+    it('should handle creation error gracefully', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ message: 'Validation failed' }),
+      });
+
+      // WHEN: Creation fails
+      await useEditorStore.getState().createScript('Error.js');
+
+      // THEN: Should have error state
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Validation failed');
+      expect(state.isCreatingScript).toBe(false);
+    });
+
+    it('should handle network error during creation', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      // WHEN: Network fails
+      await useEditorStore.getState().createScript('Network.js');
+
+      // THEN: Should have error state
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Failed to create script. Please try again.');
+      expect(state.isCreatingScript).toBe(false);
+    });
+
+    it('should not create without auth token', async () => {
+      // GIVEN: No auth token
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+      // WHEN: Trying to create script
+      await useEditorStore.getState().createScript('NoAuth.js');
+
+      // THEN: Should have error and not call fetch
+      const state = useEditorStore.getState();
+      expect(state.scriptsError).toBe('Not authenticated');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should send correct API request with custom code', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'custom-id',
+          name: 'Custom.js',
+          code: 'custom code',
+          language: 'javascript',
+          updated_at: new Date().toISOString(),
+        }),
+      });
+
+      // WHEN: Creating script with custom code
+      await useEditorStore.getState().createScript('Custom.js', 'custom code');
+
+      // THEN: Should send correct request
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/scripts'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-token',
+          }),
+          body: expect.stringContaining('Custom.js'),
+        })
+      );
+    });
+
+    it('should prevent concurrent script creation', async () => {
+      // GIVEN: Authenticated user and creation already in progress
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      let resolveFirst: (value: unknown) => void;
+      const firstPromise = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+      mockFetch.mockReturnValueOnce(firstPromise);
+
+      // Start first creation
+      const first = useEditorStore.getState().createScript('First.js');
+
+      // WHEN: Trying to create second while first is pending
+      await useEditorStore.getState().createScript('Second.js');
+
+      // THEN: Second should be rejected and first should still be in progress
+      expect(useEditorStore.getState().isCreatingScript).toBe(true);
+      expect(mockFetch).toHaveBeenCalledTimes(1); // Only first call made
+
+      // Cleanup
+      resolveFirst!({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: 'first-id', name: 'First.js', code: '', language: 'javascript', updated_at: new Date().toISOString() }),
+      });
+      await first;
+    });
+  });
+
+  describe('Reset', () => {
+    it('should reset to initial state', async () => {
+      // GIVEN: Modified state
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'script-1', name: 'Test', code: '', language: 'javascript', updated_at: new Date().toISOString() }],
+      });
+      await useEditorStore.getState().fetchScripts();
+      useEditorStore.getState().openScript('script-1');
+      useEditorStore.getState().markUnsaved();
+      useEditorStore.getState().setSyntaxErrors([{ scriptId: 'script-1', line: 1, message: 'Error' }]);
 
       // WHEN: Resetting
-      store.reset();
+      useEditorStore.getState().reset();
 
       // THEN: State should be reset
       const state = useEditorStore.getState();
+      expect(state.scripts.size).toBe(0);
       expect(state.activeScriptId).toBeNull();
       expect(state.hasUnsavedChanges).toBe(false);
       expect(state.syntaxErrors).toEqual([]);
-      // Custom script should be gone, only defaults remain
-      expect(state.scripts.has('custom-script')).toBe(false);
+      expect(state.isLoadingScripts).toBe(false);
+      expect(state.scriptsError).toBeNull();
     });
   });
 });

@@ -17,12 +17,14 @@ test.describe('Authentication', () => {
       // Navigate to registration page
       await page.goto('/register');
 
-      // Fill registration form
-      const email = `test-${Date.now()}@example.com`;
+      // Fill registration form with unique values
+      const timestamp = Date.now();
+      const email = `test-${timestamp}@example.com`;
+      const name = `TestUser${timestamp}`;
       await page.fill('[data-testid="email-input"]', email);
       await page.fill('[data-testid="password-input"]', 'SecurePass123!');
       await page.fill('[data-testid="confirm-password-input"]', 'SecurePass123!');
-      await page.fill('[data-testid="name-input"]', 'Test User');
+      await page.fill('[data-testid="name-input"]', name);
 
       // Submit and verify redirect to workspace
       await page.click('[data-testid="register-button"]');
@@ -60,6 +62,18 @@ test.describe('Authentication', () => {
 
       await expect(page.getByText(/passwords do not match/i)).toBeVisible();
     });
+
+    test('should require minimum 8 character password', async ({ page }) => {
+      await page.goto('/register');
+
+      await page.fill('[data-testid="email-input"]', 'test@example.com');
+      await page.fill('[data-testid="password-input"]', 'short');
+      await page.fill('[data-testid="confirm-password-input"]', 'short');
+      await page.fill('[data-testid="name-input"]', 'Test User');
+      await page.click('[data-testid="register-button"]');
+
+      await expect(page.getByText(/at least 8 characters/i)).toBeVisible();
+    });
   });
 
   test.describe('Login', () => {
@@ -93,20 +107,17 @@ test.describe('Authentication', () => {
 
   test.describe('Logout', () => {
     test('should logout and redirect to login', async ({ page, userFactory }) => {
-      // Create and login user
-      const user = await userFactory.createAuthenticated();
+      // Create user via factory
+      const user = await userFactory.create({ password: 'TestPass123!' });
 
-      // Set auth cookie
-      await page.context().addCookies([
-        {
-          name: 'auth_token',
-          value: user.token!,
-          domain: 'localhost',
-          path: '/',
-        },
-      ]);
+      // Login via UI to establish proper auth state
+      await page.goto('/login');
+      await page.fill('[data-testid="email-input"]', user.email);
+      await page.fill('[data-testid="password-input"]', 'TestPass123!');
+      await page.click('[data-testid="login-button"]');
 
-      await page.goto('/workspace');
+      // Wait for redirect to workspace and user menu to be visible
+      await expect(page).toHaveURL(/\/workspace/);
       await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
 
       // Logout

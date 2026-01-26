@@ -1,22 +1,33 @@
 /**
- * Editor Store - État de l'éditeur Monaco
- * PROPRIÉTAIRE: Winston (Software Architect)
+ * Editor Store - Monaco editor state management
+ * OWNER: Dev Team
  */
 
 import { create } from 'zustand';
-import type { Script, ScriptLanguage } from '@/types';
+import type { Script } from '@/types';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 interface EditorState {
-  // Scripts disponibles
+  // Available scripts
   scripts: Map<string, Script>;
 
-  // Script actif dans l'éditeur
+  // Active script in editor
   activeScriptId: string | null;
 
-  // État de modification
+  // Modification state
   hasUnsavedChanges: boolean;
 
-  // Erreurs de syntaxe
+  // Loading state for scripts
+  isLoadingScripts: boolean;
+
+  // Creating state for scripts
+  isCreatingScript: boolean;
+
+  // Error state for scripts
+  scriptsError: string | null;
+
+  // Syntax errors
   syntaxErrors: Array<{
     scriptId: string;
     line: number;
@@ -25,107 +36,195 @@ interface EditorState {
 }
 
 interface EditorActions {
-  // Gestion des scripts
+  // Script management
   addScript: (script: Script) => void;
   updateScript: (id: string, code: string) => void;
   deleteScript: (id: string) => void;
+
+  // API operations
+  fetchScripts: () => Promise<void>;
+  createScript: (name: string, code?: string) => Promise<void>;
 
   // Navigation
   openScript: (id: string) => void;
   closeScript: () => void;
 
-  // Sauvegarde
+  // Save state
   markSaved: () => void;
   markUnsaved: () => void;
 
-  // Erreurs
+  // Errors
   setSyntaxErrors: (errors: EditorState['syntaxErrors']) => void;
+  clearScriptsError: () => void;
 
   // Reset
   reset: () => void;
 }
 
-// Scripts par défaut pour la démo
-const defaultScripts: Script[] = [
-  {
-    id: 'script-1',
-    name: 'Attaquant Basique',
-    code: `// Script IA pour attaquant
-function update(player, ball, teammates, opponents) {
-  // Aller vers le ballon
-  const direction = {
-    x: ball.position.x - player.position.x,
-    y: ball.position.y - player.position.y
-  };
-
-  return {
-    move: direction,
-    action: 'none'
-  };
-}`,
-    language: 'javascript',
-    lastModified: new Date(),
-  },
-  {
-    id: 'script-2',
-    name: 'Défenseur Zone',
-    code: `// Script IA pour défenseur en zone
-function update(player, ball, teammates, opponents) {
-  // Rester dans la zone défensive
-  const zoneCenter = { x: 25, y: 50 };
-
-  const toBall = {
-    x: ball.position.x - player.position.x,
-    y: ball.position.y - player.position.y
-  };
-
-  const toZone = {
-    x: zoneCenter.x - player.position.x,
-    y: zoneCenter.y - player.position.y
-  };
-
-  // Équilibre entre zone et ballon
-  return {
-    move: {
-      x: toZone.x * 0.7 + toBall.x * 0.3,
-      y: toZone.y * 0.7 + toBall.y * 0.3
-    },
-    action: 'none'
-  };
-}`,
-    language: 'javascript',
-    lastModified: new Date(),
-  },
-  {
-    id: 'script-3',
-    name: 'Gardien',
-    code: `// Script IA pour gardien
-function update(player, ball, teammates, opponents) {
-  // Suivre le ballon sur l'axe Y uniquement
-  const targetY = Math.max(35, Math.min(65, ball.position.y));
-
-  return {
-    move: {
-      x: 0,
-      y: targetY - player.position.y
-    },
-    action: ball.position.x < 20 ? 'dive' : 'none'
-  };
-}`,
-    language: 'javascript',
-    lastModified: new Date(),
-  },
-];
-
 const initialState: EditorState = {
-  scripts: new Map(defaultScripts.map((s) => [s.id, s])),
+  scripts: new Map(),
   activeScriptId: null,
   hasUnsavedChanges: false,
+  isLoadingScripts: false,
+  isCreatingScript: false,
+  scriptsError: null,
   syntaxErrors: [],
+};
+
+/**
+ * Generate default code template for new AI scripts
+ */
+const generateDefaultCode = (name: string): string => {
+  const date = new Date().toISOString().split('T')[0];
+  return `// AI Script: ${name}
+// Created: ${date}
+
+function update(me, ball, teammates, opponents, goal) {
+  // Your AI logic here
+
+  // Example: Move toward the ball if closest
+  if (me.isClosestToBall()) {
+    me.moveTo(ball.position.x, ball.position.y);
+  }
+}
+`;
 };
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
   ...initialState,
+
+  fetchScripts: async () => {
+    const token = localStorage.getItem('auth_token');
+
+    if (!token) {
+      set({ scriptsError: 'Not authenticated', isLoadingScripts: false });
+      return;
+    }
+
+    set({ isLoadingScripts: true, scriptsError: null });
+
+    try {
+      const response = await fetch(`${API_URL}/scripts`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        set({
+          scriptsError: data.message || 'Failed to fetch scripts',
+          isLoadingScripts: false,
+        });
+        return;
+      }
+
+      const scriptsData = await response.json();
+
+      const scriptsMap = new Map<string, Script>();
+      for (const script of scriptsData) {
+        scriptsMap.set(script.id, {
+          id: script.id,
+          name: script.name,
+          code: script.code,
+          language: script.language,
+          lastModified: new Date(script.updated_at),
+        });
+      }
+
+      set({
+        scripts: scriptsMap,
+        isLoadingScripts: false,
+        scriptsError: null,
+      });
+    } catch (error) {
+      console.error('Error fetching scripts:', error);
+      set({
+        scriptsError: 'Failed to load scripts. Please try again.',
+        isLoadingScripts: false,
+      });
+    }
+  },
+
+  createScript: async (name: string, code?: string) => {
+    const token = localStorage.getItem('auth_token');
+
+    if (!token) {
+      set({ scriptsError: 'Not authenticated', isCreatingScript: false });
+      return;
+    }
+
+    // Prevent concurrent script creation
+    if (get().isCreatingScript) {
+      return;
+    }
+
+    set({ isCreatingScript: true, scriptsError: null });
+
+    try {
+      const scriptCode = code ?? generateDefaultCode(name);
+
+      const response = await fetch(`${API_URL}/scripts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name,
+          code: scriptCode,
+          language: 'javascript',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        set({
+          scriptsError: data.message || 'Failed to create script',
+          isCreatingScript: false,
+        });
+        return;
+      }
+
+      const scriptData = await response.json();
+
+      const newScript: Script = {
+        id: scriptData.id,
+        name: scriptData.name,
+        code: scriptData.code,
+        language: scriptData.language,
+        lastModified: new Date(scriptData.updated_at),
+      };
+
+      // Add script to map and open it in editor
+      set((state) => {
+        const newScripts = new Map(state.scripts);
+        // Insert at beginning to appear at top (most recent)
+        const entries = Array.from(newScripts.entries());
+        newScripts.clear();
+        newScripts.set(newScript.id, newScript);
+        for (const [id, script] of entries) {
+          newScripts.set(id, script);
+        }
+        return {
+          scripts: newScripts,
+          activeScriptId: newScript.id,
+          isCreatingScript: false,
+          scriptsError: null,
+        };
+      });
+    } catch (error) {
+      console.error('Error creating script:', error);
+      set({
+        scriptsError: 'Failed to create script. Please try again.',
+        isCreatingScript: false,
+      });
+    }
+  },
 
   addScript: (script) =>
     set((state) => {
@@ -167,6 +266,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   markUnsaved: () => set({ hasUnsavedChanges: true }),
 
   setSyntaxErrors: (errors) => set({ syntaxErrors: errors }),
+
+  clearScriptsError: () => set({ scriptsError: null }),
 
   reset: () => set(initialState),
 }));

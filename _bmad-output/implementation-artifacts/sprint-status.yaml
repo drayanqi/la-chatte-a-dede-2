@@ -1,0 +1,83 @@
+# generated: 2026-01-21
+# project: lachatadede
+# tracking_system: file-system
+# story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-21
+project: lachatadede
+tracking_system: file-system
+story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: User Authentication & Onboarding
+  epic-1: in-progress
+  1-1-user-registration: done
+  1-2-user-login: review
+  1-3-user-logout: review
+  1-4-starter-ai-template-provisioning: review
+  epic-1-retrospective: optional
+
+  # Epic 2: AI Development Workspace
+  epic-2: in-progress
+  2-1-create-and-list-ai-files: review
+  2-2-monaco-editor-integration: ready-for-dev
+  2-3-save-ai-file-changes: backlog
+  2-4-game-api-autocomplete: backlog
+  2-5-code-error-detection: backlog
+  2-6-rename-ai-file: backlog
+  2-7-duplicate-ai-file: backlog
+  2-8-delete-ai-file: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Practice Mode & Match Experience
+  epic-3: backlog
+  3-1-tactics-data-model-and-api: backlog
+  3-2-team-lineup-configuration-ui: backlog
+  3-3-game-engine-core-deterministic-simulation: backlog
+  3-4-script-sandboxing-and-execution: backlog
+  3-5-practice-match-trigger: backlog
+  3-6-easy-bot-ai: backlog
+  3-7-match-canvas-renderer: backlog
+  3-8-replay-playback-system: backlog
+  3-9-timeline-scrubber-and-navigation: backlog
+  3-10-debug-panel-log-display: backlog
+  3-11-debug-panel-player-filtering: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Ranked Competition & Leaderboard
+  epic-4: backlog
+  4-1-ranked-queue-and-matchmaking: backlog
+  4-2-async-ranked-match-completion: backlog
+  4-3-ranked-match-results-view: backlog
+  4-4-points-elo-rating-system: backlog
+  4-5-public-leaderboard: backlog
+  epic-4-retrospective: optional

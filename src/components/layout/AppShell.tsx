@@ -1,15 +1,16 @@
 /**
- * AppShell - Layout principal avec 3 panels
- * PROPRIÉTAIRE: Winston (Software Architect)
+ * AppShell - Main layout with 3 panels
+ * OWNER: Dev Team
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { TacticsCanvas, TacticsCanvasHandle } from '../canvas';
 import { ScriptsPanel } from '../editor/ScriptsPanel';
 import { DebuggerPanel } from '../debugger/DebuggerPanel';
 import { Header } from './Header';
 import { Timeline } from './Timeline';
 import { useCanvasStore, useEditorStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 import type { TacticData, Player } from '@/types';
 
 // Tactique de démo
@@ -79,12 +80,22 @@ export const AppShell: React.FC = () => {
     totalFrames,
   } = useCanvasStore();
 
-  // Charger la tactique de démo au démarrage
-  const handleCanvasReady = useCallback(() => {
+  const { isAuthenticated } = useAuthStore();
+  const { fetchScripts } = useEditorStore();
+
+  // Load demo tactic on mount
+  useEffect(() => {
     const demoTactic = createDemoTactic();
     canvasRef.current?.loadTactic(demoTactic);
     setTacticLoaded(true);
   }, [setTacticLoaded]);
+
+  // Fetch user scripts when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchScripts();
+    }
+  }, [isAuthenticated, fetchScripts]);
 
   // Callbacks du Canvas
   const handlePlayerSelected = useCallback(
@@ -158,7 +169,7 @@ export const AppShell: React.FC = () => {
         </div>
 
         {/* Canvas (centre) */}
-        <div style={styles.centerPanel} ref={(el) => el && handleCanvasReady()}>
+        <div style={styles.centerPanel}>
           <TacticsCanvas
             ref={canvasRef}
             onPlayerSelected={handlePlayerSelected}

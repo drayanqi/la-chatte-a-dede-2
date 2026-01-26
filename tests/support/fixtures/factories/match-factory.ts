@@ -64,7 +64,7 @@ export class MatchFactory {
       { slot: 5, scriptId: scriptIds[4] || scriptIds[0], x: 350, y: 400 },  // ATK2
     ];
 
-    const response = await this.apiContext.post('/tactics', {
+    const response = await this.apiContext.post('tactics', {
       data: {
         name: name || faker.word.adjective() + 'Formation',
         players,
@@ -93,7 +93,7 @@ export class MatchFactory {
   }): Promise<Match> {
     const { token, tacticId } = params;
 
-    const response = await this.apiContext.post('/matches', {
+    const response = await this.apiContext.post('matches', {
       data: {
         type: 'practice',
         tacticId,
@@ -121,7 +121,7 @@ export class MatchFactory {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
-      const response = await this.apiContext.get(`/matches/${matchId}`, {
+      const response = await this.apiContext.get(`matches/${matchId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -147,7 +147,7 @@ export class MatchFactory {
     // Cleanup matches
     for (const matchId of this.createdMatchIds) {
       try {
-        await this.apiContext.delete(`/matches/${matchId}`);
+        await this.apiContext.delete(`matches/${matchId}`);
       } catch (error) {
         console.warn(`Failed to cleanup match ${matchId}:`, error);
       }
@@ -157,7 +157,7 @@ export class MatchFactory {
     // Cleanup tactics
     for (const tacticId of this.createdTacticIds) {
       try {
-        await this.apiContext.delete(`/tactics/${tacticId}`);
+        await this.apiContext.delete(`tactics/${tacticId}`);
       } catch (error) {
         console.warn(`Failed to cleanup tactic ${tacticId}:`, error);
       }

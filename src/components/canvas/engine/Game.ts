@@ -33,12 +33,16 @@ export class Game {
   private players: Map<string, PlayerSprite> = new Map();
   private gameContainer: Container;
   private callbacks: GameCallbacks;
+  private isInitialized: boolean = false;
 
   // État de simulation
   private simulationFrames: PlayerFrameState[][] = [];
   private currentFrame: number = 0;
   private isPlaying: boolean = false;
   private playbackSpeed: number = 1;
+
+  // Pending tactic to load after initialization
+  private pendingTactic: TacticData | null = null;
 
   constructor(callbacks: GameCallbacks, config: Partial<GameConfig> = {}) {
     const finalConfig = { ...DEFAULT_CONFIG, ...config };
@@ -67,6 +71,15 @@ export class Game {
 
     // Démarrer la game loop
     this.app.ticker.add(this.gameLoop.bind(this));
+
+    // Mark as initialized
+    this.isInitialized = true;
+
+    // Load any pending tactic
+    if (this.pendingTactic) {
+      this.loadTacticInternal(this.pendingTactic);
+      this.pendingTactic = null;
+    }
   }
 
   private gameLoop(ticker: { deltaTime: number }): void {
@@ -102,6 +115,15 @@ export class Game {
   }
 
   loadTactic(tactic: TacticData): void {
+    if (!this.isInitialized) {
+      // Queue the tactic to load after initialization
+      this.pendingTactic = tactic;
+      return;
+    }
+    this.loadTacticInternal(tactic);
+  }
+
+  private loadTacticInternal(tactic: TacticData): void {
     // Supprimer les anciens joueurs
     for (const player of this.players.values()) {
       player.destroy();
@@ -217,6 +239,9 @@ export class Game {
   }
 
   resize(width: number, height: number): void {
+    if (!this.isInitialized || !this.app.renderer) {
+      return;
+    }
     this.app.renderer.resize(width, height);
     this.field?.resize(width, height);
 
@@ -226,6 +251,13 @@ export class Game {
   }
 
   destroy(): void {
-    this.app.destroy(true, { children: true });
+    try {
+      // Check if app was properly initialized before destroying
+      if (this.app && this.app.renderer) {
+        this.app.destroy(true, { children: true });
+      }
+    } catch (error) {
+      console.warn('Error destroying game:', error);
+    }
   }
 }

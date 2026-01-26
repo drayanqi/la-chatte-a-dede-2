@@ -99,6 +99,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
     useEffect(() => {
       if (!containerRef.current) return;
 
+      let isCleanedUp = false;
+      let resizeObserver: ResizeObserver | null = null;
+
       const game = new Game({
         onPlayerSelected: (id, team, pos, script) => {
           onPlayerSelected?.(id, team, pos, script);
@@ -115,20 +118,33 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       });
 
       gameRef.current = game;
-      game.init(containerRef.current);
 
-      // Gestion du resize
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { width, height } = entry.contentRect;
-          game.resize(width, height);
+      // Initialize async but handle cleanup race condition
+      game.init(containerRef.current!).then(() => {
+        if (isCleanedUp) {
+          // Component was unmounted before init completed
+          game.destroy();
+          return;
         }
+
+        // Setup resize observer after successful init
+        resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            game.resize(width, height);
+          }
+        });
+
+        if (containerRef.current) {
+          resizeObserver.observe(containerRef.current);
+        }
+      }).catch((error) => {
+        console.error('Failed to initialize game:', error);
       });
 
-      resizeObserver.observe(containerRef.current);
-
       return () => {
-        resizeObserver.disconnect();
+        isCleanedUp = true;
+        resizeObserver?.disconnect();
         game.destroy();
         gameRef.current = null;
       };

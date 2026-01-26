@@ -68,7 +68,7 @@ export class ScriptFactory {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await this.apiContext.post('/scripts', {
+    const response = await this.apiContext.post('scripts', {
       data,
       headers,
     });
@@ -111,7 +111,7 @@ export class ScriptFactory {
   async cleanup(): Promise<void> {
     for (const scriptId of this.createdScriptIds) {
       try {
-        await this.apiContext.delete(`/scripts/${scriptId}`);
+        await this.apiContext.delete(`scripts/${scriptId}`);
       } catch (error) {
         console.warn(`Failed to cleanup script ${scriptId}:`, error);
       }
