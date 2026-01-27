@@ -1,0 +1,95 @@
+# La Chatte à Dédé - Production Docker Compose
+# Services: nginx, laravel, node (placeholder), mysql
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../lachatadede-api/public:/var/www/html/public:ro
+      - laravel_vendor:/var/www/html/vendor:ro
+    depends_on:
+      laravel:
+        condition: service_started
+    networks:
+      - lachatadede_net
+    restart: unless-stopped
+
+  laravel:
+    build:
+      context: ../lachatadede-api
+      dockerfile: ../deploy/docker/Dockerfile.api
+    volumes:
+      # Mount only what needs to change at runtime, not vendor
+      - ../lachatadede-api/storage:/var/www/html/storage
+      - ../lachatadede-api/bootstrap/cache:/var/www/html/bootstrap/cache
+      # Share vendor with nginx for static assets if needed
+      - laravel_vendor:/var/www/html/vendor
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://venanciohugo.fr}
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-lachatadede}
+      - DB_USERNAME=${DB_USERNAME:-lachatadede_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - GAME_ENGINE_URL=http://node:3001
+      # Additional production settings
+      - LOG_CHANNEL=stack
+      - SESSION_DRIVER=database
+      - CACHE_STORE=database
+      - QUEUE_CONNECTION=database
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lachatadede_net
+    restart: unless-stopped
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+    volumes:
+      - ../lachatadede-api/storage:/app/storage
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    networks:
+      - lachatadede_net
+    restart: "no"
+    # Note: This container will fail until Epic 3 implements the game engine
+    # Use `docker compose up -d nginx laravel mysql` to skip it for now
+    # restart: "no" prevents crash loops for placeholder
+
+  mysql:
+    image: mysql:8.0
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE:-lachatadede}
+      - MYSQL_USER=${DB_USERNAME:-lachatadede_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lachatadede_net
+    restart: unless-stopped
+
+networks:
+  lachatadede_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  laravel_vendor:

@@ -1,0 +1,26 @@
+# Node.js Game Engine Dockerfile (Placeholder for Epic 3)
+# This container will run the server-side game engine
+
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy application code
+COPY . .
+
+# Build TypeScript (if applicable)
+RUN npm run build || echo "No build script - placeholder for Epic 3"
+
+EXPOSE 3001
+
+# Entry point - will be created in Epic 3
+CMD ["node", "dist/index.js"]

@@ -1,0 +1,13 @@
+# Ansible Inventory for La Chatte à Dédé
+
+all:
+  hosts:
+    vps:
+      ansible_host: 83.228.196.103
+      ansible_user: debian
+      ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    production:
+      hosts:
+        vps:

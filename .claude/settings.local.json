@@ -30,7 +30,8 @@
       "Bash(npx playwright show-trace:*)",
       "Bash(npx tsx:*)",
       "Bash(node --import tsx:*)",
-      "Bash(npm i)"
+      "Bash(npm i)",
+      "Skill(bmad:bmm:workflows:create-tech-spec)"
     ]
   },
   "enableAllProjectMcpServers": true,

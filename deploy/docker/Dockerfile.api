@@ -1,0 +1,41 @@
+# Laravel API Dockerfile
+# PHP 8.2-FPM with required extensions for Laravel
+
+FROM php:8.2-fpm
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    zip \
+    unzip \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# Copy composer files first for better layer caching
+COPY composer.json composer.lock ./
+
+# Install dependencies (production only, optimized autoloader)
+RUN composer install --optimize-autoloader --no-dev --no-interaction --no-progress --no-scripts
+
+# Copy application code
+COPY . .
+
+# Run post-install scripts now that all files are present
+RUN composer run-script post-autoload-dump --no-interaction || true
+
+# Set permissions for Laravel storage and cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+EXPOSE 9000
+
+CMD ["php-fpm"]

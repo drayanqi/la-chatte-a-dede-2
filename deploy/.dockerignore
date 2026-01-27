@@ -1,0 +1,28 @@
+# Deploy directory Docker Ignore
+# For Node.js placeholder container
+
+# Git
+.git/
+.gitignore
+
+# Environment files
+.env
+.env.example
+.env.secrets
+
+# Ansible (not needed in container)
+ansible/
+
+# Nginx config (mounted separately)
+nginx/
+
+# Docker files
+docker-compose.yml
+Dockerfile*
+
+# Storage data (mounted as volume)
+storage/
+
+# OS files
+.DS_Store
+Thumbs.db

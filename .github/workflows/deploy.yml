@@ -1,0 +1,176 @@
+# La Chatte à Dédé - Deployment Pipeline
+# Deploys to VPS after tests pass on main branch
+#
+# Required GitHub Secrets:
+#   VPS_HOST        - VPS IP address or hostname
+#   VPS_USER        - SSH username (hugo)
+#   VPS_SSH_KEY     - Private SSH key for deployment
+#   DB_PASSWORD     - MySQL user password
+#   DB_ROOT_PASSWORD - MySQL root password
+#   APP_KEY         - Laravel application key (base64:...)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  NODE_VERSION: '24'
+  DEPLOY_PATH: /home/hugo/lachatadede
+
+jobs:
+  # Wait for ALL test jobs to complete first
+  wait-for-tests:
+    name: Wait for Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for all E2E shards
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.sha }}
+          check-regexp: 'E2E Tests \(Shard \d/4\)'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for unit tests
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.sha }}
+          check-name: 'Unit Tests'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for lint
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.sha }}
+          check-name: 'Lint & Type Check'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: [wait-for-tests]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Build frontend
+        run: npm run build
+
+      # Copy frontend FIRST, before starting services
+      - name: Copy frontend build to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "dist/*"
+          target: "${{ env.DEPLOY_PATH }}/lachatadede-api/public/build"
+          strip_components: 1
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: DB_PASSWORD,DB_ROOT_PASSWORD,APP_KEY
+          script_stop: true
+          script: |
+            set -e
+            cd ${{ env.DEPLOY_PATH }}
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            echo "=== Setting up environment ==="
+            if [ ! -f deploy/.env ]; then
+              cp deploy/.env.example deploy/.env
+              echo "Created .env from template"
+            fi
+
+            # Update secrets securely via environment variables (not command line)
+            cat > deploy/.env.secrets << EOF
+            DB_PASSWORD=${DB_PASSWORD}
+            MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+            APP_KEY=${APP_KEY}
+            EOF
+
+            # Merge secrets into .env
+            while IFS='=' read -r key value; do
+              if [ -n "$key" ]; then
+                sed -i "s|^${key}=.*|${key}=${value}|" deploy/.env
+              fi
+            done < deploy/.env.secrets
+            rm deploy/.env.secrets
+
+            echo "=== Building Docker images ==="
+            cd deploy
+            docker compose build laravel
+
+            echo "=== Starting services ==="
+            # Skip node service until Epic 3 (game engine not implemented)
+            docker compose up -d mysql
+
+            # Wait for MySQL to be healthy
+            echo "=== Waiting for MySQL to be ready ==="
+            timeout 60 bash -c 'until docker compose exec -T mysql mysqladmin ping -h localhost --silent; do sleep 2; done' || {
+              echo "MySQL failed to start"
+              docker compose logs mysql
+              exit 1
+            }
+
+            docker compose up -d nginx laravel
+
+            echo "=== Running Laravel migrations ==="
+            # Retry migrations up to 3 times
+            for i in 1 2 3; do
+              if docker compose exec -T laravel php artisan migrate --force; then
+                echo "Migrations completed successfully"
+                break
+              fi
+              if [ $i -eq 3 ]; then
+                echo "Migrations failed after 3 attempts"
+                exit 1
+              fi
+              echo "Migration attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+
+            echo "=== Clearing Laravel cache ==="
+            docker compose exec -T laravel php artisan config:cache
+            docker compose exec -T laravel php artisan route:cache
+            docker compose exec -T laravel php artisan view:cache
+
+            echo "=== Running health check ==="
+            sleep 5
+            curl -f -s --max-time 10 http://localhost/health || {
+              echo "Health check failed!"
+              docker compose logs
+              exit 1
+            }
+
+            echo "=== Deployment complete ==="
+            docker compose ps

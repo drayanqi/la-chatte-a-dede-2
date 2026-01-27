@@ -1,0 +1,124 @@
+# Ansible Playbook for VPS Provisioning
+# One-time setup: install Docker, create directories
+# Usage: ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
+
+---
+- name: Provision VPS for La Chatte à Dédé
+  hosts: production
+  become: true
+
+  vars:
+    app_user: hugo
+    app_path: /home/hugo/lachatadede
+    docker_gpg_key_path: /etc/apt/keyrings/docker.asc
+
+  tasks:
+    # ==========================================================================
+    # System Updates
+    # ==========================================================================
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    # ==========================================================================
+    # Docker Installation (using modern GPG key handling)
+    # ==========================================================================
+    - name: Install required packages for Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: "{{ docker_gpg_key_path }}"
+        mode: '0644'
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by={{ docker_gpg_key_path }}] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    # ==========================================================================
+    # Application Directory Structure
+    # ==========================================================================
+    - name: Create application directory
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create MySQL data directory
+      file:
+        path: "{{ app_path }}/mysql_data"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create storage directory
+      file:
+        path: "{{ app_path }}/storage"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create simulations storage subdirectory
+      file:
+        path: "{{ app_path }}/storage/simulations"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0775'
+
+    # ==========================================================================
+    # Git Installation (for deployment)
+    # ==========================================================================
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+  handlers:
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted
