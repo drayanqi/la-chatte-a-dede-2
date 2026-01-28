@@ -13,7 +13,7 @@
  */
 import { test, expect } from '../support/fixtures';
 
-test.describe('AI Workspace', () => {
+// test.describe('AI Workspace', () => {
   // test.describe('Story 2.1 - Create and List AI Files', () => {
   //   test('should create new AI file with default name @P0', async ({
   //     page,
@@ -436,4 +436,4 @@ test.describe('AI Workspace', () => {
   //     await expect(page.locator('[data-testid="scripts-list"]')).not.toContainText('PrivateScript.js');
   //   });
   // });
-});
+// });

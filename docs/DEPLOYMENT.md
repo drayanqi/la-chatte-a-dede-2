@@ -38,14 +38,14 @@ Navigate to your repository: **Settings > Secrets and variables > Actions**
 
 Create these secrets:
 
-| Secret | Description | How to Get It |
-|--------|-------------|---------------|
+| Secret | Description | How to Get It                        |
+|--------|-------------|--------------------------------------|
 | `VPS_HOST` | VPS IP address | Get from your VPS provider dashboard |
-| `VPS_USER` | SSH username | `pelo` |
-| `VPS_SSH_KEY` | Private SSH key | See "Generate SSH Key" below |
-| `DB_PASSWORD` | MySQL user password | `openssl rand -base64 32` |
-| `DB_ROOT_PASSWORD` | MySQL root password | `openssl rand -base64 32` |
-| `APP_KEY` | Laravel application key | `php artisan key:generate --show` |
+| `VPS_USER` | SSH username | `debian`                             |
+| `VPS_SSH_KEY` | Private SSH key | See "Generate SSH Key" below         |
+| `DB_PASSWORD` | MySQL user password | `openssl rand -base64 32`            |
+| `DB_ROOT_PASSWORD` | MySQL root password | `openssl rand -base64 32`            |
+| `APP_KEY` | Laravel application key | `php artisan key:generate --show`    |
 
 ### Generate SSH Key for Deployment
 
@@ -97,13 +97,13 @@ sudo usermod -aG docker $USER
 # Logout and login again to apply docker group
 
 # Create directories
-mkdir -p /home/pelo/lachatadede
-mkdir -p /home/pelo/lachatadede/mysql_data
-mkdir -p /home/pelo/lachatadede/storage/simulations
+mkdir -p /home/debian/lachatadede
+mkdir -p /home/debian/lachatadede/mysql_data
+mkdir -p /home/debian/lachatadede/storage/simulations
 
 # Clone the repository
-cd /home/pelo
-git clone https://github.com/YOUR_USERNAME/lachatadede.git
+cd /home/debian
+git clone https://github.com/drayanqi/lachatadede.git
 cd lachatadede
 
 # Create .env file
@@ -129,8 +129,8 @@ Once GitHub Secrets are configured, deployments happen automatically:
 If you need to deploy manually:
 
 ```bash
-ssh pelo@YOUR_VPS_IP
-cd /home/pelo/lachatadede
+ssh vps_deploy
+cd /home/debian/lachatadede
 
 # Pull latest code
 git pull origin main

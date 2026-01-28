@@ -8,8 +8,8 @@
   become: true
 
   vars:
-    app_user: hugo
-    app_path: /home/hugo/lachatadede
+    app_user: debian
+    app_path: /home/debian/lachatadede
     docker_gpg_key_path: /etc/apt/keyrings/docker.asc
 
   tasks:

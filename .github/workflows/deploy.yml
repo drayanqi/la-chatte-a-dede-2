@@ -3,7 +3,7 @@
 #
 # Required GitHub Secrets:
 #   VPS_HOST        - VPS IP address or hostname
-#   VPS_USER        - SSH username (hugo)
+#   VPS_USER        - SSH username (debian)
 #   VPS_SSH_KEY     - Private SSH key for deployment
 #   DB_PASSWORD     - MySQL user password
 #   DB_ROOT_PASSWORD - MySQL root password
@@ -18,7 +18,7 @@ on:
 
 env:
   NODE_VERSION: '24'
-  DEPLOY_PATH: /home/hugo/lachatadede
+  DEPLOY_PATH: /home/debian/lachatadede
 
 jobs:
   # Wait for ALL test jobs to complete first
