@@ -358,7 +358,12 @@ jobs:
             echo "=== Logging in to Docker Hub ==="
             # Disable credential helper to avoid GPG issues
             mkdir -p ~/.docker
-            echo '{}' > ~/.docker/config.json
+            cat > ~/.docker/config.json << 'DOCKERCFG'
+            {
+              "credsStore": "",
+              "credHelpers": {}
+            }
+            DOCKERCFG
             echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
             echo "=== Setting up environment ==="
