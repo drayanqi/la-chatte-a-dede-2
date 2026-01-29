@@ -356,6 +356,9 @@ jobs:
             cd /home/debian/lachatadede
 
             echo "=== Logging in to Docker Hub ==="
+            # Disable credential helper to avoid GPG issues
+            mkdir -p ~/.docker
+            echo '{}' > ~/.docker/config.json
             echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
             echo "=== Setting up environment ==="
