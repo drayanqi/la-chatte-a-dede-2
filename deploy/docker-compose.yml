@@ -8,8 +8,9 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ../lachatadede-api/public:/var/www/html/public:ro
-      - laravel_vendor:/var/www/html/vendor:ro
+      - ../frontend-dist:/var/www/html/frontend:ro
+      - ../lachatadede-api/public:/var/www/html/api/public:ro
+      - laravel_vendor:/var/www/html/api/vendor:ro
     depends_on:
       laravel:
         condition: service_started
