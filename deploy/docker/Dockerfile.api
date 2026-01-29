@@ -1,7 +1,7 @@
 # Laravel API Dockerfile
-# PHP 8.2-FPM with required extensions for Laravel
+# PHP 8.4-FPM with required extensions for Laravel
 
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

@@ -8,6 +8,8 @@
 #   DB_PASSWORD     - MySQL user password
 #   DB_ROOT_PASSWORD - MySQL root password
 #   APP_KEY         - Laravel application key (base64:...)
+#   DOCKERHUB_USERNAME - Docker Hub username
+#   DOCKERHUB_TOKEN    - Docker Hub access token
 
 name: Deploy
 
@@ -112,16 +114,21 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
           APP_KEY: ${{ secrets.APP_KEY }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: DB_PASSWORD,DB_ROOT_PASSWORD,APP_KEY
+          envs: DB_PASSWORD,DB_ROOT_PASSWORD,APP_KEY,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
           script_stop: true
           script: |
             set -e
 
             cd ${{ env.DEPLOY_PATH }}
+
+            echo "=== Logging in to Docker Hub ==="
+            echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
             echo "=== Setting up environment ==="
             if [ ! -f deploy/.env ]; then
