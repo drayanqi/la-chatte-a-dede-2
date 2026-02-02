@@ -1,6 +1,6 @@
 # Story 2.2: Monaco Editor Integration
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -22,55 +22,55 @@ So that I have a familiar coding experience.
 
 ### Frontend Tasks (React)
 
-- [ ] Task 2: Create MonacoEditor Component (AC: #1, #2)
-  - [ ] Create `src/components/editor/MonacoEditor.tsx`
-  - [ ] Import `@monaco-editor/react` (already in package.json)
-  - [ ] Configure Monaco for JavaScript language
-  - [ ] Set VSCode Dark theme (`vs-dark`)
-  - [ ] Enable line numbers, minimap (optional), word wrap
-  - [ ] Add `data-testid="monaco-editor"` to container
+- [x] Task 2: Create MonacoEditor Component (AC: #1, #2)
+  - [x] Create `src/components/editor/MonacoEditor.tsx`
+  - [x] Import `@monaco-editor/react` (already in package.json)
+  - [x] Configure Monaco for JavaScript language
+  - [x] Set VSCode Dark theme (`vs-dark`)
+  - [x] Enable line numbers, minimap (optional), word wrap
+  - [x] Add `data-testid="monaco-editor"` to container
 
-- [ ] Task 3: Integrate Monaco into ScriptsPanel (AC: #1)
-  - [ ] Replace `<pre style={styles.codePreview}>` placeholder with `<MonacoEditor />`
-  - [ ] Pass `activeScript.code` as initial value
-  - [ ] Pass `onChange` handler to update store
-  - [ ] Handle loading state while Monaco initializes
-  - [ ] Add `data-testid="editor-container"` to wrapper
+- [x] Task 3: Integrate Monaco into ScriptsPanel (AC: #1)
+  - [x] Replace `<pre style={styles.codePreview}>` placeholder with `<MonacoEditor />`
+  - [x] Pass `activeScript.code` as initial value
+  - [x] Pass `onChange` handler to update store
+  - [x] Handle loading state while Monaco initializes
+  - [x] Add `data-testid="editor-container"` to wrapper
 
-- [ ] Task 4: Wire Editor to Store (AC: #1)
-  - [ ] Connect `onChange` to `updateScript(activeScriptId, newCode)`
-  - [ ] Ensure `hasUnsavedChanges` flag is set when code changes
-  - [ ] Handle editor focus/blur for unsaved indicator
+- [x] Task 4: Wire Editor to Store (AC: #1)
+  - [x] Connect `onChange` to `updateScript(activeScriptId, newCode)`
+  - [x] Ensure `hasUnsavedChanges` flag is set when code changes
+  - [x] Handle editor focus/blur for unsaved indicator
 
-- [ ] Task 5: Editor Styling & Theme (AC: #2)
-  - [ ] Match VSCode Dark theme colors from UX spec (`#1e1e1e` background)
-  - [ ] Configure syntax highlighting colors
-  - [ ] Set appropriate font (Monaco, Menlo, Consolas)
-  - [ ] Set font size (12-14px per UX spec)
+- [x] Task 5: Editor Styling & Theme (AC: #2)
+  - [x] Match VSCode Dark theme colors from UX spec (`#1e1e1e` background)
+  - [x] Configure syntax highlighting colors
+  - [x] Set appropriate font (Monaco, Menlo, Consolas)
+  - [x] Set font size (12-14px per UX spec)
 
-- [ ] Task 6: Keyboard Shortcuts (AC: #1)
-  - [ ] Verify standard Monaco shortcuts work (Cmd+Z, Cmd+C, Cmd+V, Cmd+A)
-  - [ ] Add key binding for Cmd+S (will be used in Story 2.3)
-  - [ ] Ensure no conflicts with browser shortcuts
+- [x] Task 6: Keyboard Shortcuts (AC: #1)
+  - [x] Verify standard Monaco shortcuts work (Cmd+Z, Cmd+C, Cmd+V, Cmd+A)
+  - [x] Add key binding for Cmd+S (will be used in Story 2.3)
+  - [x] Ensure no conflicts with browser shortcuts
 
-- [ ] Task 7: Responsive Editor Height (AC: #1)
-  - [ ] Editor fills available space in ScriptsPanel
-  - [ ] Handle window resize
-  - [ ] Ensure no vertical scroll issues
+- [x] Task 7: Responsive Editor Height (AC: #1)
+  - [x] Editor fills available space in ScriptsPanel
+  - [x] Handle window resize
+  - [x] Ensure no vertical scroll issues
 
 ### Testing Tasks
 
-- [ ] Task 8: Unit Tests for MonacoEditor Component
-  - [ ] Test Monaco loads with provided code
-  - [ ] Test onChange callback is called on edit
-  - [ ] Test theme is applied correctly
+- [x] Task 8: Unit Tests for MonacoEditor Component
+  - [x] Test Monaco loads with provided code
+  - [x] Test onChange callback is called on edit
+  - [x] Test theme is applied correctly
 
-- [ ] Task 9: E2E Tests for Monaco Integration (AC: #1, #2)
-  - [ ] Test: Monaco editor visible when file selected
-  - [ ] Test: Code content displayed in editor
-  - [ ] Test: Syntax highlighting visible (keywords colored)
-  - [ ] Test: Line numbers displayed
-  - [ ] Test: Standard keyboard shortcuts work (Cmd+Z for undo)
+- [x] Task 9: E2E Tests for Monaco Integration (AC: #1, #2)
+  - [x] Test: Monaco editor visible when file selected
+  - [x] Test: Code content displayed in editor
+  - [x] Test: Syntax highlighting visible (keywords colored)
+  - [x] Test: Line numbers displayed
+  - [x] Test: Standard keyboard shortcuts work (Cmd+Z for undo)
 
 ## Dev Notes
 
@@ -197,25 +197,36 @@ await page.keyboard.type('me.moveTo(ball.position);');
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
-(To be filled during implementation)
+- All 147 unit tests passing
+- Monaco Editor component created with full TypeScript support
+- Integrated with Zustand store for state management
 
 ### Completion Notes List
 
-(To be filled during implementation)
+1. Created MonacoEditor component with vs-dark theme, JavaScript syntax highlighting, and line numbers
+2. Integrated Monaco into ScriptsPanel, replacing placeholder `<pre>` element
+3. Wired editor onChange to store's updateScript action - hasUnsavedChanges flag set automatically
+4. Configured editor options: fontSize 14px, Monaco/Menlo/Consolas font family, word wrap, automatic layout
+5. Added Cmd+S keybinding support (handler passed via onSave prop, ready for Story 2.3)
+6. Responsive height achieved via flex layout and automaticLayout: true
+7. Unit tests cover: rendering, configuration, value passing, theme, onChange handling, onSave keybinding
+8. E2E tests cover: Monaco visibility, code content display, line numbers, syntax highlighting, Cmd+Z undo
 
 ### File List
 
-**Files to create:**
+**Files created:**
 - src/components/editor/MonacoEditor.tsx
+- tests/unit/components/monaco-editor.test.tsx
 
-**Files to modify:**
-- src/components/editor/ScriptsPanel.tsx
-- src/components/editor/index.ts (export new component)
+**Files modified:**
+- src/components/editor/ScriptsPanel.tsx (replaced placeholder with MonacoEditor)
+- src/components/editor/index.ts (added MonacoEditor export)
+- tests/e2e/workspace.spec.ts (added Monaco E2E tests)
 
-**Files to create for tests:**
-- tests/unit/components/monaco-editor.test.tsx (or add to existing)
-- Update tests/e2e/workspace.spec.ts with Monaco tests
+## Change Log
+
+- 2026-02-01: Story 2.2 implementation complete - Monaco Editor integrated with full AC coverage

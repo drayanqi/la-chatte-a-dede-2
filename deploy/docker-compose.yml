@@ -22,6 +22,7 @@ services:
     build:
       context: ../lachatadede-api
       dockerfile: ../deploy/docker/Dockerfile.api
+      target: production
     volumes:
       # Mount only what needs to change at runtime, not vendor
       - ../lachatadede-api/storage:/var/www/html/storage
@@ -56,6 +57,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.node
+      target: production
     volumes:
       - ../lachatadede-api/storage:/app/storage
     environment:

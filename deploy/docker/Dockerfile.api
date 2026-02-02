@@ -1,7 +1,8 @@
 # Laravel API Dockerfile
 # PHP 8.4-FPM with required extensions for Laravel
+# Supports both development and production builds
 
-FROM php:8.4-fpm
+FROM php:8.4-fpm AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,6 +20,36 @@ RUN apt-get update && apt-get install -y \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
+
+# ============================================
+# Development stage
+# ============================================
+FROM base AS development
+
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install ALL dependencies (including dev)
+RUN composer install --no-interaction --no-progress --no-scripts
+
+# Copy application code
+COPY . .
+
+# Run post-install scripts
+RUN composer run-script post-autoload-dump --no-interaction || true
+
+# Set permissions for Laravel storage and cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
+
+# ============================================
+# Production stage
+# ============================================
+FROM base AS production
 
 # Copy composer files first for better layer caching
 COPY composer.json composer.lock ./

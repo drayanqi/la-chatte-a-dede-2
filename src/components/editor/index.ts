@@ -1,6 +1,8 @@
 /**
  * Editor components exports
- * PROPRIÉTAIRE: Winston (Software Architect)
+ * OWNER: Dev Team
  */
 
 export { ScriptsPanel } from './ScriptsPanel';
+export { MonacoEditor } from './MonacoEditor';
+export { SaveIndicator } from './SaveIndicator';

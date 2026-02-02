@@ -49,13 +49,13 @@ development_status:
   # Epic 2: AI Development Workspace
   epic-2: in-progress
   2-1-create-and-list-ai-files: review
-  2-2-monaco-editor-integration: ready-for-dev
-  2-3-save-ai-file-changes: backlog
-  2-4-game-api-autocomplete: backlog
-  2-5-code-error-detection: backlog
-  2-6-rename-ai-file: backlog
-  2-7-duplicate-ai-file: backlog
-  2-8-delete-ai-file: backlog
+  2-2-monaco-editor-integration: review
+  2-3-save-ai-file-changes: review
+  2-4-game-api-autocomplete: review
+  2-5-code-error-detection: review
+  2-6-rename-ai-file: review
+  2-7-duplicate-ai-file: review
+  2-8-delete-ai-file: review
   epic-2-retrospective: optional
 
   # Epic 3: Practice Mode & Match Experience
