@@ -390,9 +390,9 @@ describe('Auth Store', () => {
     });
 
     it('should clear an invalid token without authenticating', async () => {
-      // GIVEN: A stored token the API rejects
+      // GIVEN: A stored token the API rejects as definitively invalid
       getLocalStorageMock().getItem.mockReturnValue('stale-token');
-      mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({}) });
 
       // WHEN: Restoring the session
       await useAuthStore.getState().restoreSession();
@@ -402,6 +402,21 @@ describe('Auth Store', () => {
       expect(state.isRestoring).toBe(false);
       expect(state.isAuthenticated).toBe(false);
       expect(getLocalStorageMock().removeItem).toHaveBeenCalledWith('auth_token');
+    });
+
+    it('should keep the token on a transient server error so the user can retry', async () => {
+      // GIVEN: A stored token and a server outage during restore
+      getLocalStorageMock().getItem.mockReturnValue('good-token');
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503, json: () => Promise.resolve({}) });
+
+      // WHEN: Restoring the session
+      await useAuthStore.getState().restoreSession();
+
+      // THEN: The token is preserved — a transient outage is not a rejection
+      const state = useAuthStore.getState();
+      expect(state.isRestoring).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+      expect(getLocalStorageMock().removeItem).not.toHaveBeenCalledWith('auth_token');
     });
 
     it('should keep the token on a network error so the user can retry', async () => {

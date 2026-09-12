@@ -16,3 +16,8 @@
 - **Gutter icons are a custom implementation** — Monaco standalone never renders marker icons in the glyph margin (Story 2.5's "Monaco displays error icons by default" claim was false). They are now drawn via marker→decoration sync in `MonacoEditor.tsx` (`syncGutterIcons`). If Monaco adds native gutter markers, this can be replaced.
 - **Firefox/WebKit e2e verified locally only** — all 64 tests pass per engine locally; CI installs the same browsers, but the 4-way sharded run has never completed on GitHub's runners. If CI e2e turns out to be slow, consider scoping the workflow to chromium or sharding finer.
 
+## Deferred from: code review of story 3-1 (2026-09-12)
+
+- **No central 401 handling in tacticsStore** — when the bearer token expires or is revoked mid-session, every tactics action keeps failing with "Unauthenticated." (no token cleanup, no logout, no redirect) until a full page reload triggers restoreSession. Mirrors editorStore's existing caller-decides-401 pattern; decide a global auth policy once and apply it to all stores.
+- **updateTactic succeeds server-side but silently no-ops locally when the id is absent from the tactics list** (e.g. after a failed fetchTactics) — `map()` finds no match, UI keeps stale data with no error. Add reconciliation (refetch or insert-on-miss) once story 3.2 defines the lineup UI's expectations.
+

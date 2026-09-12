@@ -33,6 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
+last_updated: 2026-09-12
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -49,28 +50,28 @@ development_status:
   # Epic 2: AI Development Workspace
   epic-2: in-progress
   2-1-create-and-list-ai-files: done
-  2-2-monaco-editor-integration: review
-  2-3-save-ai-file-changes: review
-  2-4-game-api-autocomplete: review
-  2-5-code-error-detection: review
-  2-6-rename-ai-file: review
-  2-7-duplicate-ai-file: review
-  2-8-delete-ai-file: review
+  2-2-monaco-editor-integration: done
+  2-3-save-ai-file-changes: done
+  2-4-game-api-autocomplete: done
+  2-5-code-error-detection: done
+  2-6-rename-ai-file: done
+  2-7-duplicate-ai-file: done
+  2-8-delete-ai-file: done
   epic-2-retrospective: optional
 
   # Epic 3: Practice Mode & Match Experience
-  epic-3: backlog
-  3-1-tactics-data-model-and-api: backlog
-  3-2-team-lineup-configuration-ui: backlog
-  3-3-game-engine-core-deterministic-simulation: backlog
-  3-4-script-sandboxing-and-execution: backlog
-  3-5-practice-match-trigger: backlog
-  3-6-easy-bot-ai: backlog
-  3-7-match-canvas-renderer: backlog
-  3-8-replay-playback-system: backlog
-  3-9-timeline-scrubber-and-navigation: backlog
-  3-10-debug-panel-log-display: backlog
-  3-11-debug-panel-player-filtering: backlog
+  epic-3: in-progress
+  3-1-tactics-data-model-and-api: done
+  3-2-team-lineup-configuration-ui: ready-for-dev
+  3-3-game-engine-core-deterministic-simulation: ready-for-dev
+  3-4-script-sandboxing-and-execution: ready-for-dev
+  3-5-practice-match-trigger: ready-for-dev
+  3-6-easy-bot-ai: ready-for-dev
+  3-7-match-canvas-renderer: ready-for-dev
+  3-8-replay-playback-system: ready-for-dev
+  3-9-timeline-scrubber-and-navigation: ready-for-dev
+  3-10-debug-panel-log-display: ready-for-dev
+  3-11-debug-panel-player-filtering: ready-for-dev
   epic-3-retrospective: optional
 
   # Epic 4: Ranked Competition & Leaderboard

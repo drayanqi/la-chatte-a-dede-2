@@ -11,7 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, HasUuids;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -53,5 +53,13 @@ class User extends Authenticatable
     public function scripts(): HasMany
     {
         return $this->hasMany(Script::class);
+    }
+
+    /**
+     * Get the tactics for the user.
+     */
+    public function tactics(): HasMany
+    {
+        return $this->hasMany(Tactic::class);
     }
 }

@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { apiFetch, ApiError } from '@/lib/apiClient';
 
 export interface User {
   id: string;
@@ -34,8 +35,6 @@ interface AuthActions {
   reset: () => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
-
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
@@ -50,13 +49,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
   register: async (email, password, passwordConfirmation, name) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await apiFetch('/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        credentials: 'include', // Include cookies in request
         body: JSON.stringify({
           email,
           password,
@@ -67,11 +61,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
 
       const data = await response.json();
 
-      if (!response.ok) {
-        set({ error: data.message || 'Authentication failed. Please try again.', isLoading: false });
-        return;
-      }
-
       // The API also sets an HTTP-only cookie as a secondary mechanism; the
       // bearer token in localStorage is what this app actually authenticates with.
       localStorage.setItem('auth_token', data.token);
@@ -83,6 +72,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
         error: null,
       });
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({ error: error.message || 'Authentication failed. Please try again.', isLoading: false });
+        return;
+      }
       console.error('Registration error:', error);
       set({ error: 'Registration failed. Please try again.', isLoading: false });
     }
@@ -91,22 +84,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await apiFetch('/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        credentials: 'include', // Include cookies in request
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        set({ error: data.message || 'Authentication failed. Please try again.', isLoading: false });
-        return;
-      }
 
       // The API also sets an HTTP-only cookie as a secondary mechanism; the
       // bearer token in localStorage is what this app actually authenticates with.
@@ -119,6 +102,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
         error: null,
       });
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({ error: error.message || 'Authentication failed. Please try again.', isLoading: false });
+        return;
+      }
       console.error('Login error:', error);
       set({ error: 'Login failed. Please try again.', isLoading: false });
     }
@@ -131,14 +118,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     const token = localStorage.getItem('auth_token');
 
     if (token) {
-      void fetch(`${API_URL}/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-      }).catch(() => {});
+      void apiFetch('/logout', { method: 'POST' }).catch(() => {});
     }
 
     localStorage.removeItem('auth_token');
@@ -154,21 +134,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     }
 
     try {
-      const response = await fetch(`${API_URL}/user`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        // Definitive rejection: the token is no longer valid, clear it
-        localStorage.removeItem('auth_token');
-        set({ isRestoring: false });
-        return;
-      }
-
+      const response = await apiFetch('/user');
       const user = await response.json();
       set({
         user,
@@ -176,9 +142,15 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
         isRestoring: false,
       });
     } catch (error) {
-      // Network/transport failure: the token may still be valid, keep it and
-      // let the user retry rather than logging them out of a transient outage.
-      console.error('Session restoration error:', error);
+      if (error instanceof ApiError && error.status === 401) {
+        // Definitive rejection: the token is no longer valid, clear it
+        localStorage.removeItem('auth_token');
+      } else {
+        // Transient HTTP failure (5xx/429) or network/transport failure: the
+        // token may still be valid, keep it and let the user retry rather than
+        // logging them out of a transient outage.
+        console.error('Session restoration error:', error);
+      }
       set({ isRestoring: false });
     }
   },
@@ -187,4 +159,3 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
 
   reset: () => set({ ...initialState, isRestoring: false }),
 }));
-

@@ -4,9 +4,8 @@
  */
 
 import { create } from 'zustand';
+import { apiFetch, ApiError } from '@/lib/apiClient';
 import type { Script } from '@/types';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -154,22 +153,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isLoadingScripts: true, scriptsError: null });
 
     try {
-      const response = await fetch(`${API_URL}/scripts`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to fetch scripts',
-          isLoadingScripts: false,
-        });
-        return;
-      }
+      const response = await apiFetch('/scripts');
 
       const scriptsData = await response.json();
 
@@ -190,6 +174,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         scriptsError: null,
       });
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to fetch scripts',
+          isLoadingScripts: false,
+        });
+        return;
+      }
       console.error('Error fetching scripts:', error);
       set({
         scriptsError: 'Failed to load scripts. Please try again.',
@@ -216,29 +207,14 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     try {
       const scriptCode = code ?? generateDefaultCode(name);
 
-      const response = await fetch(`${API_URL}/scripts`, {
+      const response = await apiFetch('/scripts', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           name,
           code: scriptCode,
           language: 'javascript',
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to create script',
-          isCreatingScript: false,
-        });
-        return;
-      }
 
       const scriptData = await response.json();
 
@@ -268,6 +244,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         };
       });
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to create script',
+          isCreatingScript: false,
+        });
+        return;
+      }
       console.error('Error creating script:', error);
       set({
         scriptsError: 'Failed to create script. Please try again.',
@@ -298,29 +281,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isSaving: true, saveStatus: 'saving', scriptsError: null });
 
     try {
-      const response = await fetch(`${API_URL}/scripts/${id}`, {
+      const response = await apiFetch(`/scripts/${id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           code: script.code,
           name: script.name,
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to save script',
-          isSaving: false,
-          saveStatus: 'error',
-        });
-        return false;
-      }
 
       const scriptData = await response.json();
 
@@ -345,6 +312,14 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
       return true;
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to save script',
+          isSaving: false,
+          saveStatus: 'error',
+        });
+        return false;
+      }
       console.error('Error saving script:', error);
       set({
         scriptsError: 'Failed to save script. Please try again.',
@@ -382,27 +357,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isRenaming: true, scriptsError: null });
 
     try {
-      const response = await fetch(`${API_URL}/scripts/${id}`, {
+      const response = await apiFetch(`/scripts/${id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           name: newName,
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to rename script',
-          isRenaming: false,
-        });
-        return false;
-      }
 
       const scriptData = await response.json();
 
@@ -426,6 +386,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
       return true;
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to rename script',
+          isRenaming: false,
+        });
+        return false;
+      }
       console.error('Error renaming script:', error);
       set({
         scriptsError: 'Failed to rename script. Please try again.',
@@ -461,29 +428,14 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       const existingNames = Array.from(get().scripts.values()).map((s) => s.name);
       const newName = generateDuplicateName(script.name, existingNames);
 
-      const response = await fetch(`${API_URL}/scripts`, {
+      const response = await apiFetch('/scripts', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           name: newName,
           code: script.code,
           language: script.language,
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to duplicate script',
-          isDuplicating: false,
-        });
-        return null;
-      }
 
       const scriptData = await response.json();
 
@@ -515,6 +467,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
       return newScript.id;
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to duplicate script',
+          isDuplicating: false,
+        });
+        return null;
+      }
       console.error('Error duplicating script:', error);
       set({
         scriptsError: 'Failed to duplicate script. Please try again.',
@@ -567,23 +526,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isDeleting: true, scriptsError: null });
 
     try {
-      const response = await fetch(`${API_URL}/scripts/${id}`, {
+      await apiFetch(`/scripts/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        credentials: 'include',
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        set({
-          scriptsError: data.message || 'Failed to delete script',
-          isDeleting: false,
-        });
-        return false;
-      }
 
       // Remove from local state and handle active script
       set((state) => {
@@ -608,6 +553,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
       return true;
     } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          scriptsError: error.message || 'Failed to delete script',
+          isDeleting: false,
+        });
+        return false;
+      }
       console.error('Error deleting script:', error);
       set({
         scriptsError: 'Failed to delete script. Please try again.',

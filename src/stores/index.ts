@@ -7,4 +7,5 @@ export { useCanvasStore } from './canvasStore';
 export { useEditorStore } from './editorStore';
 export { useDebuggerStore } from './debuggerStore';
 export { useAuthStore } from './authStore';
+export { useTacticsStore } from './tacticsStore';
 export type { User } from './authStore';

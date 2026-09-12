@@ -68,6 +68,27 @@ export interface TacticData {
   scripts: Record<string, Script>;
 }
 
+/**
+ * One player slot of a saved tactic: which script drives it and where it
+ * starts on the field. scriptId is a reference only (never script code).
+ */
+export interface TacticPlayerConfig {
+  playerSlot: 1 | 2 | 3 | 4 | 5;
+  positionX: number;
+  positionY: number;
+  scriptId: string | null;
+}
+
+/**
+ * A saved tactic as exposed by the API (camelCase shape).
+ */
+export interface TacticConfig {
+  id: string;
+  name: string;
+  isSystem: boolean;
+  players: TacticPlayerConfig[];
+}
+
 // ============================================================================
 // SIMULATION
 // ============================================================================

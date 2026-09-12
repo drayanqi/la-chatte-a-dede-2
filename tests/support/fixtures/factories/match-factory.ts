@@ -24,21 +24,21 @@ export type Match = {
 
 export type Tactic = {
   id: string;
-  userId: string;
   name: string;
+  isSystem: boolean;
   players: TacticPlayer[];
 };
 
 export type TacticPlayer = {
-  slot: number;
-  scriptId: string;
-  x: number;
-  y: number;
+  playerSlot: 1 | 2 | 3 | 4 | 5;
+  positionX: number;
+  positionY: number;
+  scriptId: string | null;
 };
 
 export class MatchFactory {
   private createdMatchIds: string[] = [];
-  private createdTacticIds: string[] = [];
+  private createdTactics: { id: string; token: string }[] = [];
   private apiContext: APIRequestContext;
 
   constructor(apiContext: APIRequestContext) {
@@ -55,20 +55,21 @@ export class MatchFactory {
   }): Promise<Tactic> {
     const { token, scriptIds, name } = params;
 
-    // Default formation: 1-2-2 (GK, 2 DEF, 2 ATK)
-    const players: TacticPlayer[] = [
-      { slot: 1, scriptId: scriptIds[0] || scriptIds[0], x: 50, y: 300 },   // GK
-      { slot: 2, scriptId: scriptIds[1] || scriptIds[0], x: 150, y: 200 },  // DEF1
-      { slot: 3, scriptId: scriptIds[2] || scriptIds[0], x: 150, y: 400 },  // DEF2
-      { slot: 4, scriptId: scriptIds[3] || scriptIds[0], x: 350, y: 200 },  // ATK1
-      { slot: 5, scriptId: scriptIds[4] || scriptIds[0], x: 350, y: 400 },  // ATK2
-    ];
+    // Default formation: 1-2-2 (GK, 2 DEF, 2 ATK); positions follow the
+    // API bounds (x 0-100, y 0-50, home attacks toward x=100)
+    const payload = {
+      name: name || faker.word.adjective() + 'Formation',
+      players: [
+        { player_slot: 1, position_x: 8, position_y: 45, script_id: scriptIds[0] ?? null },    // GK
+        { player_slot: 2, position_x: 25, position_y: 30, script_id: scriptIds[1] ?? null },   // DEF1
+        { player_slot: 3, position_x: 25, position_y: 15, script_id: scriptIds[2] ?? null },   // DEF2
+        { player_slot: 4, position_x: 70, position_y: 30, script_id: scriptIds[3] ?? null },   // ATK1
+        { player_slot: 5, position_x: 70, position_y: 15, script_id: scriptIds[4] ?? null },   // ATK2
+      ],
+    };
 
     const response = await this.apiContext.post('tactics', {
-      data: {
-        name: name || faker.word.adjective() + 'Formation',
-        players,
-      },
+      data: payload,
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -78,8 +79,8 @@ export class MatchFactory {
       throw new Error(`Failed to create tactic: ${response.status()}`);
     }
 
-    const created = await response.json();
-    this.createdTacticIds.push(created.id);
+    const created = (await response.json()) as Tactic;
+    this.createdTactics.push({ id: created.id, token });
 
     return created;
   }
@@ -154,14 +155,19 @@ export class MatchFactory {
     }
     this.createdMatchIds = [];
 
-    // Cleanup tactics
-    for (const tacticId of this.createdTacticIds) {
+    // Cleanup tactics (authenticated: the routes are owner-scoped)
+    for (const { id, token } of this.createdTactics) {
       try {
-        await this.apiContext.delete(`tactics/${tacticId}`);
+        const response = await this.apiContext.delete(`tactics/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok()) {
+          console.warn(`Failed to cleanup tactic ${id}: ${response.status()}`);
+        }
       } catch (error) {
-        console.warn(`Failed to cleanup tactic ${tacticId}:`, error);
+        console.warn(`Failed to cleanup tactic ${id}:`, error);
       }
     }
-    this.createdTacticIds = [];
+    this.createdTactics = [];
   }
 }

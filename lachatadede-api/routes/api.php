@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ScriptController;
+use App\Http\Controllers\TacticController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (rate limited against brute force and enumeration)
@@ -22,4 +23,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/scripts', [ScriptController::class, 'store']);
     Route::put('/scripts/{id}', [ScriptController::class, 'update']);
     Route::delete('/scripts/{id}', [ScriptController::class, 'destroy']);
+
+    // Tactics API
+    Route::get('/tactics', [TacticController::class, 'index']);
+    Route::get('/tactics/{id}', [TacticController::class, 'show']);
+    Route::post('/tactics', [TacticController::class, 'store']);
+    Route::put('/tactics/{id}', [TacticController::class, 'update']);
+    Route::delete('/tactics/{id}', [TacticController::class, 'destroy']);
 });
