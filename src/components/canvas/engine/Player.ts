@@ -5,6 +5,7 @@
 
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { Player, Position, PlayerFrameState } from '@/types';
+import { computePitchRect, computePlayerRadius, percentToScreen } from './fieldGeometry';
 
 interface PlayerCallbacks {
   onSelect: (playerId: string) => void;
@@ -22,12 +23,13 @@ export class PlayerSprite {
   private screenHeight: number;
   private callbacks: PlayerCallbacks;
   private hasScript: boolean = false;
+  private isHovered: boolean = false;
+  private radius: number;
 
   // Couleurs
   private readonly HOME_COLOR = 0x1e3a8a; // Bleu
   private readonly AWAY_COLOR = 0xdc2626; // Rouge
   private readonly SELECTED_COLOR = 0xfbbf24; // Jaune
-  private readonly RADIUS = 20;
 
   constructor(
     player: Player,
@@ -39,6 +41,7 @@ export class PlayerSprite {
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
     this.callbacks = callbacks;
+    this.radius = computePlayerRadius(computePitchRect(screenWidth, screenHeight));
 
     this.container = new Container();
     this.container.eventMode = 'static';
@@ -52,7 +55,7 @@ export class PlayerSprite {
     // Numéro du joueur
     const style = new TextStyle({
       fontFamily: 'Arial',
-      fontSize: 14,
+      fontSize: Math.max(10, this.radius * 0.7),
       fontWeight: 'bold',
       fill: 0xffffff,
     });
@@ -83,14 +86,14 @@ export class PlayerSprite {
     const color = this.player.teamId === 'home' ? this.HOME_COLOR : this.AWAY_COLOR;
 
     // Cercle principal
-    this.circle.circle(0, 0, this.RADIUS);
+    this.circle.circle(0, 0, this.radius);
     this.circle.fill({ color });
 
     // Bordure (plus épaisse si sélectionné)
-    this.circle.circle(0, 0, this.RADIUS);
+    this.circle.circle(0, 0, this.radius);
     this.circle.stroke({
       color: selected ? this.SELECTED_COLOR : 0xffffff,
-      width: selected ? 4 : 2,
+      width: selected ? Math.max(1, this.radius * 0.2) : Math.max(1, this.radius * 0.1),
     });
   }
 
@@ -99,7 +102,11 @@ export class PlayerSprite {
 
     if (this.hasScript) {
       // Petit point vert en haut à droite pour indiquer qu'un script est assigné
-      this.scriptIndicator.circle(this.RADIUS * 0.7, -this.RADIUS * 0.7, 6);
+      this.scriptIndicator.circle(
+        this.radius * 0.7,
+        -this.radius * 0.7,
+        Math.max(2, this.radius * 0.3)
+      );
       this.scriptIndicator.fill({ color: 0x22c55e });
       this.scriptIndicator.stroke({ color: 0xffffff, width: 1 });
     }
@@ -111,29 +118,21 @@ export class PlayerSprite {
     });
 
     this.container.on('pointerover', () => {
+      this.isHovered = true;
       this.drawCircle(true);
       this.callbacks.onHover(this.player.id, this.player.position);
     });
 
     this.container.on('pointerout', () => {
+      this.isHovered = false;
       this.drawCircle(false);
       this.callbacks.onHover(null, null);
     });
   }
 
-  private percentToScreen(x: number, y: number): { x: number; y: number } {
-    const padding = 40;
-    const fieldWidth = this.screenWidth - padding * 2;
-    const fieldHeight = this.screenHeight - padding * 2;
-
-    return {
-      x: padding + (x / 100) * fieldWidth,
-      y: padding + (y / 100) * fieldHeight,
-    };
-  }
-
   private updatePosition(): void {
-    const pos = this.percentToScreen(this.player.position.x, this.player.position.y);
+    const pitch = computePitchRect(this.screenWidth, this.screenHeight);
+    const pos = percentToScreen(pitch, this.player.position.x, this.player.position.y);
     this.container.x = pos.x;
     this.container.y = pos.y;
   }
@@ -145,7 +144,8 @@ export class PlayerSprite {
   }
 
   updateFromState(state: PlayerFrameState): void {
-    const pos = this.percentToScreen(state.position.x, state.position.y);
+    const pitch = computePitchRect(this.screenWidth, this.screenHeight);
+    const pos = percentToScreen(pitch, state.position.x, state.position.y);
     this.container.x = pos.x;
     this.container.y = pos.y;
 
@@ -156,13 +156,17 @@ export class PlayerSprite {
   updateScreenSize(width: number, height: number): void {
     this.screenWidth = width;
     this.screenHeight = height;
+    this.radius = computePlayerRadius(computePitchRect(width, height));
+    this.numberText.style.fontSize = Math.max(10, this.radius * 0.7);
+    this.drawCircle(this.isHovered);
+    this.updateScriptIndicator();
     this.updatePosition();
   }
 
   containsPoint(screenX: number, screenY: number): boolean {
     const dx = screenX - this.container.x;
     const dy = screenY - this.container.y;
-    return Math.sqrt(dx * dx + dy * dy) <= this.RADIUS;
+    return Math.sqrt(dx * dx + dy * dy) <= this.radius;
   }
 
   getPosition(): Position {

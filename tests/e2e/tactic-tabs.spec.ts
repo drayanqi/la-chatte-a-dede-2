@@ -10,9 +10,7 @@
  */
 import { test, expect } from '../support/fixtures';
 import { seedAuthToken } from '../support/helpers/auth';
-
-/** Drop target coordinates: engine percent -> screen px inside the canvas */
-const ENGINE_PERCENT_TO_SCREEN = (x: number, y: number) => ({ x, y });
+import { computePitchRect, percentToScreen } from '../../src/components/canvas/engine/fieldGeometry';
 
 test.describe('Tactic Tabs', () => {
   test('should create, rename, switch and delete tactics from the tab bar @P0', async ({
@@ -92,11 +90,8 @@ test.describe('Tactic Tabs', () => {
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error('Canvas not visible');
 
-    const gk = ENGINE_PERCENT_TO_SCREEN(8, 50);
-    const targetPosition = {
-      x: 40 + (gk.x / 100) * (canvasBox.width - 80),
-      y: 40 + (gk.y / 100) * (canvasBox.height - 80),
-    };
+    const gk = percentToScreen(computePitchRect(canvasBox.width, canvasBox.height), 8, 50);
+    const targetPosition = { x: gk.x, y: gk.y };
 
     const putTacticPromise = page.waitForResponse(
       (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
@@ -163,17 +158,13 @@ test.describe('Tactic Tabs', () => {
       [60, 30], // ATK1 (slot 4)
       [60, 70], // ATK2 (slot 5)
     ];
+    const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
 
     for (const [x, y] of slots) {
       const putTacticPromise = page.waitForResponse(
         (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
       );
-      await scriptItem.dragTo(canvas, {
-        targetPosition: {
-          x: 40 + (x / 100) * (canvasBox.width - 80),
-          y: 40 + (y / 100) * (canvasBox.height - 80),
-        },
-      });
+      await scriptItem.dragTo(canvas, { targetPosition: percentToScreen(pitchRect, x, y) });
       await putTacticPromise;
     }
 

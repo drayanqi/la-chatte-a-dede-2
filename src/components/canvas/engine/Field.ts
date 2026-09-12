@@ -4,6 +4,7 @@
  */
 
 import { Container, Graphics } from 'pixi.js';
+import * as fieldGeometry from './fieldGeometry';
 
 export class Field {
   public container: Container;
@@ -30,28 +31,30 @@ export class Field {
     const g = this.graphics;
     g.clear();
 
-    const padding = 40;
-    const fieldWidth = this.width - padding * 2;
-    const fieldHeight = this.height - padding * 2;
+    const pitch = fieldGeometry.computePitchRect(this.width, this.height);
 
-    // Fond du terrain
-    g.rect(padding, padding, fieldWidth, fieldHeight);
+    // Fond (herbe sur tout le canvas, le letterbox est hors-jeu)
+    g.rect(0, 0, this.width, this.height);
     g.fill({ color: this.FIELD_COLOR });
 
+    if (pitch.width === 0 || pitch.height === 0) {
+      return;
+    }
+
     // Bordure extérieure
-    g.rect(padding, padding, fieldWidth, fieldHeight);
+    g.rect(pitch.x, pitch.y, pitch.width, pitch.height);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Ligne médiane
-    const centerX = this.width / 2;
-    const centerY = this.height / 2;
+    const centerX = pitch.x + pitch.width / 2;
+    const centerY = pitch.y + pitch.height / 2;
 
-    g.moveTo(centerX, padding);
-    g.lineTo(centerX, this.height - padding);
+    g.moveTo(centerX, pitch.y);
+    g.lineTo(centerX, pitch.y + pitch.height);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Cercle central
-    const circleRadius = Math.min(fieldWidth, fieldHeight) * 0.15;
+    const circleRadius = Math.min(pitch.width, pitch.height) * 0.15;
     g.circle(centerX, centerY, circleRadius);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
@@ -60,29 +63,29 @@ export class Field {
     g.fill({ color: this.LINE_COLOR });
 
     // Surfaces de réparation (simplifiées pour 5v5)
-    const boxWidth = fieldWidth * 0.2;
-    const boxHeight = fieldHeight * 0.4;
-    const boxY = (this.height - boxHeight) / 2;
+    const boxWidth = pitch.width * 0.2;
+    const boxHeight = pitch.height * 0.4;
+    const boxY = pitch.y + (pitch.height - boxHeight) / 2;
 
     // Surface gauche
-    g.rect(padding, boxY, boxWidth, boxHeight);
+    g.rect(pitch.x, boxY, boxWidth, boxHeight);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Surface droite
-    g.rect(this.width - padding - boxWidth, boxY, boxWidth, boxHeight);
+    g.rect(pitch.x + pitch.width - boxWidth, boxY, boxWidth, boxHeight);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Buts (lignes de but)
     const goalWidth = 8;
-    const goalHeight = fieldHeight * 0.2;
-    const goalY = (this.height - goalHeight) / 2;
+    const goalHeight = pitch.height * 0.2;
+    const goalY = pitch.y + (pitch.height - goalHeight) / 2;
 
     // But gauche
-    g.rect(padding - goalWidth, goalY, goalWidth, goalHeight);
+    g.rect(pitch.x - goalWidth, goalY, goalWidth, goalHeight);
     g.fill({ color: this.LINE_COLOR });
 
     // But droit
-    g.rect(this.width - padding, goalY, goalWidth, goalHeight);
+    g.rect(pitch.x + pitch.width, goalY, goalWidth, goalHeight);
     g.fill({ color: this.LINE_COLOR });
   }
 
@@ -96,27 +99,15 @@ export class Field {
    * Convertit une position en pourcentage (0-100) vers des coordonnées écran
    */
   percentToScreen(x: number, y: number): { x: number; y: number } {
-    const padding = 40;
-    const fieldWidth = this.width - padding * 2;
-    const fieldHeight = this.height - padding * 2;
-
-    return {
-      x: padding + (x / 100) * fieldWidth,
-      y: padding + (y / 100) * fieldHeight,
-    };
+    const pitch = fieldGeometry.computePitchRect(this.width, this.height);
+    return fieldGeometry.percentToScreen(pitch, x, y);
   }
 
   /**
    * Convertit des coordonnées écran vers une position en pourcentage
    */
   screenToPercent(screenX: number, screenY: number): { x: number; y: number } {
-    const padding = 40;
-    const fieldWidth = this.width - padding * 2;
-    const fieldHeight = this.height - padding * 2;
-
-    return {
-      x: ((screenX - padding) / fieldWidth) * 100,
-      y: ((screenY - padding) / fieldHeight) * 100,
-    };
+    const pitch = fieldGeometry.computePitchRect(this.width, this.height);
+    return fieldGeometry.screenToPercent(pitch, screenX, screenY);
   }
 }
