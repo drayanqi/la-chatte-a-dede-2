@@ -8,10 +8,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
 interface HeaderProps {
-  onRunSimulation: () => void;
+  /** True when all 5 lineup slots have a script assigned (story 3.2 AC #7) */
+  lineupComplete: boolean;
+  /** Start a practice match; story 3.5 wires the real handler */
+  onStartPractice: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
+export const Header: React.FC<HeaderProps> = ({ lineupComplete, onStartPractice }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const userSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -52,15 +55,24 @@ export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
       </div>
 
       <div style={styles.toolbar}>
-        <button style={styles.button} onClick={onRunSimulation}>
-          ▶ Simulate
-        </button>
-        <button style={styles.buttonSecondary}>
-          💾 Save
-        </button>
-        <button style={styles.buttonSecondary}>
-          📂 Load
-        </button>
+        <div style={styles.startPracticeGroup}>
+          <button
+            data-testid="test-vs-bot-button"
+            style={{
+              ...styles.button,
+              ...(!lineupComplete ? styles.buttonDisabled : {}),
+            }}
+            onClick={onStartPractice}
+            disabled={!lineupComplete}
+          >
+            ▶ Test vs Bot
+          </button>
+          {!lineupComplete && (
+            <span data-testid="lineup-incomplete-message" style={styles.helperMessage}>
+              Assign AIs to all 5 positions
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={styles.spacer} />
@@ -131,6 +143,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     marginLeft: '32px',
   },
+  startPracticeGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
   button: {
     padding: '6px 16px',
     backgroundColor: '#0e639c',
@@ -141,14 +158,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     fontWeight: 500,
   },
-  buttonSecondary: {
-    padding: '6px 16px',
-    backgroundColor: 'transparent',
-    color: '#cccccc',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
+  buttonDisabled: {
+    backgroundColor: '#3c3c3c',
+    color: '#808080',
+    cursor: 'not-allowed',
+  },
+  helperMessage: {
+    fontSize: '12px',
+    color: '#808080',
+    whiteSpace: 'nowrap',
   },
   spacer: {
     flex: 1,

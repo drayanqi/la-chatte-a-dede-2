@@ -20,6 +20,15 @@ interface TacticsState {
   // Saving/creating/updating state
   isSavingTactic: boolean;
 
+  // Deleting state
+  isDeletingTactic: boolean;
+
+  // Id of the tactic last successfully created/saved (drives the "saved" feedback)
+  lastSavedTacticId: string | null;
+
+  // Timestamp of the last successful save (changes every save, even same tactic)
+  lastSavedAt: number | null;
+
   // Error state for tactics
   tacticsError: string | null;
 }
@@ -29,6 +38,8 @@ interface TacticsActions {
   fetchTactics: () => Promise<void>;
   saveTactic: (name: string, slots: TacticPlayerConfig[]) => Promise<void>;
   updateTactic: (id: string, name?: string, slots?: TacticPlayerConfig[]) => Promise<void>;
+  createTactic: () => Promise<TacticConfig | null>;
+  deleteTactic: (id: string) => Promise<boolean>;
 
   // Selection
   selectTactic: (id: string | null) => void;
@@ -45,8 +56,26 @@ const initialState: TacticsState = {
   activeTacticId: null,
   isLoadingTactics: false,
   isSavingTactic: false,
+  isDeletingTactic: false,
+  lastSavedTacticId: null,
+  lastSavedAt: null,
   tacticsError: null,
 };
+
+/**
+ * Default formation applied when the "+" button creates a tactic
+ * (matches Story 3.6 bot + demo geometry; API bounds: x 0-100, y 0-50).
+ */
+const DEFAULT_FORMATION: TacticPlayerConfig[] = [
+  { playerSlot: 1, positionX: 8, positionY: 25, scriptId: null }, // GK
+  { playerSlot: 2, positionX: 25, positionY: 15, scriptId: null }, // DEF1
+  { playerSlot: 3, positionX: 25, positionY: 35, scriptId: null }, // DEF2
+  { playerSlot: 4, positionX: 60, positionY: 15, scriptId: null }, // ATK1
+  { playerSlot: 5, positionX: 60, positionY: 35, scriptId: null }, // ATK2
+];
+
+/** localStorage key remembering the last active tactic across sessions */
+const LAST_ACTIVE_KEY = 'last_active_tactic_id';
 
 /** camelCase store shape -> snake_case API payload */
 const slotsToPayload = (slots: TacticPlayerConfig[]) =>
@@ -76,13 +105,22 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
 
       set((state) => {
         const fetched = tacticsData as TacticConfig[];
+        let activeTacticId =
+          state.activeTacticId !== null && fetched.some((tactic) => tactic.id === state.activeTacticId)
+            ? state.activeTacticId
+            : null;
+
+        // Restore the last active tactic from a previous session
+        if (activeTacticId === null) {
+          const remembered = localStorage.getItem(LAST_ACTIVE_KEY);
+          if (remembered && fetched.some((tactic) => tactic.id === remembered)) {
+            activeTacticId = remembered;
+          }
+        }
+
         return {
           tactics: fetched,
-          // Drop a stale selection that no longer exists server-side
-          activeTacticId:
-            state.activeTacticId !== null && fetched.some((tactic) => tactic.id === state.activeTacticId)
-              ? state.activeTacticId
-              : null,
+          activeTacticId,
           isLoadingTactics: false,
           tacticsError: null,
         };
@@ -134,8 +172,11 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         tactics: [newTactic, ...state.tactics],
         activeTacticId: newTactic.id,
         isSavingTactic: false,
+        lastSavedTacticId: newTactic.id,
+        lastSavedAt: Date.now(),
         tacticsError: null,
       }));
+      localStorage.setItem(LAST_ACTIVE_KEY, newTactic.id);
     } catch (error) {
       if (error instanceof ApiError) {
         set({
@@ -189,6 +230,8 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
           tactic.id === id ? updatedTactic : tactic,
         ),
         isSavingTactic: false,
+        lastSavedTacticId: id,
+        lastSavedAt: Date.now(),
         tacticsError: null,
       }));
     } catch (error) {
@@ -207,12 +250,152 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     }
   },
 
+  createTactic: async () => {
+    const token = localStorage.getItem('auth_token');
+
+    if (!token) {
+      set({ tacticsError: 'Not authenticated', isSavingTactic: false });
+      return null;
+    }
+
+    // Prevent concurrent creations (double-click would create duplicate tactics)
+    if (get().isSavingTactic) {
+      return null;
+    }
+
+    set({ isSavingTactic: true, tacticsError: null });
+
+    try {
+      const name = `Tactic ${get().tactics.length + 1}`;
+
+      const response = await apiFetch('/tactics', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          players: slotsToPayload(DEFAULT_FORMATION),
+        }),
+      });
+
+      const tacticData = await response.json();
+      const newTactic = tacticData as TacticConfig;
+
+      set((state) => ({
+        tactics: [...state.tactics, newTactic],
+        activeTacticId: newTactic.id,
+        isSavingTactic: false,
+        lastSavedTacticId: newTactic.id,
+        lastSavedAt: Date.now(),
+        tacticsError: null,
+      }));
+      localStorage.setItem(LAST_ACTIVE_KEY, newTactic.id);
+
+      return newTactic;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          tacticsError: error.message || 'Failed to create tactic',
+          isSavingTactic: false,
+        });
+        return null;
+      }
+      console.error('Error creating tactic:', error);
+      set({
+        tacticsError: 'Failed to create tactic. Please try again.',
+        isSavingTactic: false,
+      });
+      return null;
+    }
+  },
+
+  deleteTactic: async (id: string) => {
+    const token = localStorage.getItem('auth_token');
+
+    if (!token) {
+      set({ tacticsError: 'Not authenticated', isDeletingTactic: false });
+      return false;
+    }
+
+    if (get().isDeletingTactic) {
+      return false;
+    }
+
+    set({ isDeletingTactic: true, tacticsError: null });
+
+    try {
+      const response = await apiFetch(`/tactics/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ApiError(
+          response.status,
+          (errorData as { message?: string }).message || 'Failed to delete tactic'
+        );
+      }
+
+      set((state) => {
+        const index = state.tactics.findIndex((tactic) => tactic.id === id);
+        const remaining = state.tactics.filter((tactic) => tactic.id !== id);
+
+        let activeTacticId = state.activeTacticId;
+        if (state.activeTacticId === id) {
+          // Promote the neighbor that took the deleted slot, else the last one
+          const neighbor = remaining[Math.min(index, remaining.length - 1)] ?? null;
+          activeTacticId = neighbor ? neighbor.id : null;
+        }
+
+        if (activeTacticId === null) {
+          localStorage.removeItem(LAST_ACTIVE_KEY);
+        }
+
+        return {
+          tactics: remaining,
+          activeTacticId,
+          isDeletingTactic: false,
+          tacticsError: null,
+        };
+      });
+
+      // Invariant (story 3.2): the user always keeps at least one tactic —
+      // deleting the last one immediately recreates a default one.
+      if (get().tactics.length === 0) {
+        await get().createTactic();
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        set({
+          tacticsError: error.message || 'Failed to delete tactic',
+          isDeletingTactic: false,
+        });
+        return false;
+      }
+      console.error('Error deleting tactic:', error);
+      set({
+        tacticsError: 'Failed to delete tactic. Please try again.',
+        isDeletingTactic: false,
+      });
+      return false;
+    }
+  },
+
   selectTactic: (id) =>
-    set((state) => ({
+    set((state) => {
       // Ignore ids that do not exist in the list; null always deselects
-      activeTacticId:
-        id === null || state.tactics.some((tactic) => tactic.id === id) ? id : state.activeTacticId,
-    })),
+      const activeTacticId =
+        id === null || state.tactics.some((tactic) => tactic.id === id) ? id : state.activeTacticId;
+
+      // Remember the selection so a reload restores it (story 3.2 AC #6)
+      if (activeTacticId !== null && activeTacticId !== state.activeTacticId) {
+        localStorage.setItem(LAST_ACTIVE_KEY, activeTacticId);
+      } else if (activeTacticId === null) {
+        localStorage.removeItem(LAST_ACTIVE_KEY);
+      }
+
+      return { activeTacticId };
+    }),
 
   clearTacticsError: () => set({ tacticsError: null }),
 

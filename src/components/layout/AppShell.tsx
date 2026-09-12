@@ -7,64 +7,12 @@ import { useRef, useCallback, useEffect } from 'react';
 import { TacticsCanvas, TacticsCanvasHandle } from '../canvas';
 import { ScriptsPanel } from '../editor/ScriptsPanel';
 import { DebuggerPanel } from '../debugger/DebuggerPanel';
+import { TabBar } from '../tactics';
 import { Header } from './Header';
 import { Timeline } from './Timeline';
-import { useCanvasStore, useEditorStore } from '@/stores';
+import { useCanvasStore, useEditorStore, useTacticsStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
-import type { TacticData, Player } from '@/types';
-
-// Demo tactic
-const createDemoTactic = (): TacticData => {
-  const players: Player[] = [];
-
-  // Équipe Home (gauche)
-  const homePositions = [
-    { x: 10, y: 50, number: 1, name: 'Gardien' },
-    { x: 25, y: 30, number: 2, name: 'Défenseur G' },
-    { x: 25, y: 70, number: 3, name: 'Défenseur D' },
-    { x: 45, y: 40, number: 7, name: 'Milieu' },
-    { x: 45, y: 60, number: 9, name: 'Attaquant' },
-  ];
-
-  // Équipe Away (droite)
-  const awayPositions = [
-    { x: 90, y: 50, number: 1, name: 'Gardien' },
-    { x: 75, y: 30, number: 2, name: 'Défenseur G' },
-    { x: 75, y: 70, number: 3, name: 'Défenseur D' },
-    { x: 55, y: 40, number: 7, name: 'Milieu' },
-    { x: 55, y: 60, number: 9, name: 'Attaquant' },
-  ];
-
-  homePositions.forEach((p, i) => {
-    players.push({
-      id: `home-${i}`,
-      name: p.name,
-      teamId: 'home',
-      number: p.number,
-      position: { x: p.x, y: p.y },
-      assignedScriptId: null,
-    });
-  });
-
-  awayPositions.forEach((p, i) => {
-    players.push({
-      id: `away-${i}`,
-      name: p.name,
-      teamId: 'away',
-      number: p.number,
-      position: { x: p.x, y: p.y },
-      assignedScriptId: null,
-    });
-  });
-
-  return {
-    id: 'demo-tactic',
-    name: 'Demo Tactic 5v5',
-    players,
-    ball: { x: 50, y: 50 },
-    scripts: {},
-  };
-};
+import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
 
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
@@ -83,12 +31,21 @@ export const AppShell: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
   const { fetchScripts } = useEditorStore();
 
-  // Load demo tactic on mount
-  useEffect(() => {
-    const demoTactic = createDemoTactic();
-    canvasRef.current?.loadTactic(demoTactic);
-    setTacticLoaded(true);
-  }, [setTacticLoaded]);
+  const fetchTactics = useTacticsStore((state) => state.fetchTactics);
+  const activeTacticId = useTacticsStore((state) => state.activeTacticId);
+  const activeTactic = useTacticsStore((state) =>
+    state.activeTacticId
+      ? state.tactics.find((tactic) => tactic.id === state.activeTacticId) ?? null
+      : null
+  );
+
+  // Track which tactic id is currently loaded in the canvas
+  const loadedTacticIdRef = useRef<string | null>(null);
+
+  // Lineup gating: all 5 slots must have a script assigned
+  const lineupComplete = activeTactic
+    ? activeTactic.players.every((player) => player.scriptId !== null)
+    : false;
 
   // Fetch user scripts when authenticated
   useEffect(() => {
@@ -96,6 +53,51 @@ export const AppShell: React.FC = () => {
       fetchScripts();
     }
   }, [isAuthenticated, fetchScripts]);
+
+  // Fetch saved tactics when authenticated; always keep at least one
+  // (story 3.2 AC #6: a user without tactics gets a default one auto-created)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    void (async () => {
+      await fetchTactics();
+
+      const {
+        tactics,
+        activeTacticId: fetchedActiveId,
+        selectTactic,
+        createTactic,
+      } = useTacticsStore.getState();
+      const userTactics = tactics.filter((tactic) => !tactic.isSystem);
+
+      if (userTactics.length === 0) {
+        await createTactic();
+        return;
+      }
+
+      // Keep the remembered selection, else fall back to the first tactic
+      const target =
+        userTactics.find((tactic) => tactic.id === fetchedActiveId) ?? userTactics[0] ?? null;
+
+      if (target) {
+        selectTactic(target.id);
+      }
+    })();
+  }, [isAuthenticated, fetchTactics]);
+
+  // Load the active tactic into the canvas whenever it changes (tab switch,
+  // creation, deletion promotion, hydration)
+  useEffect(() => {
+    if (!activeTacticId || loadedTacticIdRef.current === activeTacticId) return;
+
+    const { tactics } = useTacticsStore.getState();
+    const target = tactics.find((tactic) => tactic.id === activeTacticId);
+    if (!target) return;
+
+    loadedTacticIdRef.current = activeTacticId;
+    canvasRef.current?.loadTactic(tacticConfigToTacticData(target));
+    setTacticLoaded(true);
+  }, [activeTacticId, setTacticLoaded]);
 
   // Canvas callbacks
   const handlePlayerSelected = useCallback(
@@ -123,12 +125,31 @@ export const AppShell: React.FC = () => {
     setSimulationReady(true);
   }, [setSimulationReady]);
 
+  // Auto-save (story 3.2): a script assignment is an action completion —
+  // read the engine state back and persist it immediately.
+  const handleScriptAssigned = useCallback(() => {
+    const { activeTacticId: currentActiveId, updateTactic } = useTacticsStore.getState();
+
+    if (!isAuthenticated || !currentActiveId) return; // no tactic behind the field yet
+
+    const engineTactic = canvasRef.current?.getTactic();
+    if (!engineTactic || engineTactic.id !== currentActiveId) return;
+
+    void updateTactic(currentActiveId, undefined, tacticDataToPlayerConfigs(engineTactic));
+  }, [isAuthenticated]);
+
   const handleScriptDropped = useCallback(
     (playerId: string, scriptId: string) => {
-      console.log(`Script ${scriptId} assigné au joueur ${playerId}`);
+      console.log(`Script ${scriptId} assigned to player ${playerId}`);
     },
     []
   );
+
+  // Start Match hand-off (story 3.5 replaces this handler with the real call)
+  const handleStartPractice = useCallback(() => {
+    if (!activeTactic) return;
+    console.log('Start practice with tactic:', activeTactic);
+  }, [activeTactic]);
 
   // Contrôles de lecture
   const handlePlay = useCallback(() => {
@@ -152,14 +173,16 @@ export const AppShell: React.FC = () => {
     canvasRef.current?.seekFrame(frame);
   }, []);
 
-  const handleRunSimulation = useCallback(async () => {
-    await canvasRef.current?.runSimulation();
-  }, []);
-
   return (
     <div style={styles.container}>
       {/* Header */}
-      <Header onRunSimulation={handleRunSimulation} />
+      <Header
+        lineupComplete={lineupComplete}
+        onStartPractice={handleStartPractice}
+      />
+
+      {/* Tactic tabs (between header and field) */}
+      <TabBar />
 
       {/* Main content */}
       <div style={styles.main}>
@@ -177,6 +200,7 @@ export const AppShell: React.FC = () => {
             onFrameChanged={handleFrameChanged}
             onSimulationComplete={handleSimulationComplete}
             onScriptDropped={handleScriptDropped}
+            onScriptAssigned={handleScriptAssigned}
           />
         </div>
 

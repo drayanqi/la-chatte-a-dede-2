@@ -387,6 +387,25 @@ describe('Tactics Store', () => {
       expect(state.tactics[1]?.name).toBe('Other');
     });
 
+    it('should set the saved feedback on successful update', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi({ name: 'Updated' }),
+      });
+
+      await useTacticsStore.getState().updateTactic('tactic-1', 'Updated');
+
+      const state = useTacticsStore.getState();
+      expect(state.lastSavedTacticId).toBe('tactic-1');
+      expect(state.lastSavedAt).not.toBeNull();
+    });
+
     it('should handle update error gracefully', async () => {
       (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
 
@@ -444,6 +463,298 @@ describe('Tactics Store', () => {
       useTacticsStore.getState().selectTactic(null);
 
       expect(useTacticsStore.getState().activeTacticId).toBeNull();
+    });
+
+    it('should remember the selection for the next session', () => {
+      useTacticsStore.setState({
+        tactics: [{ id: 'tactic-42', name: 'T', isSystem: false, players: [] }],
+      });
+
+      useTacticsStore.getState().selectTactic('tactic-42');
+
+      expect(window.localStorage.setItem).toHaveBeenCalledWith(
+        'last_active_tactic_id',
+        'tactic-42'
+      );
+
+      useTacticsStore.getState().selectTactic(null);
+
+      expect(window.localStorage.removeItem).toHaveBeenCalledWith('last_active_tactic_id');
+    });
+
+    it('should restore the remembered selection after a fresh fetch', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockImplementation((key: string) =>
+        key === 'last_active_tactic_id' ? 'tactic-1' : 'test-token'
+      );
+
+      useTacticsStore.setState({
+        tactics: [
+          mockTacticFromApi() as unknown as TacticConfig,
+          mockTacticFromApi({ id: 'tactic-2', name: 'Other' }) as unknown as TacticConfig,
+        ],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          mockTacticFromApi(),
+          mockTacticFromApi({ id: 'tactic-2', name: 'Other' }),
+        ],
+      });
+
+      await useTacticsStore.getState().fetchTactics();
+
+      expect(useTacticsStore.getState().activeTacticId).toBe('tactic-1');
+    });
+  });
+
+  describe('Create Tactic (+ button, story 3.2)', () => {
+    it('should POST the default formation with an auto-generated name', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockTacticFromApi({ id: 'created-1', name: 'Tactic 1' }),
+      });
+
+      const created = await useTacticsStore.getState().createTactic();
+
+      expect(created?.id).toBe('created-1');
+      expect(created?.name).toBe('Tactic 1');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            name: 'Tactic 1',
+            players: [
+              { player_slot: 1, position_x: 8, position_y: 25, script_id: null },
+              { player_slot: 2, position_x: 25, position_y: 15, script_id: null },
+              { player_slot: 3, position_x: 25, position_y: 35, script_id: null },
+              { player_slot: 4, position_x: 60, position_y: 15, script_id: null },
+              { player_slot: 5, position_x: 60, position_y: 35, script_id: null },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('should name the new tactic after the existing count', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockTacticFromApi({ id: 'created-2', name: 'Tactic 2' }),
+      });
+
+      await useTacticsStore.getState().createTactic();
+
+      const body = JSON.parse(
+        (mockFetch.mock.calls[0]?.[1] as RequestInit).body as string
+      ) as { name: string };
+      expect(body.name).toBe('Tactic 2');
+    });
+
+    it('should append the tactic, activate it and set the saved feedback', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockTacticFromApi({ id: 'created-3', name: 'Tactic 1' }),
+      });
+
+      await useTacticsStore.getState().createTactic();
+
+      const state = useTacticsStore.getState();
+      expect(state.tactics).toHaveLength(1);
+      expect(state.activeTacticId).toBe('created-3');
+      expect(state.lastSavedTacticId).toBe('created-3');
+      expect(state.lastSavedAt).not.toBeNull();
+      expect(state.isSavingTactic).toBe(false);
+    });
+
+    it('should not create twice concurrently (in-flight guard)', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      let resolvePromise: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
+
+      const first = useTacticsStore.getState().createTactic();
+      const second = useTacticsStore.getState().createTactic();
+
+      resolvePromise!({
+        ok: true,
+        status: 201,
+        json: async () => mockTacticFromApi({ id: 'created-4' }),
+      });
+
+      await Promise.all([first, second]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle create error gracefully', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ message: 'Validation failed' }),
+      });
+
+      const created = await useTacticsStore.getState().createTactic();
+
+      expect(created).toBeNull();
+      expect(useTacticsStore.getState().tacticsError).toBe('Validation failed');
+      expect(useTacticsStore.getState().activeTacticId).toBeNull();
+    });
+
+    it('should not create without auth token', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+      await useTacticsStore.getState().createTactic();
+
+      expect(useTacticsStore.getState().tacticsError).toBe('Not authenticated');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Delete Tactic (story 3.2)', () => {
+    it('should DELETE the tactic and remove it from the list', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [
+          mockTacticFromApi() as unknown as TacticConfig,
+          mockTacticFromApi({ id: 'tactic-2', name: 'Other' }) as unknown as TacticConfig,
+        ],
+        activeTacticId: 'tactic-2',
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+      const deleted = await useTacticsStore.getState().deleteTactic('tactic-2');
+
+      expect(deleted).toBe(true);
+      expect(useTacticsStore.getState().tactics).toHaveLength(1);
+      expect(useTacticsStore.getState().tactics[0]?.id).toBe('tactic-1');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics/tactic-2'),
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+    });
+
+    it('should promote a neighbor when deleting the active tactic', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [
+          mockTacticFromApi() as unknown as TacticConfig,
+          mockTacticFromApi({ id: 'tactic-2', name: 'Other' }) as unknown as TacticConfig,
+        ],
+        activeTacticId: 'tactic-1',
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+      await useTacticsStore.getState().deleteTactic('tactic-1');
+
+      const state = useTacticsStore.getState();
+      expect(state.activeTacticId).toBe('tactic-2');
+    });
+
+    it('should keep the selection when deleting a non-active tactic', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [
+          mockTacticFromApi() as unknown as TacticConfig,
+          mockTacticFromApi({ id: 'tactic-2', name: 'Other' }) as unknown as TacticConfig,
+        ],
+        activeTacticId: 'tactic-1',
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+      await useTacticsStore.getState().deleteTactic('tactic-2');
+
+      expect(useTacticsStore.getState().activeTacticId).toBe('tactic-1');
+    });
+
+    it('should recreate a default tactic when deleting the last one', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+        activeTacticId: 'tactic-1',
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => mockTacticFromApi({ id: 'recreated-1', name: 'Tactic 1' }),
+        });
+
+      await useTacticsStore.getState().deleteTactic('tactic-1');
+
+      const state = useTacticsStore.getState();
+      expect(state.tactics).toHaveLength(1);
+      expect(state.tactics[0]?.id).toBe('recreated-1');
+      expect(state.activeTacticId).toBe('recreated-1');
+      expect(state.isDeletingTactic).toBe(false);
+      expect(state.isSavingTactic).toBe(false);
+
+      // The recreation is a default-formation POST named "Tactic 1"
+      const createCall = mockFetch.mock.calls[1];
+      expect(createCall?.[0]).toEqual(expect.stringContaining('/tactics'));
+      expect((createCall?.[1] as RequestInit).method).toBe('POST');
+      expect(JSON.parse((createCall?.[1] as RequestInit).body as string).name).toBe('Tactic 1');
+      expect(window.localStorage.setItem).toHaveBeenCalledWith(
+        'last_active_tactic_id',
+        'recreated-1'
+      );
+    });
+
+    it('should handle delete error gracefully', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ message: 'Tactic not found' }),
+      });
+
+      const deleted = await useTacticsStore.getState().deleteTactic('tactic-1');
+
+      expect(deleted).toBe(false);
+      expect(useTacticsStore.getState().tacticsError).toBe('Tactic not found');
+      expect(useTacticsStore.getState().tactics).toHaveLength(1);
+    });
+
+    it('should not delete without auth token', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+      await useTacticsStore.getState().deleteTactic('tactic-1');
+
+      expect(useTacticsStore.getState().tacticsError).toBe('Not authenticated');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

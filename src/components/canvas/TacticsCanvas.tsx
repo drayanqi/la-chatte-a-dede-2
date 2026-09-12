@@ -49,6 +49,9 @@ export interface TacticsCanvasProps {
 
   /** Callback quand un script est déposé sur un joueur */
   onScriptDropped?: (playerId: string, scriptId: string) => void;
+
+  /** Callback après l'assignation effective d'un script (moteur) */
+  onScriptAssigned?: (playerId: string, scriptId: string) => void;
 }
 
 export interface TacticsCanvasHandle {
@@ -75,6 +78,9 @@ export interface TacticsCanvasHandle {
 
   /** Tester si un joueur est sous les coordonnées données */
   hitTestPlayer: (screenX: number, screenY: number) => string | null;
+
+  /** Lire l'état courant de la tactique (positions + scripts assignés) */
+  getTactic: () => TacticData | null;
 }
 
 // ============================================================================
@@ -89,6 +95,7 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       onFrameChanged,
       onSimulationComplete,
       onScriptDropped,
+      onScriptAssigned,
     },
     ref
   ) => {
@@ -114,6 +121,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         },
         onSimulationComplete: (result) => {
           onSimulationComplete?.(result);
+        },
+        onScriptAssigned: (playerId, scriptId) => {
+          onScriptAssigned?.(playerId, scriptId);
         },
       });
 
@@ -179,6 +189,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       hitTestPlayer: (screenX: number, screenY: number) => {
         return gameRef.current?.hitTestPlayer(screenX, screenY) ?? null;
       },
+      getTactic: () => {
+        return gameRef.current?.getTactic() ?? null;
+      },
     }));
 
     // Gestion du drag & drop
@@ -216,6 +229,7 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
     return (
       <div
         ref={containerRef}
+        data-testid="field-canvas"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         style={{

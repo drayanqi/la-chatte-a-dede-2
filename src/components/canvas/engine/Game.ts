@@ -19,6 +19,8 @@ export interface GameCallbacks {
   onPlayerHovered: (playerId: string | null, position: Position | null) => void;
   onFrameChanged: (frame: number, total: number, states: PlayerFrameState[]) => void;
   onSimulationComplete: (result: SimulationResult) => void;
+  /** Fired after a script assignment completes (drag & drop onto a player) */
+  onScriptAssigned?: (playerId: string, scriptId: string) => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -43,6 +45,10 @@ export class Game {
 
   // Pending tactic to load after initialization
   private pendingTactic: TacticData | null = null;
+
+  // Identity of the currently loaded tactic (for getTactic read-back)
+  private currentTacticId: string = '';
+  private currentTacticName: string = '';
 
   constructor(callbacks: GameCallbacks, config: Partial<GameConfig> = {}) {
     const finalConfig = { ...DEFAULT_CONFIG, ...config };
@@ -130,6 +136,10 @@ export class Game {
     }
     this.players.clear();
 
+    // Remember the tactic identity for read-back
+    this.currentTacticId = tactic.id;
+    this.currentTacticName = tactic.name;
+
     // Create the new players
     for (const playerData of tactic.players) {
       const sprite = new PlayerSprite(
@@ -162,7 +172,38 @@ export class Game {
     const player = this.players.get(playerId);
     if (player) {
       player.setScript(scriptId);
+      this.callbacks.onScriptAssigned?.(playerId, scriptId);
     }
+  }
+
+  /**
+   * Read back the current tactic state (players' positions and assigned
+   * scripts) from the engine. Returns null when nothing is loaded.
+   */
+  getTactic(): TacticData | null {
+    if (this.players.size === 0) {
+      return null;
+    }
+
+    const players: Player[] = [];
+    for (const [id, sprite] of this.players) {
+      players.push({
+        id,
+        name: sprite.getName(),
+        teamId: sprite.getTeamId(),
+        number: sprite.getNumber(),
+        position: sprite.getPosition(),
+        assignedScriptId: sprite.getScriptId(),
+      });
+    }
+
+    return {
+      id: this.currentTacticId,
+      name: this.currentTacticName,
+      players,
+      ball: { x: 50, y: 50 },
+      scripts: {},
+    };
   }
 
   hitTestPlayer(screenX: number, screenY: number): string | null {

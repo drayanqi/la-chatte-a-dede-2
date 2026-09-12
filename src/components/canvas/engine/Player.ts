@@ -169,6 +169,22 @@ export class PlayerSprite {
     return this.player.position;
   }
 
+  getScriptId(): string | null {
+    return this.player.assignedScriptId;
+  }
+
+  getName(): string {
+    return this.player.name;
+  }
+
+  getTeamId(): 'home' | 'away' {
+    return this.player.teamId;
+  }
+
+  getNumber(): number {
+    return this.player.number;
+  }
+
   destroy(): void {
     this.container.destroy({ children: true });
   }
