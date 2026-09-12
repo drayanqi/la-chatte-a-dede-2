@@ -447,13 +447,18 @@ The loop should feel effortless. Each transition (code→test, test→watch, wat
 | `--team-blue` | `#1a8cff` | Blue team players, highlights |
 | `--team-blue-light` | `#4aa3ff` | Blue team accents |
 
-**Pitch Colors:**
+**Pitch Colors ("Wild Card" arena — Epic 5; exact values locked in story 5.1):**
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `--pitch-bg` | `#1a2634` | Pitch background (dark blue-gray) |
-| `--pitch-lines` | `#3a4a5a` | Field markings |
-| `--pitch-center` | `#2a3a4a` | Center circle, goal areas |
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--pitch-base` | `#1a2634` ✅ (5.1) | Shared base surface beneath both halves |
+| `--pitch-half-home` / `--pitch-half-away` | `#ff6b1a` / `#1a8cff` dégradé but→centre (alpha 0.32→0) ✅ (5.1 + 5.4 anticipé) | Two-tone territory washes, one per half |
+| `--pitch-lines` | `#ffffff` ✅ (5.1) | Field markings, readable on both halves |
+| `--pitch-pattern` | TBD (5.3, low opacity) | Repeating surface pattern (stripes / hex / grain) |
+| `--pitch-watermark` | `src/assets/watermark.png` @ alpha 0.3 ✅ (5.2) | Center-court emblem behind the center circle |
+| `--pitch-letterbox` | `#111a24` ✅ (5.1) | Out-of-play margin, visually distinct from the pitch |
+
+> **Hard law:** team/player colors (`#ff6b1a` / `#1a8cff`) are reserved for players and accents — they never paint the floor beneath them.
 
 **Celebration Colors:**
 
@@ -566,7 +571,7 @@ A unified design direction was developed based on clear requirements established
 
 **Visual Style:**
 - Dark theme (`#1e1e1e` base) with strategic contrast
-- Orange (`#ff6b1a`) and Blue (`#1a8cff`) team colors against dark pitch (`#1a2634`)
+- Orange (`#ff6b1a`) and Blue (`#1a8cff`) team colors popping on a colorful two-tone "Wild Card" arena pitch — patterned surface, watermarked center emblem, territory tints (Epic 5 in `epics.md`; supersedes the earlier `#1a2634` flat dark pitch)
 - Balanced spacing — breathable but efficient
 - Monaco-style code editor with syntax highlighting
 

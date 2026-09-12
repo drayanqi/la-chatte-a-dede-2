@@ -26,7 +26,7 @@ export interface GameCallbacks {
 const DEFAULT_CONFIG: GameConfig = {
   width: 800,
   height: 600,
-  backgroundColor: 0x1a472a, // Vert gazon
+    backgroundColor: 0x111a24, // Letterbox hors-jeu (Epic 5.1)
 };
 
 export class Game {
@@ -177,6 +177,29 @@ export class Game {
   }
 
   /**
+   * Détacher un script supprimé de tous les joueurs qui le référencent.
+   * Silencieux : contrairement à assignScript, ne déclenche pas onScriptAssigned.
+   */
+  detachScript(scriptId: string): void {
+    for (const player of this.players.values()) {
+      if (player.getScriptId() === scriptId) {
+        player.setScript(null);
+      }
+    }
+
+    // Suppression avant la fin de l'init moteur : la tactique en attente ne
+    // doit pas réinjecter le script supprimé lors du chargement.
+    if (this.pendingTactic) {
+      this.pendingTactic = {
+        ...this.pendingTactic,
+        players: this.pendingTactic.players.map((player) =>
+          player.assignedScriptId === scriptId ? { ...player, assignedScriptId: null } : player
+        ),
+      };
+    }
+  }
+
+  /**
    * Read back the current tactic state (players' positions and assigned
    * scripts) from the engine. Returns null when nothing is loaded.
    */
@@ -293,6 +316,7 @@ export class Game {
 
   destroy(): void {
     try {
+      this.field?.dispose();
       // Check if app was properly initialized before destroying
       if (this.app && this.app.renderer) {
         this.app.destroy(true, { children: true });

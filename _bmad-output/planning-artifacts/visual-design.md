@@ -1,340 +1,77 @@
 # Design Visuel - Lachatadede
 
-> **Statut** : VALIDE par Pelo
-> **Date** : 2026-01-19
-> **Version** : 1.0
+> **Statut** : PROPOSITION v2 — "Deep Court" (Epic 5.1) implémentée, en attente de validation visuelle par Pelo
+> **Date** : 2026-09-12
+> **Version** : 2.0
 
 ---
 
 ## Vue d'Ensemble
 
-Style **semi-réaliste**, **élégant**, **sobre**.
-Parquet bicolore (orange/bleu) avec lignes de futsal.
+Style **arcade**, **coloré**, **lisible d'abord**.
+Direction "Wild Card" (Epic 5) : arène sombre à deux moitiés teintées, watermark central, joueurs Rocket League.
+La v1 (parquet orange/bleu) n'a jamais été implémentée et est retirée de l'histoire.
 
 ---
 
-## Terrain
+## Terrain (implémenté — story 5.1)
 
-### Dimensions
+| Zone | Traitement | Hex / Valeur |
+|------|-----------|--------------|
+| Letterbox hors-jeu | Plein, tout le canvas | `#111a24` |
+| Base du terrain | Plein (spec UX "DevTools meets ESPN") | `#1a2634` |
+| Moitié Home | Lueur orange en dégradé, but → centre (alpha 0.32 → 0.10 → 0) | `#ff6b1a` |
+| Moitié Away | Lueur bleue en dégradé, but → centre (alpha 0 → 0.10 → 0.32) | `#1a8cff` |
+| Lignes | Blanc haute-contraste, 2px | `#ffffff` |
+| Rond central | Double anneau (principal 2px + halo 1px alpha 0.25, ×1.3) | `#ffffff` |
+| Surfaces | **Arcs futsal** (D, rayon 22 % hauteur) — les rectangles sont retirés | `#ffffff` |
+| Bordure | **Coins arrondis** (rayon `max(8, 4 % hauteur)`) | `#ffffff` |
+| Base + lueurs | Demi-terrains en chemins arrondis (les lueurs remplissent les coins) | — |
+| Boards | Cadre de tribune discret **arrondi** (1px, alpha 0.15, hors buts/halos) | `#ffffff` |
+| Branding letterbox | Wordmark `LACHATADEDE` haut + bas (blanc, alpha 0.16, espacé, taille plafonnée à la bande) — masqué si bande trop étroite | `#ffffff` |
+| Buts | Cadre arrondi d'équipe (2.5px) **hors terrain**, filet blanc (alpha 0.22), halo équipe (alpha 0.18), poteaux blancs à la bouche | `#ff6b1a` / `#1a8cff` |
+| Profondeur des buts | `max(16, 5.5% hauteur)` — dimensionnée pour que le ballon (Ø ≈ 2 % hauteur) tienne dans le filet | — |
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                                                                │
-│                      100 unités                                │
-│  ◄──────────────────────────────────────────────────────────►  │
-│                                                                │
-│  ┌──────────────────────┬──────────────────────┐    ▲         │
-│  │                      │                      │    │         │
-│  │       ORANGE         │         BLEU         │    │ 50      │
-│  │       (Home)         │        (Away)        │    │ unités  │
-│  │                      │                      │    │         │
-│  └──────────────────────┴──────────────────────┘    ▼         │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
+**Lois (non négociables) :**
+1. Deux moitiés d'équipe distinctes, lisibles instantanément.
+2. Les couleurs d'équipe ne peignent jamais le sol sous les joueurs — lueurs subtiles seulement.
+3. `fieldGeometry.ts` (mapping pourcent↔écran, rect 2:1) reste intouché.
+4. **Moins d'angles droits** (loi Pelo) — chaque nouvelle surface suit le langage arrondi (terrain, buts, boards).
 
-Ratio: 2:1 (100 x 50)
-```
-
-### Parquet
-
-| Propriété | Valeur |
-|-----------|--------|
-| Style lattes | **Verticales** (parallèles aux buts) |
-| Largeur latte | ~2 unités |
-| Séparation | **Coupure nette** au centre (x = 50) |
-| Texture | Grain de bois subtil |
-| Variation | Légère variation de teinte entre lattes |
-
-### Couleurs
-
-```javascript
-const COLORS = {
-  // Parquet
-  orange: {
-    base: '#E85D04',
-    dark: '#C54D03',      // Ombre entre lattes
-    light: '#FF6B0A',     // Reflet subtil
-  },
-  blue: {
-    base: '#0077B6',
-    dark: '#005F8A',      // Ombre entre lattes
-    light: '#0088CC',     // Reflet subtil
-  },
-
-  // Lignes
-  lines: '#FFFFFF',
-  lineWidth: 0.5,         // En unités du terrain
-
-  // Buts
-  goalHome: '#E85D04',    // Orange (même que terrain home)
-  goalAway: '#0077B6',    // Bleu (même que terrain away)
-};
-```
+**Implémentation** : un seul bloc de constantes dans `Field.ts` (v1 hardcodée — pas de système de thème, décision Pelo).
 
 ---
 
-## Lignes du Terrain
+## Watermark (story 5.2 — implémenté)
 
-### Lignes Présentes
-
-| Ligne | Description |
-|-------|-------------|
-| ✅ Contour | Rectangle extérieur |
-| ✅ Ligne médiane | Verticale au centre (x = 50) |
-| ✅ Rond central | Cercle au centre, rayon ~8 unités |
-| ✅ Surfaces arrondies | Style futsal/handball (voir schéma) |
-| ❌ Corners | Non |
-| ❌ Point de penalty | Non |
-
-### Surfaces de Réparation (Style Futsal)
-
-```
-     Surface Home (arrondie)              Surface Away (arrondie)
-
-     x=0        x=12                      x=88       x=100
-      │          │                          │          │
-      │    ╭─────╯                          ╰─────╮    │
-      │   ╱                                      ╲   │
-   ───┼──╱                                        ╲──┼───  y=15
-      │ │            ← Zone gardien →              │ │
-   ───┼──╲                                        ╱──┼───  y=35
-      │   ╲                                      ╱   │
-      │    ╰─────╮                          ╭─────╯    │
-      │          │                          │          │
-```
-
-**Forme** : Arc de cercle (comme au handball)
-- Centre de l'arc : Position du but (x=0 ou x=100, y=25)
-- Rayon : ~12 unités
-- L'arc va de y=15 à y=35
+`src/assets/watermark.png` (512×512, fond transparent vérifié) — DD et le chat ("La Chat' à Didier Deschamps").
+Sprite centré à (50, 50) %, 60 % de la hauteur du terrain, **alpha 0.3**, calqué ENTRE le sol et les lignes.
+Chargement async (`Assets.load`), fallback silencieux sans watermark, re-layout au resize.
 
 ---
 
-## Buts
+## Joueurs (mis à jour — story 5.1)
 
-### Style
-
-| Propriété | Valeur |
-|-----------|--------|
-| Style | **Minimaliste** |
-| Forme | Rectangle simple |
-| Couleur | Même que l'équipe (orange/bleu) |
-| Profondeur | Non (2D plat) |
-| Filet | Non visible |
-
-### Dimensions
-
-```
-       ┌───┐
-       │   │  ← Poteau (1 unité épaisseur)
-   y=35├───┤
-       │   │
-       │   │  ← Zone de but
-       │   │
-   y=15├───┤
-       │   │
-       └───┘
-
-   But Home: x = -2 à 0
-   But Away: x = 100 à 102
-   Hauteur: y = 15 à 35 (20 unités)
-```
-
-### Apparence
-
-```javascript
-const GOAL_STYLE = {
-  width: 2,           // Profondeur du but (vers l'extérieur)
-  postWidth: 0.5,     // Épaisseur des poteaux
-  color: {
-    home: '#E85D04',  // Orange
-    away: '#0077B6',  // Bleu
-  },
-  opacity: 0.9,
-};
-```
+| Élément | Valeur |
+|---------|--------|
+| Home | `#ff6b1a` (orange), anneau blanc |
+| Away | `#1a8cff` (bleu), anneau blanc |
+| Sélection | Anneau épais `#fbbf24` (jaune) |
+| Script assigné | Point vert `#22c55e` (contour blanc) |
+| Numéro | Blanc, centré, suit le rayon du sprite |
 
 ---
 
-## Joueurs
+## Roadmap
 
-### Apparence
-
-| Propriété | Valeur |
-|-----------|--------|
-| Forme | Cercle |
-| Rayon | ~2 unités |
-| Couleur | Orange (home) / Bleu (away) |
-| Numéro | Affiché au centre (blanc) |
-| Contour | Blanc, 0.3 unité |
-
-### Indicateur de Possession
-
-| État | Indicateur |
-|------|------------|
-| A le ballon | Cercle légèrement plus grand + halo subtil |
-| Script assigné | Petit point vert en haut à droite |
-
-```javascript
-const PLAYER_STYLE = {
-  radius: 2,
-  colors: {
-    home: '#E85D04',
-    away: '#0077B6',
-  },
-  stroke: {
-    color: '#FFFFFF',
-    width: 0.3,
-  },
-  number: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  hasBall: {
-    glowRadius: 3,
-    glowOpacity: 0.3,
-  },
-  hasScript: {
-    dotColor: '#22C55E',
-    dotRadius: 0.5,
-  },
-};
-```
-
----
-
-## Ballon
-
-### Apparence
-
-| Propriété | Valeur |
-|-----------|--------|
-| Forme | Cercle |
-| Rayon | ~1 unité |
-| Couleur | Blanc avec motif subtil |
-| Contour | Gris foncé |
-
-```javascript
-const BALL_STYLE = {
-  radius: 1,
-  color: '#FFFFFF',
-  stroke: {
-    color: '#333333',
-    width: 0.2,
-  },
-  pattern: 'pentagon',  // Motif ballon classique (optionnel)
-};
-```
-
----
-
-## Schéma Complet
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│   ┌─┐                            │                            ┌─┐         │
-│   │ │      ╭────────╮            │            ╭────────╮      │ │         │
-│   │O│     ╱          ╲           │           ╱          ╲     │B│         │
-│   │R│    │            │    ╭─────┼─────╮    │            │    │L│         │
-│   │A│    │     ①      │   ╱      │      ╲   │      ②     │    │E│         │
-│   │N│    │            │  │   ○   │   ●   │  │            │    │U│         │
-│   │G│    │    ③  ④    │   ╲      │      ╱   │    ⑤  ⑥    │    │ │         │
-│   │E│    │            │    ╰─────┼─────╯    │            │    │ │         │
-│   │ │     ╲          ╱           │           ╲          ╱     │ │         │
-│   │ │      ╰────────╯            │            ╰────────╯      │ │         │
-│   └─┘                            │                            └─┘         │
-│                                                                            │
-│  ← ORANGE (Home)                 │               BLEU (Away) →            │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
-
-Légende:
-  ①②③④⑤⑥ = Joueurs (numéros)
-  ○ = Ballon
-  ● = Centre terrain
-  ╭──╮ = Surface arrondie (futsal)
-  │  │ = But (minimaliste)
-```
-
----
-
-## Implémentation PixiJS
-
-### Structure des Layers
-
-```javascript
-// Ordre de rendu (back to front)
-const layers = [
-  'background',     // Parquet (lattes)
-  'lines',          // Lignes blanches
-  'goals',          // Buts
-  'shadows',        // Ombres joueurs (optionnel)
-  'ball',           // Ballon
-  'players',        // Joueurs
-  'ui',             // UI overlay (scores, etc.)
-];
-```
-
-### Rendu du Parquet
-
-```javascript
-function drawParquet(graphics, width, height) {
-  const slateWidth = 2;
-  const centerX = width / 2;
-
-  for (let x = 0; x < width; x += slateWidth) {
-    const isOrangeSide = x < centerX;
-    const baseColor = isOrangeSide ? COLORS.orange.base : COLORS.blue.base;
-    const darkColor = isOrangeSide ? COLORS.orange.dark : COLORS.blue.dark;
-
-    // Latte principale
-    graphics.rect(x, 0, slateWidth - 0.2, height);
-    graphics.fill(baseColor);
-
-    // Ligne sombre entre lattes
-    graphics.rect(x + slateWidth - 0.2, 0, 0.2, height);
-    graphics.fill(darkColor);
-  }
-}
-```
-
-### Rendu Surface Arrondie
-
-```javascript
-function drawPenaltyArea(graphics, isHome) {
-  const goalX = isHome ? 0 : 100;
-  const radius = 12;
-  const startAngle = isHome ? -Math.PI/2 : Math.PI/2;
-  const endAngle = isHome ? Math.PI/2 : -Math.PI/2;
-
-  graphics.moveTo(goalX, 15);
-  graphics.arc(goalX, 25, radius, startAngle, endAngle, !isHome);
-  graphics.lineTo(goalX, 35);
-  graphics.stroke({ color: COLORS.lines, width: 0.5 });
-}
-```
-
----
-
-## Palette Complète
-
-| Élément | Couleur | Hex |
-|---------|---------|-----|
-| Parquet Orange | Base | `#E85D04` |
-| Parquet Orange | Sombre | `#C54D03` |
-| Parquet Bleu | Base | `#0077B6` |
-| Parquet Bleu | Sombre | `#005F8A` |
-| Lignes | Blanc | `#FFFFFF` |
-| But Home | Orange | `#E85D04` |
-| But Away | Bleu | `#0077B6` |
-| Joueurs Home | Orange | `#E85D04` |
-| Joueurs Away | Bleu | `#0077B6` |
-| Numéros joueurs | Blanc | `#FFFFFF` |
-| Ballon | Blanc | `#FFFFFF` |
-| Contour ballon | Gris | `#333333` |
-| Script assigné | Vert | `#22C55E` |
+| Story | Contenu | Statut |
+|-------|---------|--------|
+| 5.1 | Terrain bicolore hardcodé | ✅ Implémenté (amendé : dégradés, arcs, double anneau, boards) |
+| 5.2 | Watermark central | ✅ Implémenté (à re-vérifier sur le sol bicolore) |
+| 5.3 | Pattern de surface (rayures / hexagones / grain) | À faire |
+| 5.4 | Teintes de territoire + accents de zone | 🔶 Lueurs dégradées + buts refondus livrés en avance (reste : ombres joueurs, accents de zone) |
+| 5.5 | Motion arène (cercle central pulsant, moments de but) | À faire |
+| 5.6 | Rendre le ballon (statique puis replay via ballFrames) | Proposé — dimensionné : buts déjà à la bonne profondeur |
 
 ---
 
@@ -342,9 +79,8 @@ function drawPenaltyArea(graphics, isHome) {
 
 | Aspect | Décision |
 |--------|----------|
-| Parquet | Lattes verticales, coupure nette |
-| Couleurs | Orange (#E85D04) / Bleu (#0077B6) |
-| Lignes | Médiane, rond central, surfaces arrondies |
-| Surfaces | Style futsal (arc de cercle) |
-| Buts | Minimalistes, même couleur que l'équipe |
-| Style global | Sobre, élégant, pas surchargé |
+| Direction | "Wild Card" — arcade coloré, lisibilité d'abord |
+| Sol | Base sombre + lueurs d'équipe (jamais de peinture pleine) |
+| Marquage | Blanc haute-contraste |
+| Buts | Couleurs d'équipe |
+| Watermark | DD & le chat, alpha 0.3, sous les lignes |

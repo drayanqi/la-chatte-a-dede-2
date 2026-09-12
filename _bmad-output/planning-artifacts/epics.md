@@ -209,6 +209,15 @@ Users can prove their code against other players and track their progression.
 
 ---
 
+### Epic 5: Arcade Pitch Visual Identity
+The match canvas gets a unique, colorful "Wild Card" arena look that makes lachatadede instantly recognizable.
+
+**FRs covered:** None (visual polish — extends the "DevTools meets ESPN" UX design direction)
+
+**User Outcome:** A colorful two-tone arcade pitch with watermark logo, surface pattern, and territory tints — readable at all times.
+
+---
+
 ## Epic 1: User Authentication & Onboarding
 
 Users can access the platform and start with a working AI template.
@@ -902,3 +911,161 @@ So that I can see top players and my ranking.
 **When** I view the leaderboard
 **Then** I can see other players' rankings
 **And** click their name to see their profile stats (wins, losses, rating history)
+
+---
+
+## Epic 5: Arcade Pitch Visual Identity
+
+The match canvas gets a unique, colorful "Wild Card" arena identity — patterned surface, watermarked center logo, and territory tints — that makes lachatadede instantly recognizable while keeping players and markings perfectly readable.
+
+**FRs covered:** None (visual polish — extends the validated UX direction "DevTools meets ESPN")
+
+**User Outcome:** A colorful two-tone arena pitch that feels like an arcade broadcast set, with team orientation at a glance and zero readability loss.
+
+**Implementation note (decisions locked with Pelo):**
+- Direction: "Wild Card" — colorful, patterned, watermarked, territory-tinted (over Neon Arena and Parquet Deluxe).
+- Hardcode first: all visuals live as constants in `Field.ts` / `Player.ts` — NO theme/config system yet; refactor path deferred.
+- Hard laws: (1) two distinct territory halves, (2) player/team colors never share their dominant hue with the floor beneath them, (3) `fieldGeometry.ts` (percent↔screen mapping, 2:1 rect) stays untouched.
+- Story 5.1 ships first as the spike; later stories layer on top.
+
+### Story 5.1: Colorful Two-Tone Pitch (Hardcoded Spike)
+
+As a user,
+I want the pitch to be a colorful two-tone arcade court instead of flat green,
+So that the workspace feels like a live arena and I can tell the two halves apart instantly.
+
+**Acceptance Criteria:**
+
+**Given** any canvas size or panel arrangement
+**When** the canvas renders
+**Then** the playing surface shows a colorful two-tone design with two visually distinct territory halves (not flat green)
+**And** the out-of-play letterbox area reads as visually distinct from the playing surface
+
+**Given** the default 800×600 canvas
+**When** the pitch is drawn
+**Then** the pitch rect is exactly the `fieldGeometry.computePitchRect` result (2:1, centered, ≥40px margin)
+**And** no geometry math is duplicated or modified
+
+**Given** orange (#ff6b1a) and blue (#1a8cff) player sprites on the new surface
+**When** I view or scrub a replay
+**Then** every player is clearly distinguishable from the surface beneath it (via palette choice, white outline, or drop shadow)
+**And** player number labels remain readable on both halves
+
+**Given** a tactic saved before this change
+**When** it loads
+**Then** player percent positions render at identical locations (no data migration)
+
+**Given** the e2e `tactic-tabs` suite runs
+**When** drag-and-drop targets are computed from `fieldGeometry`
+**Then** all 9 tests pass unchanged
+
+**Given** the implementation
+**When** reviewed
+**Then** all new colors are hardcoded as a single named palette block in `Field.ts` (no theme/config system in this story)
+**And** `visual-design.md` is updated to describe the shipped look (superseding the unimplemented orange/blue parquet)
+**And** lint, typecheck, and unit suites pass
+
+> **Dev note (2026-09-12):** Shipped as "Deep Court" arcade-tuned (Pelo's Wild Card pick, ux-spec base `#1a2634`): letterbox `#111a24`, base `#1a2634`, half washes `#ff6b1a`/`#1a8cff` @ alpha 0.18, white lines, team-colored goals. `Player.ts` colors moved to the validated Rocket League pair — the old navy home sprite would have vanished on the navy floor (Sally's law, caught pre-paint). Watermark (5.2) landed early beneath the markings. Verification: lint 0 errors, tsc clean, unit 334/334, e2e `tactic-tabs` 9/9 (re-run post-two-tone); screenshot review shown to Pelo (`pitch-preview.png`). Palette is one constant block in `Field.ts` — repaint is seconds, not a refactor.
+
+### Story 5.2: Watermarked Center Logo
+
+As a user,
+I want a large translucent emblem watermarked at center court,
+So that the arena feels branded with broadcast-style presentation.
+
+**Acceptance Criteria:**
+
+**Given** the pitch is rendered
+**When** I view center court
+**Then** a translucent watermark emblem sits behind the center circle
+**And** it never impedes readability of players, scripts, or lines passing over it
+
+**Given** any canvas size
+**When** the pitch resizes
+**Then** the watermark scales proportionally with the pitch rect
+**And** stays centered at (50, 50) percent
+
+**Given** no final logo exists yet
+**When** story 5.2 is implemented
+**Then** a placeholder emblem (hardcoded vector shape) is used until the real one exists
+
+> **Dev note (2026-09-12):** Real emblem supplied by Pelo and landed early, on the current green floor: `src/assets/watermark.png` (downscaled from 1254×1254 to 512×512; verified fully transparent background) — DD holding the cat ("La Chat' à Didier Deschamps"). Rendered by `Field.ts` as a centered Sprite (alpha 0.3, 60% of pitch height) layered between grass and markings; texture loads async with silent no-watermark fallback; relayouts on resize. Verification: lint 0 errors, tsc clean, unit 334/334, e2e `tactic-tabs` 9/9. Remaining for 5.2: re-verify readability against the two-tone floor once 5.1 ships.
+
+### Story 5.3: Patterned Surface Texture
+
+As a user,
+I want a subtle pattern across the playing surface,
+So that the court has texture and depth instead of feeling like a flat fill.
+
+**Acceptance Criteria:**
+
+**Given** the pitch is rendered
+**When** I view the playing surface
+**Then** a repeating pattern (e.g., diagonal stripes, hex grid, or court grain) is visible at low opacity
+**And** the pattern is clipped to the pitch rect and aligned to the two halves
+
+**Given** the canvas is resized repeatedly
+**When** the pitch redraws
+**Then** redraw stays fast (pattern precomputed or trivially regenerable; no per-frame Graphics rebuilds)
+
+### Story 5.4: Territory Tints & Zone Accents
+
+As a user,
+I want each half and goal area tinted toward its team,
+So that attack direction and territory read at a glance during replays.
+
+> **Dev note (2026-09-12, arrived early via arcade polish pass):** flat 0.18 half washes replaced by **linear gradients** from each goal (alpha 0.32 → 0.10 → 0 at center) — the flat washes read as paint slabs and bisected the watermark; the gradient leaves the center neutral so DD breathes and the halfway line crosses a calm background. Same pass modernized the markings: futsal **D-arcs** replace penalty rectangles (radius 22% of pitch height), **double center ring**, **boards frame** (1px, alpha 0.15) and white strokes on team-colored goals. All in `Field.ts` constants; `FillGradient`s rebuilt only on redraw and destroyed on replace + on `Game.destroy()` (no per-frame texture churn). Verification: lint 0 errors, tsc clean, unit 334/334, e2e `tactic-tabs` 9/9 (full chromium/firefox/webkit sweep, final state). Remaining in 5.4: player drop shadows, stronger goal-area accents.
+
+**Polish pass 3 (goals, 2026-09-12, same session):** goals rebuilt — rounded team-colored frame (2.5px) with white net mesh (alpha 0.22), team halo (alpha 0.18, no filters), white posts at the mouth; solid bars removed. Depth now `max(16, 5.5% of pitch height)` so a future ball (Ø ≈ 2% height) fits inside the net (Pelo: "it will not be only 1 pixel"); boards frame keyed to goal depth (`goalDepth + 8`). **Caught by Pelo in screenshot review:** the dir math initially drew both nets *inside* the pitch — fixed, goals sit fully outside the field. Chromium e2e 3/3 + screenshot verified on final state.
+
+**Polish passes 4–5 (letterbox + rounding, 2026-09-12, same session):** "LACHATADEDE" wordmark boards on the top/bottom letterbox strips (white, alpha 0.16, letter-spaced, size clamped to the strip, hidden when too tight; relayouts on resize). Pelo's law: **fewer right angles** — pitch border, base fill, boards frame all use rounded corners (radius `max(8, 4% pitch height)`); the team washes became custom half-paths so each glow fills its rounded half cleanly. Verification incident, resolved honestly: a 4/4 timeout run traced to stale long-lived dev servers (API wedged), not the visuals — servers recycled, 4/4 green; a cold-boot screenshot (fresh DB, mid-bootstrap) was re-shot warm and showed watermark + default tactic + all visuals correct. lint 0 errors, tsc clean, unit 337/337, chromium e2e 4/4 + warm screenshot on final state.
+
+**Acceptance Criteria:**
+
+**Given** the pitch is rendered
+**When** I view either half
+**Then** the half carries its team's tint as a subtle wash over the base surface
+**And** goal areas carry a stronger accent of the same hue
+
+**Given** player sprites standing on tinted territory
+**When** the tint is applied
+**Then** tints stay faint enough that player colors and numbers remain the dominant visual layer
+
+### Story 5.5: Arena Motion & Flourishes (Future)
+
+As a user,
+I want light arcade motion on the pitch (pulsing center circle, possession glow, goal moments),
+So that the arena feels alive during matches.
+
+**Acceptance Criteria:**
+
+**Given** stories 5.1–5.4 are shipped
+**When** motion work starts
+**Then** all motion respects `prefers-reduced-motion`
+**And** animations are transform/alpha-driven (no per-frame Graphics rebuilds on the hot path)
+
+**Given** a replay is scrubbing
+**When** motion effects are active
+**Then** scrubbing performance is unchanged
+
+### Story 5.6: Render the Ball
+
+As a user,
+I want the ball rendered on the pitch and moving through replays,
+So that possession, passes, and goals are visible.
+
+**Acceptance Criteria:**
+
+**Given** a tactic is loaded
+**When** the canvas renders
+**Then** a ball sprite (white, dark outline, Ø ≈ 2% of pitch height, floor 4px) renders at `TacticData.ball`'s percent position, above the field and below the players
+
+**Given** a simulation result that carries per-tick ball state
+**When** the replay scrubs
+**Then** the ball follows its frame position (including inside the goal net on goals)
+
+**Given** a simulation result without ball state (current contract)
+**When** the replay scrubs
+**Then** the ball stays at its static tactic position — never NaN, never frozen mid-flight
+
+> **Status: proposed (not started).** Sizing decision locked by Pelo: the ball is NOT 1px — goal depth is already sized for it (see 5.4 polish pass 3). Plan: static render first; replay motion needs an optional per-tick `ballFrames` in `SimulationResult` (backend emits, engine consumes when present — backward compatible, no contract break).

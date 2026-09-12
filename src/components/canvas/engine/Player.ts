@@ -26,9 +26,9 @@ export class PlayerSprite {
   private isHovered: boolean = false;
   private radius: number;
 
-  // Couleurs
-  private readonly HOME_COLOR = 0x1e3a8a; // Bleu
-  private readonly AWAY_COLOR = 0xdc2626; // Rouge
+  // Couleurs (Epic 5.1 — Rocket League, jamais la teinte du sol en dessous)
+  private readonly HOME_COLOR = 0xff6b1a; // Orange
+  private readonly AWAY_COLOR = 0x1a8cff; // Bleu
   private readonly SELECTED_COLOR = 0xfbbf24; // Jaune
 
   constructor(
