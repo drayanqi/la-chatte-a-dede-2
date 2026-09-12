@@ -10,12 +10,25 @@ import { DebuggerPanel } from '../debugger/DebuggerPanel';
 import { TabBar } from '../tactics';
 import { Header } from './Header';
 import { Timeline } from './Timeline';
+import { PanelDivider } from './PanelDivider';
 import { useCanvasStore, useEditorStore, useTacticsStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
+import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
 
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
+
+  // Collapsible/resizable workspace panels (persisted in localStorage)
+  const {
+    layout,
+    resizeLeft,
+    resizeRight,
+    toggleLeft,
+    toggleRight,
+    resetSide,
+    commit,
+  } = usePanelLayout();
 
   const {
     setSelectedPlayer,
@@ -186,10 +199,39 @@ export const AppShell: React.FC = () => {
 
       {/* Main content */}
       <div style={styles.main}>
-        {/* Scripts Panel (gauche) */}
-        <div style={styles.leftPanel}>
-          <ScriptsPanel />
-        </div>
+        {/* Scripts Panel (gauche): resizable, collapsible to a thin strip */}
+        {layout.leftCollapsed ? (
+          <button
+            type="button"
+            data-testid="panel-strip-left"
+            aria-expanded={false}
+            aria-controls="left-panel"
+            onClick={toggleLeft}
+            title="AI Scripts"
+            style={styles.collapsedStripLeft}
+          >
+            <span style={styles.collapsedStripLabel}>AI Scripts</span>
+            <span style={styles.collapsedStripArrow}>{'›'}</span>
+          </button>
+        ) : (
+          <>
+            <div
+              id="left-panel"
+              data-testid="left-panel"
+              style={{ ...styles.leftPanel, width: `${layout.leftWidth}px` }}
+            >
+              <ScriptsPanel />
+            </div>
+            <PanelDivider
+              side="left"
+              width={layout.leftWidth}
+              onResize={resizeLeft}
+              onCommit={commit}
+              onReset={() => resetSide('left')}
+              onToggle={toggleLeft}
+            />
+          </>
+        )}
 
         {/* Canvas (centre) */}
         <div style={styles.centerPanel}>
@@ -204,10 +246,39 @@ export const AppShell: React.FC = () => {
           />
         </div>
 
-        {/* Debugger Panel (droite) */}
-        <div style={styles.rightPanel}>
-          <DebuggerPanel />
-        </div>
+        {/* Debugger Panel (droite): resizable, collapsible to a thin strip */}
+        {layout.rightCollapsed ? (
+          <button
+            type="button"
+            data-testid="panel-strip-right"
+            aria-expanded={false}
+            aria-controls="right-panel"
+            onClick={toggleRight}
+            title="Debugger"
+            style={styles.collapsedStripRight}
+          >
+            <span style={styles.collapsedStripLabel}>Debugger</span>
+            <span style={styles.collapsedStripArrow}>{'‹'}</span>
+          </button>
+        ) : (
+          <>
+            <PanelDivider
+              side="right"
+              width={layout.rightWidth}
+              onResize={resizeRight}
+              onCommit={commit}
+              onReset={() => resetSide('right')}
+              onToggle={toggleRight}
+            />
+            <div
+              id="right-panel"
+              data-testid="right-panel"
+              style={{ ...styles.rightPanel, width: `${layout.rightWidth}px` }}
+            >
+              <DebuggerPanel />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Timeline */}
@@ -222,6 +293,24 @@ export const AppShell: React.FC = () => {
       />
     </div>
   );
+};
+
+const collapsedStripStyle: React.CSSProperties = {
+  width: '28px',
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px',
+  padding: 0,
+  paddingTop: '12px',
+  backgroundColor: '#252526',
+  border: 'none',
+  cursor: 'pointer',
+  overflow: 'hidden',
+  userSelect: 'none',
+  color: 'inherit',
+  fontFamily: 'inherit',
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -239,7 +328,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
   },
   leftPanel: {
-    width: '280px',
+    flexShrink: 0,
     borderRight: '1px solid #3c3c3c',
     overflow: 'hidden',
     display: 'flex',
@@ -247,14 +336,34 @@ const styles: Record<string, React.CSSProperties> = {
   },
   centerPanel: {
     flex: 1,
+    minWidth: '320px',
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
   },
   rightPanel: {
-    width: '300px',
+    flexShrink: 0,
     borderLeft: '1px solid #3c3c3c',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+  },
+  collapsedStripLeft: {
+    ...collapsedStripStyle,
+    borderRight: '1px solid #3c3c3c',
+  },
+  collapsedStripRight: {
+    ...collapsedStripStyle,
+    borderLeft: '1px solid #3c3c3c',
+  },
+  collapsedStripLabel: {
+    writingMode: 'vertical-rl',
+    fontSize: '12px',
+    color: '#cccccc',
+    letterSpacing: '1px',
+    whiteSpace: 'nowrap',
+  },
+  collapsedStripArrow: {
+    fontSize: '10px',
+    color: '#9d9d9d',
   },
 };

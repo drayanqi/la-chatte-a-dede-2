@@ -21,3 +21,11 @@
 - **No central 401 handling in tacticsStore** — when the bearer token expires or is revoked mid-session, every tactics action keeps failing with "Unauthenticated." (no token cleanup, no logout, no redirect) until a full page reload triggers restoreSession. Mirrors editorStore's existing caller-decides-401 pattern; decide a global auth policy once and apply it to all stores.
 - **updateTactic succeeds server-side but silently no-ops locally when the id is absent from the tactics list** (e.g. after a failed fetchTactics) — `map()` finds no match, UI keeps stale data with no error. Add reconciliation (refetch or insert-on-miss) once story 3.2 defines the lineup UI's expectations.
 
+## Deferred from: code review of panel layout feature (2026-09-12)
+
+- **Keyboard resize for panel dividers** — dividers are pointer-only (`role="separator"` without `tabIndex`/arrow-key handling/`aria-valuenow`). Add `tabIndex={0}` + ArrowLeft/ArrowRight (±16px, Shift ±64px) mapped to resize/commit plus aria value attributes for WCAG 2.1.1 compliance.
+- **Unit tests for usePanelLayout and PanelDivider** — the hook contract (commit-on-drag-end vs immediate toggle persistence, ref freshness, resize listener) and the divider interaction math (direction inversion, threshold, capture cleanup) are only exercised via browser e2e. Add `renderHook` + component tests if regressions appear.
+- **E2E for load-time clamp + drag no-regression** — no e2e seeds an oversized stored width on a narrower viewport to watch it clamp on load (unit-covered only), and no e2e drags a divider then re-verifies script drag-and-drop/canvas selection/Monaco editing (AC4 is satisfied by construction, not by test).
+- **Drag re-render perf** — each pointermove re-renders the whole AppShell subtree (ScriptsPanel/Monaco, DebuggerPanel, TacticsCanvas). Smooth in practice; if jank is reported on big workspaces, wrap heavy children in `React.memo` and/or coalesce moves with `requestAnimationFrame`.
+
+
