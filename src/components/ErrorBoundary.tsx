@@ -45,9 +45,22 @@ export class ErrorBoundary extends React.Component<Props, State> {
           data-testid="error-boundary"
         >
           <h1>Something went wrong</h1>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px' }}>
-            {this.state.error?.message}
-          </pre>
+          <p style={{ color: '#d4d4d4' }}>
+            An unexpected error occurred. Try reloading the page.
+          </p>
+          <button
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#0e639c',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            onClick={() => window.location.reload()}
+          >
+            Reload
+          </button>
         </div>
       );
     }

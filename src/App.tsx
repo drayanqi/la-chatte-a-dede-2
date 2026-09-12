@@ -31,6 +31,7 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/workspace" replace />} />
+          <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

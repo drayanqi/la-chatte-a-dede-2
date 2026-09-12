@@ -12,6 +12,127 @@
  * @see FR4-FR14 in PRD
  */
 import { test, expect } from '../support/fixtures';
+import { seedAuthToken } from '../support/helpers/auth';
+
+// Active highlight (pre-Monaco signal for "file opened in editor"): #37373d
+const ACTIVE_ITEM_BACKGROUND = 'rgb(55, 55, 61)';
+
+test.describe('AI Workspace - Scripts (Story 2.1)', () => {
+  test('should list existing scripts for the user @P0', async ({ page, userFactory }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+
+    // The backend provisions StarterAI.js on registration
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toBeVisible();
+    await expect(scriptsList).toContainText('StarterAI.js');
+  });
+
+  test('should create new AI file with default name @P0', async ({ page, userFactory }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toContainText('StarterAI.js');
+
+    await page.getByTestId('create-script-button').click();
+
+    // Default name is NewAI.js
+    await expect(scriptsList).toContainText('NewAI.js');
+  });
+
+  test('should generate a unique default name for the second file @P0', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toContainText('StarterAI.js');
+
+    await page.getByTestId('create-script-button').click();
+    await expect(scriptsList).toContainText('NewAI.js');
+
+    await page.getByTestId('create-script-button').click();
+
+    // Second creation must not collide with NewAI.js
+    await expect(scriptsList).toContainText('NewAI (1).js');
+  });
+
+  test('should open file in editor when clicked @P0', async ({ page, userFactory }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toContainText('StarterAI.js');
+
+    // Clicking the file opens it: the active highlight changes. A
+    // list-only visibility assertion would pass vacuously.
+    const starterItem = page
+      .locator('[data-testid^="script-item-"]')
+      .filter({ hasText: 'StarterAI.js' });
+    await starterItem.click();
+    await expect(starterItem).toHaveCSS('background-color', ACTIVE_ITEM_BACKGROUND);
+  });
+
+  test('should show newly created files at the top of the list @P1', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toContainText('StarterAI.js');
+
+    await page.getByTestId('create-script-button').click();
+    await expect(scriptsList).toContainText('NewAI.js');
+
+    // Newest first: the first item must be the just-created file
+    const firstItem = page.locator('[data-testid^="script-item-"]').first();
+    await expect(firstItem).toContainText('NewAI.js');
+  });
+
+  test('should not show another user scripts @P0', async ({ page, userFactory, scriptFactory }) => {
+    // User A creates a distinctive script via the API
+    const owner = await userFactory.create();
+    await scriptFactory.create({ token: owner.token, name: 'OwnerSecretAI.js' });
+
+    // User B logs in and must only see their own workspace
+    const intruder = await userFactory.create();
+    await seedAuthToken(page, intruder.token ?? '');
+
+    await page.goto('/workspace');
+    const scriptsList = page.getByTestId('scripts-list');
+    await expect(scriptsList).toContainText('StarterAI.js');
+    await expect(scriptsList).not.toContainText('OwnerSecretAI.js');
+  });
+
+  test('should show a loading state while scripts are fetched @P2', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.create();
+    await seedAuthToken(page, user.token ?? '');
+
+    // Delay the scripts response so the loading state is observable
+    await page.route('**/api/scripts', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    await page.goto('/workspace');
+    await expect(page.getByText('Loading scripts...')).toBeVisible();
+    await expect(page.getByTestId('scripts-list')).toContainText('StarterAI.js');
+  });
+});
 
 test.describe('Story 2.2 - Monaco Editor Integration', () => {
   test('should display Monaco editor when file is selected @P0', async ({
@@ -99,9 +220,12 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
+    // Wait for the content to render (line numbers only exist for rendered lines)
+    await expect(page.locator('.monaco-editor')).toContainText('line1');
+
     // THEN: Line numbers are visible
     // Monaco renders line numbers in .line-numbers class
-    await expect(page.locator('.monaco-editor .line-numbers')).toBeVisible();
+    await expect(page.locator('.monaco-editor .line-numbers').first()).toBeVisible();
   });
 
   test('should apply syntax highlighting for JavaScript @P0', async ({
@@ -168,8 +292,13 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     // Verify text was added
     await expect(page.locator('.monaco-editor')).toContainText('ADDED');
 
-    // Press Cmd+Z (Meta+Z on Mac)
+    // Press undo. Headless Chromium swallows Cmd+Z via the browser's native
+    // edit-context undo before it reaches Monaco, while WebKit only knows
+    // Cmd+Z — so try Meta+z first and fall back to Ctrl+z (Monaco honors both).
     await page.keyboard.press('Meta+z');
+    if ((await page.locator('.monaco-editor').textContent())?.includes('ADDED')) {
+      await page.keyboard.press('Control+z');
+    }
 
     // THEN: The typed text should be undone
     await expect(page.locator('.monaco-editor')).not.toContainText('ADDED');
@@ -1150,19 +1279,21 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
-    // Type invalid JavaScript
+    // Type invalid JavaScript. A stray closing brace is used because Monaco
+    // auto-closes opened brackets, so unterminated brackets would never
+    // produce an error.
     await page.click('.monaco-editor');
-    await page.keyboard.type('const x = [1, 2');
+    await page.keyboard.type('let x = 1;\n}');
 
-    // Wait for validation
-    await page.waitForTimeout(1000);
+    // Wait for the language worker to analyze the code (cold start can be slow)
+    await expect(page.locator('.squiggly-error')).toBeVisible({ timeout: 15000 });
 
-    // Wait for error squiggle
-    await page.waitForSelector('.squiggly-error', { state: 'visible', timeout: 5000 });
-
-    // WHEN: User hovers over the error
+    // WHEN: User hovers over the error. The squiggle is a decoration layer
+    // under the text, so hover via raw mouse coordinates (the text span
+    // intercepts pointer events and locator.hover() would refuse).
     const errorSquiggle = page.locator('.squiggly-error').first();
-    await errorSquiggle.hover();
+    const box = await errorSquiggle.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 
     // Wait a bit for hover to trigger
     await page.waitForTimeout(500);
@@ -1170,7 +1301,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     // THEN: Error message appears in hover tooltip
     // Monaco shows error messages in hover-contents or monaco-hover-content
     const hoverContent = page.locator('.monaco-hover-content, .hover-contents');
-    await expect(hoverContent).toBeVisible({ timeout: 5000 });
+    await expect(hoverContent.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('should show error icon in gutter @P1', async ({
@@ -1196,17 +1327,16 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
-    // Type invalid JavaScript (missing closing brace)
+    // Type invalid JavaScript. A stray closing brace is used because Monaco
+    // auto-closes opened brackets (auto-closing brackets are enabled), so an
+    // unterminated "{(" would never produce an error.
     await page.click('.monaco-editor');
-    await page.keyboard.type('function broken() {');
-
-    // Wait for validation
-    await page.waitForTimeout(1000);
+    await page.keyboard.type('let x = 1;\n}');
 
     // THEN: Error icon appears in the gutter
     // Monaco displays error icons with codicon-error class in the glyph margin
     const gutterIcon = page.locator('.codicon-error, .codicon-warning');
-    await expect(gutterIcon.first()).toBeVisible({ timeout: 5000 });
+    await expect(gutterIcon.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('should show no errors for valid code @P0', async ({
@@ -1266,22 +1396,22 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
-    // Type invalid JavaScript (missing closing parenthesis)
+    // Type invalid JavaScript. A stray closing brace is used because Monaco
+    // auto-closes opened brackets; the error is fixed by deleting the brace.
     await page.click('.monaco-editor');
-    await page.keyboard.type('console.log("test"');
+    await page.keyboard.type('let x = 1;\n}');
 
-    // Wait for validation and verify error appears
-    await page.waitForTimeout(1000);
-    await expect(page.locator('.squiggly-error')).toBeVisible({ timeout: 5000 });
+    // Wait for the language worker to analyze the code (cold start can be slow)
+    await expect(page.locator('.squiggly-error')).toBeVisible({ timeout: 15000 });
 
-    // WHEN: User fixes the error by adding closing parenthesis
-    await page.keyboard.type(')');
+    // WHEN: User fixes the error by removing the stray brace
+    await page.keyboard.press('Backspace');
 
     // Wait for re-validation
     await page.waitForTimeout(1000);
 
     // THEN: Error indicators are removed
-    await expect(page.locator('.squiggly-error')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.squiggly-error')).not.toBeVisible({ timeout: 15000 });
   });
 });
 
@@ -1748,9 +1878,13 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const originalItem = page.locator(`[data-testid="script-item-${script.id}"]`);
     await expect(originalItem).toBeVisible();
 
-    // Find the duplicate item (will have different ID)
-    const scriptItems = page.locator('[data-testid^="script-item-"]');
-    await expect(scriptItems).toHaveCount(2);
+    // Find the duplicate item (will have different ID). The StarterAI.js
+    // template provisioned at registration is also in the list, so the total
+    // count cannot be asserted; match the duplicate by name instead.
+    const duplicateItem = page
+      .locator('[data-testid^="script-item-"]')
+      .filter({ hasText: 'Copy of Independent.js' });
+    await expect(duplicateItem).toHaveCount(1);
   });
 
   test('should allow editing duplicate without affecting original @P1', async ({
@@ -2025,12 +2159,14 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await expect(page.locator('[data-testid="scripts-list"]')).toContainText('ClickOutsideTest.js');
   });
 
-  test('should close editor when deleting active file @P0', async ({
+  test('should close editor when deleting the last active file @P0', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with a file open in editor
+    // GIVEN: User with a file open in editor. The StarterAI.js template is
+    // provisioned at registration, so both files must be deleted for the
+    // editor to reach its empty state.
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
@@ -2055,6 +2191,16 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.click('[data-testid="delete-option"]');
 
     // WHEN: User confirms deletion
+    await page.click('[data-testid="delete-confirm-button"]');
+
+    // THEN: Deleting the active file selects the next remaining script
+    await expect(page.getByTestId('delete-confirm-dialog')).not.toBeVisible();
+    await expect(page.locator('.monaco-editor')).toBeVisible();
+    await expect(page.locator('[data-testid="editor-container"]')).toContainText('StarterAI.js');
+
+    // WHEN: The last remaining script is deleted
+    await page.click('[data-testid^="script-item-"]', { button: 'right' });
+    await page.click('[data-testid="delete-option"]');
     await page.click('[data-testid="delete-confirm-button"]');
 
     // THEN: Editor shows empty state (no script selected message)

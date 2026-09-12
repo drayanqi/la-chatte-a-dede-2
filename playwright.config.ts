@@ -56,11 +56,25 @@ export default defineConfig({
     },
   ],
 
-  // Local dev server (Vite)
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 2 min for dev server startup
-  },
+  // Dev servers: the Laravel API backend and the Vite frontend. The frontend
+  // proxies /api to the backend, so both must be up before tests run.
+  webServer: [
+    {
+      command: 'php artisan migrate:fresh --force && php artisan serve --host=127.0.0.1 --port=8000',
+      url: 'http://127.0.0.1:8000/up',
+      cwd: 'lachatadede-api',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000, // 2 min for backend startup
+      env: {
+        // E2E creates many users per minute; keep the auth rate limiter open
+        AUTH_THROTTLE_MAX: '1000',
+      },
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000, // 2 min for dev server startup
+    },
+  ],
 });

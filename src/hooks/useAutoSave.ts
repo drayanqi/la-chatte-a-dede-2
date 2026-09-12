@@ -42,7 +42,7 @@ export const useAutoSave = ({
 }: UseAutoSaveOptions): void => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const intervalTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSaveTimeRef = useRef<number>(Date.now());
+  const lastSaveTimeRef = useRef<number>(0);
 
   const performSave = useCallback(async () => {
     if (!activeScriptId || isSaving || !hasUnsavedChanges) {

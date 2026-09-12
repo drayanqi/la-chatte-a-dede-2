@@ -295,3 +295,4 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-02-01: Story 2.3 implementation complete - Save functionality with Cmd+S, indicators, auto-save, and unsaved changes warning
+- 2026-09-12: Integration fix pass - API semantics corrected for Laravel's ConvertEmptyStringsToNull middleware: an explicitly sent empty `code` now clears the script (create accepts `code: ''`; update sets empty string for keys the client actually sent, ignoring absent keys). "0" and "" both survive persistence (regression tests added in ScriptTest).

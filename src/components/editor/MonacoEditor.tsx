@@ -15,6 +15,11 @@
 import { useRef, useEffect } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
+// Side-effect import: configures the local Monaco bundle (workers + loader)
+// before any editor mounts, so loader.init() resolves the local instance
+// instead of the CDN default. Must stay a static import to avoid racing
+// @monaco-editor/react's own internal loader.init() call.
+import '@/lib/monacoSetup';
 import {
   registerGameApiCompletionProvider,
   type GameApiProviderDisposable,
@@ -51,34 +56,34 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
 
   // Configure Monaco features once when available (singleton pattern)
   useEffect(() => {
-    // Use Monaco loader to get the instance
+    // Use Monaco loader to get the instance (local bundle via monacoSetup)
     loader.init().then((monaco) => {
-      monacoRef.current = monaco;
+        monacoRef.current = monaco;
 
-      // Story 2.4: Register Game API completion provider (singleton)
-      if (!completionProviderDisposable) {
-        completionProviderDisposable = registerGameApiCompletionProvider(monaco);
-      }
+        // Story 2.4: Register Game API completion provider (singleton)
+        if (!completionProviderDisposable) {
+          completionProviderDisposable = registerGameApiCompletionProvider(monaco);
+        }
 
-      // Story 2.5: Configure JavaScript validation for syntax error detection (singleton)
-      if (!validationConfigured) {
-        // Enable JavaScript syntax and semantic validation
-        monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-          noSemanticValidation: false, // Enable semantic validation
-          noSyntaxValidation: false, // Enable syntax validation (CRITICAL for error detection)
-        });
+        // Story 2.5: Configure JavaScript validation for syntax error detection (singleton)
+        if (!validationConfigured) {
+          // Enable JavaScript syntax and semantic validation
+          monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+            noSemanticValidation: false, // Enable semantic validation
+            noSyntaxValidation: false, // Enable syntax validation (CRITICAL for error detection)
+          });
 
-        // Configure compiler options for better JavaScript analysis
-        monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-          target: monaco.languages.typescript.ScriptTarget.ES2020,
-          allowNonTsExtensions: true,
-          checkJs: true, // Enable type checking in JS files
-          allowJs: true,
-        });
+          // Configure compiler options for better JavaScript analysis
+          monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+            target: monaco.languages.typescript.ScriptTarget.ES2020,
+            allowNonTsExtensions: true,
+            checkJs: true, // Enable type checking in JS files
+            allowJs: true,
+          });
 
-        validationConfigured = true;
-      }
-    });
+          validationConfigured = true;
+        }
+      });
 
     // Note: We intentionally don't dispose providers on unmount
     // because they are singletons that should persist across editor instances.
@@ -89,14 +94,9 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   };
 
   const handleEditorMount = (editor: unknown) => {
-    // Add Cmd/Ctrl+S keybinding for save (Story 2.3)
-    const monacoEditor = editor as {
-      addCommand: (
-        keybinding: number,
-        handler: () => void
-      ) => void;
-    };
+    const monacoEditor = editor as Monaco.editor.IStandaloneCodeEditor;
 
+    // Add Cmd/Ctrl+S keybinding for save (Story 2.3)
     // Monaco keycodes: KeyMod.CtrlCmd = 2048, KeyCode.KeyS = 49
     // Combined: 2048 | 49 = 2097 (but we use the actual value)
     if (onSave) {
@@ -104,6 +104,50 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       monacoEditor.addCommand(2097, () => {
         onSave();
       });
+    }
+
+    // Story 2.5 (AC #2): render error icons in the gutter. Monaco standalone
+    // does not draw marker icons in the glyph margin, so decorations are
+    // synced from the marker list whenever markers change.
+    if (monacoRef.current) {
+      const decorations = monacoEditor.createDecorationsCollection();
+
+      const syncGutterIcons = () => {
+        const monaco = monacoRef.current;
+        if (!monaco) {
+          return;
+        }
+
+        const markers = monaco.editor
+          .getModelMarkers({})
+          .filter((marker) => marker.severity >= monaco.MarkerSeverity.Error);
+
+        decorations.set(
+          markers.map((marker) => ({
+            range: new monaco.Range(
+              marker.startLineNumber,
+              1,
+              marker.startLineNumber,
+              1
+            ),
+            options: {
+              glyphMarginClassName:
+                marker.severity === monaco.MarkerSeverity.Error
+                  ? 'codicon codicon-error gutter-error-icon'
+                  : 'codicon codicon-warning gutter-warning-icon',
+              glyphMarginHoverMessage: marker.message
+                ? { value: marker.message }
+                : undefined,
+              stickiness:
+                monaco.editor.TrackedRangeStickiness
+                  .NeverGrowsWhenTypingAtEdges,
+            },
+          }))
+        );
+      };
+
+      monacoRef.current.editor.onDidChangeMarkers(syncGutterIcons);
+      syncGutterIcons();
     }
 
     // Call user's onMount if provided

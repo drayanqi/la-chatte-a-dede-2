@@ -4,21 +4,28 @@
  */
 
 import { useState, FormEvent, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
 
+  const from = (location.state as { from?: string } | null)?.from || '/workspace';
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/workspace');
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,6 +50,7 @@ export const LoginPage: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             style={styles.input}
             placeholder="Enter your email"
+            autoComplete="email"
             required
           />
         </div>
@@ -59,6 +67,7 @@ export const LoginPage: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             style={styles.input}
             placeholder="Enter your password"
+            autoComplete="current-password"
             required
           />
         </div>
@@ -79,9 +88,9 @@ export const LoginPage: React.FC = () => {
 
         <p style={styles.linkText}>
           Don't have an account?{' '}
-          <a href="/register" style={styles.link}>
+          <Link to="/register" style={styles.link}>
             Create one
-          </a>
+          </Link>
         </p>
       </form>
     </div>

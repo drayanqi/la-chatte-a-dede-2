@@ -82,13 +82,50 @@ jobs:
           retention-days: 7
 
   # ============================================
+  # Stage 2b: Backend Tests (Laravel)
+  # ============================================
+  backend-tests:
+    name: Backend Tests (Laravel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        working-directory: lachatadede-api
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Run backend tests
+        working-directory: lachatadede-api
+        run: php artisan test
+
+  # ============================================
   # Stage 3: E2E Tests (Parallel Shards)
   # ============================================
   e2e-tests:
     name: E2E Tests (Shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [lint, unit-tests]
+    needs: [lint, unit-tests, backend-tests]
     strategy:
       fail-fast: false # Run all shards even if one fails
       matrix:
@@ -102,6 +139,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+
+      - name: Setup PHP (E2E boots the Laravel backend)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install backend dependencies
+        working-directory: lachatadede-api
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -165,6 +212,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+
+      - name: Setup PHP (E2E boots the Laravel backend)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install backend dependencies
+        working-directory: lachatadede-api
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4

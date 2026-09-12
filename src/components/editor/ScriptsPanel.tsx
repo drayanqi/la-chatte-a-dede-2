@@ -332,7 +332,7 @@ export const ScriptsPanel: React.FC = () => {
         >
           {isCreatingScript ? (
             <span data-testid="script-creating" style={styles.spinnerIcon}>
-              ...
+              Creating...
             </span>
           ) : (
             '+'

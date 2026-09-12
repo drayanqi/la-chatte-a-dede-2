@@ -594,7 +594,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         let newActiveId = state.activeScriptId;
         if (state.activeScriptId === id) {
           const scriptIds = Array.from(newScripts.keys());
-          newActiveId = scriptIds.length > 0 ? scriptIds[0] : null;
+          newActiveId = scriptIds.length > 0 ? scriptIds[0] ?? null : null;
         }
 
         return {

@@ -47,7 +47,7 @@ function detectContext(textBeforeCursor: string): CompletionContext {
     return 'unknown';
   }
 
-  const variableName = match[1];
+  const variableName = match[1] ?? '';
 
   // Direct player variables
   if (PLAYER_VARIABLES.has(variableName)) {

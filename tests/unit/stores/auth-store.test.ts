@@ -20,6 +20,11 @@ describe('Auth Store', () => {
     useAuthStore.getState().reset();
     // Clear all mocks
     vi.clearAllMocks();
+    // Safe default so fire-and-forget calls never throw on undefined
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
     // Mock document.cookie
     Object.defineProperty(document, 'cookie', {
       writable: true,
@@ -284,13 +289,134 @@ describe('Auth Store', () => {
       await useAuthStore.getState().login('test@example.com', 'Password123!');
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
+      const localStorageMock = window.localStorage as unknown as {
+        getItem: ReturnType<typeof vi.fn>;
+        setItem: ReturnType<typeof vi.fn>;
+        removeItem: ReturnType<typeof vi.fn>;
+      };
+      localStorageMock.getItem.mockReturnValue('token');
+
       // WHEN: Logging out
       useAuthStore.getState().logout();
+      await Promise.resolve(); // let the fire-and-forget logout request fire
 
-      // THEN: Should be logged out
+      // THEN: Server-side session is terminated
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/logout'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer token',
+          }),
+        })
+      );
+
+      // AND: Local state is cleared
       const state = useAuthStore.getState();
       expect(state.isAuthenticated).toBe(false);
       expect(state.user).toBeNull();
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_token');
+    });
+
+    it('should still clear local state when the logout request fails', () => {
+      // GIVEN: A stored token
+      const localStorageMock = window.localStorage as unknown as {
+        getItem: ReturnType<typeof vi.fn>;
+      };
+      localStorageMock.getItem.mockReturnValue('token');
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      // WHEN: Logging out while the API is unreachable
+      useAuthStore.getState().logout();
+
+      // THEN: The user is still logged out locally
+      const state = useAuthStore.getState();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.user).toBeNull();
+    });
+  });
+
+  describe('restoreSession', () => {
+    const getLocalStorageMock = () =>
+      window.localStorage as unknown as {
+        getItem: ReturnType<typeof vi.fn>;
+        removeItem: ReturnType<typeof vi.fn>;
+      };
+
+    it('should finish restoring without a request when no token is stored', async () => {
+      // GIVEN: No stored token
+      getLocalStorageMock().getItem.mockReturnValue(null);
+
+      // WHEN: Restoring the session
+      await useAuthStore.getState().restoreSession();
+
+      // THEN: Restoration completes without authentication
+      const state = useAuthStore.getState();
+      expect(state.isRestoring).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should restore the session with a valid token', async () => {
+      // GIVEN: A stored token and a valid /user response
+      getLocalStorageMock().getItem.mockReturnValue('valid-token');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'uuid-1',
+            email: 'returning@example.com',
+            username: 'Returning',
+            points: 5,
+          }),
+      });
+
+      // WHEN: Restoring the session
+      await useAuthStore.getState().restoreSession();
+
+      // THEN: The user is authenticated
+      const state = useAuthStore.getState();
+      expect(state.isRestoring).toBe(false);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.user?.email).toBe('returning@example.com');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/user'),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer valid-token',
+          }),
+        })
+      );
+    });
+
+    it('should clear an invalid token without authenticating', async () => {
+      // GIVEN: A stored token the API rejects
+      getLocalStorageMock().getItem.mockReturnValue('stale-token');
+      mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+
+      // WHEN: Restoring the session
+      await useAuthStore.getState().restoreSession();
+
+      // THEN: The stale token is removed and the user stays logged out
+      const state = useAuthStore.getState();
+      expect(state.isRestoring).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+      expect(getLocalStorageMock().removeItem).toHaveBeenCalledWith('auth_token');
+    });
+
+    it('should keep the token on a network error so the user can retry', async () => {
+      // GIVEN: A stored token and an unreachable API
+      getLocalStorageMock().getItem.mockReturnValue('good-token');
+      mockFetch.mockRejectedValueOnce(new Error('Network down'));
+
+      // WHEN: Restoring the session
+      await useAuthStore.getState().restoreSession();
+
+      // THEN: The token is preserved for retry and the user is not logged out
+      const state = useAuthStore.getState();
+      expect(state.isRestoring).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+      expect(getLocalStorageMock().removeItem).not.toHaveBeenCalledWith('auth_token');
     });
   });
 

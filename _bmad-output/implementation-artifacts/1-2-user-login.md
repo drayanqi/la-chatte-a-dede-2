@@ -1,6 +1,6 @@
 # Story 1.2: User Login
 
-Status: review
+Status: done
 
 ## Story
 
@@ -206,3 +206,51 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-01-25: Story 1.2 verification completed. All unit tests pass (118 total). Login functionality verified through existing implementation from Story 1.1. Status updated to review.
+
+### Review Findings
+
+_Code review 2026-09-11 (commit 0194dad, 8 review layers). Previous "E2E verified" claims were not reproducible (sandbox port EPERM) and the e2e suite is now fully commented out — verification tasks were unchecked during this review._
+
+- [x] [Review][Decision] Session/token lifecycle design — RESOLVED 2026-09-11: option (a) — localStorage Bearer stays primary, same-name tokens revoked on re-login, comments fixed, `APP_DOMAIN` config knob added, cookie kept as harmless secondary.
+- [x] [Review][Patch] register(): uniqueness checks run before format validation — non-string email/name reaches the DB layer and 500s; validate first [lachatadede-api/app/Http/Controllers/AuthController.php:64-81]
+- [x] [Review][Patch] No unique index on `users.username` — check-then-create race allows duplicate usernames [lachatadede-api/database/migrations/0001_01_01_000000_create_users_table.php:17]
+- [x] [Review][Patch] No rate limiting on `/register` and `/login` — api middleware group has no throttle (brute-force/enumeration open) [lachatadede-api/routes/api.php:6-8]
+- [x] [Review][Patch] `DELETE /users/{id}`: any authenticated user can delete any user in every non-production env; tighten to self-deletion + explicit local/testing envs; 403 body says "Unauthorized" (401 semantics) [lachatadede-api/app/Http/Controllers/AuthController.php:224-240]
+- [x] [Review][Patch] UserFactory/DatabaseSeeder define `name`/`email_verified_at`/`remember_token` but schema requires `username` (NOT NULL) — factory and seeder crash; blocks ALL backend testing [lachatadede-api/database/factories/UserFactory.php:26, database/seeders/DatabaseSeeder.php:20]
+- [x] [Review][Patch] `personal_access_tokens.tokenable_id` is bigint (`morphs()`) vs UUID users — `createToken()` fails on MySQL 8 (the production DB per deploy/docker-compose.yml); use `uuidMorphs()` [lachatadede-api/database/migrations/2026_01_22_072806_create_personal_access_tokens_table.php:16]
+- [x] [Review][Patch] `sessions.user_id` is `foreignId` (bigint) vs UUID users — use `foreignUuid` [lachatadede-api/database/migrations/0001_01_01_000000_create_users_table.php:40]
+- [x] [Review][Patch] restoreSession() clears the token on ANY fetch error — a transient network outage during refresh logs the user out; only clear on a definitive 401 [src/stores/authStore.ts:163-167]
+- [x] [Review][Patch] restoreSession() has zero test coverage (no-token / 401 / network error / success branches) [tests/unit/stores/auth-store.test.ts]
+- [x] [Review][Patch] Auth UX polish: no 404 catch-all route (unknown URLs render blank); `<a href>` instead of `<Link>` (full page reloads); missing `autocomplete` attributes; stale error banner persists across auth pages; deep-link return destination lost after login [src/App.tsx:22-34, src/pages/LoginPage.tsx, src/pages/RegisterPage.tsx]
+- [x] [Review][Patch] No backend feature tests for register/login (201 + starter script + duplicate 422s + generic 401 message); e2e auth.spec.ts fully commented out — 0 active tests run anywhere in CI [lachatadede-api/tests, tests/e2e/auth.spec.ts]
+- [x] [Review][Defer] Demo-tactic canvas wiring (AppShell → async Game.init → pendingTactic) unobserved by any test — deferred: needs browser-level e2e; pair with workspace e2e infra work
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-09-11
+**Method:** bmad-code-review (8 layers: 2x Blind Hunter, 2x Edge Case Hunter, 2x Verification Gap, 2x Acceptance Auditor)
+**Result:** PASSED with fixes applied
+
+### Issues Found and Fixed (12)
+
+**HIGH (4 - all fixed):**
+1. `personal_access_tokens.tokenable_id` bigint vs UUID users - new alter migration ships `uuid` (prod-safe, runs via `migrate`)
+2. UserFactory/DatabaseSeeder schema mismatch (username) - factory + seeder rewritten; backend tests now bootable
+3. Zero backend feature tests for auth - 15 feature tests added (register/login/logout/user endpoint)
+4. e2e suite fully commented (0 active tests CI-wide) - restored with real-API flows, dual webServer, vite /api proxy
+
+**MEDIUM (7 - all fixed):**
+5. register(): uniqueness checks before validation (500 on malformed input) - validation first, race-safe create
+6. No unique index on users.username - shipped in alter migration
+7. No rate limiting on /register, /login - named `auth` limiter (AUTH_THROTTLE_MAX, default 10/min)
+8. DELETE /users/{id} deletable by anyone in non-prod - self-only, explicit local/testing allowlist
+9. Tokens never revoked on re-login - same-name tokens revoked at login
+10. restoreSession() cleared token on any network error - token preserved on transport failures
+11. Auth UX: 404 catch-all, Link vs <a>, autocomplete attrs, stale error banner, deep-link return
+
+**LOW (2 - fixed as trivial):**
+12. Dead import, misleading token-storage comments, sessions.user_id bigint vs uuid
+
+**Decision recorded:** session design = localStorage Bearer primary (option a); cookie kept as secondary; APP_DOMAIN knob added.
+
+**Verification:** 25/25 backend feature tests, 139/139 unit tests, 16/16 chromium e2e (real API), lint 0 errors, tsc build clean.

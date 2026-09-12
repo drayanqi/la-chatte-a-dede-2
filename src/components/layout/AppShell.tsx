@@ -13,7 +13,7 @@ import { useCanvasStore, useEditorStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import type { TacticData, Player } from '@/types';
 
-// Tactique de démo
+// Demo tactic
 const createDemoTactic = (): TacticData => {
   const players: Player[] = [];
 
@@ -59,7 +59,7 @@ const createDemoTactic = (): TacticData => {
 
   return {
     id: 'demo-tactic',
-    name: 'Tactique Démo 5v5',
+    name: 'Demo Tactic 5v5',
     players,
     ball: { x: 50, y: 50 },
     scripts: {},
@@ -97,7 +97,7 @@ export const AppShell: React.FC = () => {
     }
   }, [isAuthenticated, fetchScripts]);
 
-  // Callbacks du Canvas
+  // Canvas callbacks
   const handlePlayerSelected = useCallback(
     (playerId: string, teamId: 'home' | 'away') => {
       setSelectedPlayer(playerId);

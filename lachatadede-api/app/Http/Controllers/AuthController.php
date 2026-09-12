@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Script;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -50,18 +51,21 @@ JAVASCRIPT;
      */
     public function register(Request $request): JsonResponse
     {
-        // Validate password confirmation first
-        if ($request->password !== $request->password_confirmation) {
+        try {
+            $validated = $request->validate([
+                'email' => ['required', 'string', 'email', 'max:255'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'name' => ['required', 'string', 'max:50'],
+            ]);
+        } catch (ValidationException $e) {
             return response()->json([
-                'message' => 'Passwords do not match',
-                'errors' => [
-                    'password' => ['The password confirmation does not match.'],
-                ],
+                'message' => $this->firstErrorMessage($e),
+                'errors' => $e->errors(),
             ], 422);
         }
 
-        // Check for existing email
-        if (User::where('email', $request->email)->exists()) {
+        // Check for existing email (validated input only)
+        if (User::where('email', $validated['email'])->exists()) {
             return response()->json([
                 'message' => 'Email already registered',
                 'errors' => [
@@ -70,8 +74,8 @@ JAVASCRIPT;
             ], 422);
         }
 
-        // Check for existing username
-        if (User::where('username', $request->name)->exists()) {
+        // Check for existing username (validated input only)
+        if (User::where('username', $validated['name'])->exists()) {
             return response()->json([
                 'message' => 'Username already taken',
                 'errors' => [
@@ -80,49 +84,36 @@ JAVASCRIPT;
             ], 422);
         }
 
+        // Create the user and starter AI script atomically
         try {
-            $validated = $request->validate([
-                'email' => ['required', 'email'],
-                'password' => ['required', 'min:8'],
-                'name' => ['required', 'string', 'max:50'],
-            ]);
-        } catch (ValidationException $e) {
+            $user = DB::transaction(function () use ($validated) {
+                $user = User::create([
+                    'email' => $validated['email'],
+                    'username' => $validated['name'],
+                    'password' => $validated['password'],
+                    'points' => 0,
+                ]);
+
+                $user->scripts()->create([
+                    'name' => 'StarterAI.js',
+                    'code' => self::STARTER_AI_CODE,
+                    'language' => 'javascript',
+                ]);
+
+                return $user;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            // Lost a race against a concurrent registration with same email/username
             return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'message' => 'Email or username already registered',
+                'errors' => [
+                    'email' => ['The email has already been taken.'],
+                ],
             ], 422);
         }
 
-        // Create the user
-        $user = User::create([
-            'email' => $validated['email'],
-            'username' => $validated['name'],
-            'password' => $validated['password'],
-            'points' => 0,
-        ]);
-
-        // Create starter AI script
-        $user->scripts()->create([
-            'name' => 'StarterAI.js',
-            'code' => self::STARTER_AI_CODE,
-            'language' => 'javascript',
-        ]);
-
         // Create API token
         $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Set HTTP-only cookie for session persistence
-        $cookie = cookie(
-            'auth_token',
-            $token,
-            60 * 24 * 7, // 7 days
-            '/',
-            config('app.env') === 'production' ? config('app.domain') : 'localhost',
-            config('app.env') === 'production', // Secure in production
-            true, // HTTP-only
-            false,
-            'Lax' // SameSite
-        );
 
         return response()->json([
             'user' => [
@@ -132,7 +123,7 @@ JAVASCRIPT;
                 'points' => $user->points,
             ],
             'token' => $token,
-        ], 201)->withCookie($cookie);
+        ], 201)->withCookie($this->authCookie($token));
     }
 
     /**
@@ -142,12 +133,12 @@ JAVASCRIPT;
     {
         try {
             $validated = $request->validate([
-                'email' => ['required', 'email'],
-                'password' => ['required'],
+                'email' => ['required', 'string', 'email'],
+                'password' => ['required', 'string'],
             ]);
         } catch (ValidationException $e) {
             return response()->json([
-                'message' => 'Validation failed',
+                'message' => $this->firstErrorMessage($e),
                 'errors' => $e->errors(),
             ], 422);
         }
@@ -163,21 +154,11 @@ JAVASCRIPT;
             ], 401);
         }
 
+        // Revoke previous sessions so stale tokens cannot accumulate
+        $user->tokens()->where('name', 'auth_token')->delete();
+
         // Create new token
         $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Set HTTP-only cookie for session persistence
-        $cookie = cookie(
-            'auth_token',
-            $token,
-            60 * 24 * 7, // 7 days
-            '/',
-            config('app.env') === 'production' ? config('app.domain') : 'localhost',
-            config('app.env') === 'production', // Secure in production
-            true, // HTTP-only
-            false,
-            'Lax' // SameSite
-        );
 
         return response()->json([
             'user' => [
@@ -187,7 +168,7 @@ JAVASCRIPT;
                 'points' => $user->points,
             ],
             'token' => $token,
-        ])->withCookie($cookie);
+        ])->withCookie($this->authCookie($token));
     }
 
     /**
@@ -197,8 +178,12 @@ JAVASCRIPT;
     {
         $request->user()->currentAccessToken()->delete();
 
-        // Clear the auth cookie
-        $cookie = cookie()->forget('auth_token');
+        // Clear the auth cookie (match the domain used when setting it)
+        $cookie = cookie()->forget(
+            'auth_token',
+            '/',
+            config('app.env') === 'production' ? config('app.domain') : 'localhost'
+        );
 
         return response()->json(['message' => 'Logged out successfully'])->withCookie($cookie);
     }
@@ -219,23 +204,55 @@ JAVASCRIPT;
     }
 
     /**
-     * Delete a user (self-deletion only, or any user in test/local environment).
+     * Delete a user (self-deletion only, or any user in local/testing environments for test cleanup).
      */
     public function destroy(Request $request, string $id): JsonResponse
     {
+        $allowAny = in_array(config('app.env'), ['local', 'testing'], true);
+
+        if (!$allowAny && $request->user()->id !== $id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $user = User::find($id);
 
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // In production, only allow self-deletion
-        if (config('app.env') === 'production' && $request->user()->id !== $id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
+        // Clean up tokens so they cannot outlive the user
+        $user->tokens()->delete();
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully']);
+    }
+
+    /**
+     * Build the HTTP-only auth cookie. Kept as a secondary mechanism to the
+     * bearer token stored by the SPA in localStorage.
+     */
+    private function authCookie(string $token): \Symfony\Component\HttpFoundation\Cookie
+    {
+        return cookie(
+            'auth_token',
+            $token,
+            60 * 24 * 7, // 7 days
+            '/',
+            config('app.env') === 'production' ? config('app.domain') : 'localhost',
+            config('app.env') === 'production', // Secure in production
+            true, // HTTP-only
+            false,
+            'Lax' // SameSite
+        );
+    }
+
+    /**
+     * Extract the first validation error message for user-facing display.
+     */
+    private function firstErrorMessage(ValidationException $e): string
+    {
+        $first = collect($e->errors())->first();
+
+        return $first[0] ?? 'Validation failed';
     }
 }

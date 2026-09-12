@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Auth endpoints are rate limited per IP against brute force and
+        // enumeration. AUTH_THROTTLE_MAX can be raised for local/E2E runs.
+        RateLimiter::for('auth', function (Request $request) {
+            return Limit::perMinute((int) env('AUTH_THROTTLE_MAX', 10))->by($request->ip());
+        });
     }
 }

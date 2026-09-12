@@ -57,13 +57,15 @@ class ScriptController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string',
+            'code' => 'nullable|string|max:65000',
             'language' => 'nullable|string|max:50',
         ]);
 
         $script = Auth::user()->scripts()->create([
             'name' => $validated['name'],
-            'code' => $validated['code'],
+            // Empty code is a legitimate value (cleared editor); Laravel's
+            // ConvertEmptyStringsToNull middleware delivers it as null.
+            'code' => $validated['code'] ?? '',
             'language' => $validated['language'] ?? 'javascript',
         ]);
 
@@ -89,11 +91,23 @@ class ScriptController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
-            'code' => 'nullable|string',
+            'code' => 'nullable|string|max:65000',
             'language' => 'nullable|string|max:50',
         ]);
 
-        $script->update(array_filter($validated));
+        // Only keys the client explicitly sent are updated. An explicitly
+        // sent empty code clears the script (empty string is a real value);
+        // ConvertEmptyStringsToNull delivers it as null.
+        $changes = [];
+        foreach (['name', 'code', 'language'] as $field) {
+            if ($request->has($field)) {
+                $changes[$field] = $field === 'code'
+                    ? ($validated[$field] ?? '')
+                    : $validated[$field];
+            }
+        }
+
+        $script->update($changes);
 
         return response()->json([
             'id' => $script->id,

@@ -4,7 +4,7 @@
  */
 
 import { useState, FormEvent, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
 export const RegisterPage: React.FC = () => {
@@ -13,14 +13,21 @@ export const RegisterPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore();
 
+  const from = (location.state as { from?: string } | null)?.from || '/workspace';
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/workspace');
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,6 +64,7 @@ export const RegisterPage: React.FC = () => {
             onChange={(e) => setName(e.target.value)}
             style={styles.input}
             placeholder="Enter your name"
+            autoComplete="nickname"
             required
           />
         </div>
@@ -73,6 +81,7 @@ export const RegisterPage: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             style={styles.input}
             placeholder="Enter your email"
+            autoComplete="email"
             required
           />
         </div>
@@ -89,6 +98,7 @@ export const RegisterPage: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             style={styles.input}
             placeholder="Minimum 8 characters"
+            autoComplete="new-password"
             required
           />
         </div>
@@ -105,6 +115,7 @@ export const RegisterPage: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             style={styles.input}
             placeholder="Confirm your password"
+            autoComplete="new-password"
             required
           />
         </div>
@@ -125,9 +136,9 @@ export const RegisterPage: React.FC = () => {
 
         <p style={styles.linkText}>
           Already have an account?{' '}
-          <a href="/login" style={styles.link}>
+          <Link to="/login" style={styles.link}>
             Sign in
-          </a>
+          </Link>
         </p>
       </form>
     </div>

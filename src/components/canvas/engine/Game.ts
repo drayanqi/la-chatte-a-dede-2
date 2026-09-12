@@ -65,7 +65,7 @@ export class Game {
     container.appendChild(this.app.canvas);
     this.app.stage.addChild(this.gameContainer);
 
-    // Créer le terrain
+    // Create the field
     this.field = new Field(this.app.screen.width, this.app.screen.height);
     this.gameContainer.addChild(this.field.container);
 
@@ -124,13 +124,13 @@ export class Game {
   }
 
   private loadTacticInternal(tactic: TacticData): void {
-    // Supprimer les anciens joueurs
+    // Remove the old players
     for (const player of this.players.values()) {
       player.destroy();
     }
     this.players.clear();
 
-    // Créer les nouveaux joueurs
+    // Create the new players
     for (const playerData of tactic.players) {
       const sprite = new PlayerSprite(
         playerData,
@@ -210,7 +210,7 @@ export class Game {
 
       for (const [id, player] of this.players) {
         const basePos = player.getPosition();
-        // Mouvement simple pour la démo
+        // Simple demo movement
         frameStates.push({
           playerId: id,
           position: {

@@ -1,6 +1,6 @@
 # Story 1.4: Starter AI Template Provisioning
 
-Status: review
+Status: done
 
 ## Story
 
@@ -198,7 +198,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
    - Full CRUD implementation (index, show, store, update, destroy)
    - All endpoints return proper JSON format with id, name, code, language, updated_at
    - User ownership validated for all operations
-   - Returns 404 for non-existent scripts, 403 for unauthorized access
+   - Returns 404 for non-existent scripts, 404 for unauthorized (corrected during 2026-09-11 code review; owner-scoped find returns 404, not 403) access
 
 2. **API Routes Added:**
    - All routes added to `routes/api.php` inside `auth:sanctum` middleware group
@@ -247,3 +247,32 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 **Tests (new):**
 - tests/e2e/scripts.spec.ts (or add to auth.spec.ts)
 - tests/unit/stores/editor-store.test.ts (new or modify existing)
+
+### Review Findings
+
+_Code review 2026-09-11 (commit 0194dad, 8 review layers)._
+
+- [x] [Review][Patch] Starter AI provisioning is not atomic — `User::create` and the StarterAI script create run sequentially with no DB transaction; a failure between them leaves a registered user with zero scripts (AC #1 unmet, no repair on login). Wrap in a transaction [lachatadede-api/app/Http/Controllers/AuthController.php:97-109]
+- [x] [Review][Patch] No backend test that registration provisions StarterAI.js (AC #1) or that re-login does not duplicate it (AC #2); also broken upstream by the UserFactory/schema mismatch (see story 1.2 findings) [lachatadede-api/tests]
+- [x] [Review][Patch] Dev Agent Record claims "403 for unauthorized access" for scripts — implementation returns 404 (owner-scoped `find()`); correct the record to match the (safer) code [_bmad-output/implementation-artifacts/1-4-starter-ai-template-provisioning.md:Dev Agent Record]
+- [x] [Review][Defer] AC #1 "starter AI contains working code that can score against Easy bot" is unverifiable until the Epic 3 game engine exists — deferred: verify in stories 3.6/3.7
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-09-11
+**Method:** bmad-code-review (8 layers)
+**Result:** PASSED with fixes applied
+
+### Issues Found and Fixed (4)
+
+**MEDIUM (3 - fixed):**
+1. Starter provisioning not atomic (user + StarterAI.js two separate writes) - wrapped in DB transaction
+2. No backend test for provisioning (AC #1) or non-duplication on re-login (AC #2) - both covered in RegisterTest/LoginTest
+3. Record correction: Dev Agent Record claimed 403 for unauthorized script access; implementation returns 404 (safer, owner-scoped find) - record below corrected
+
+**LOW (1 - fixed via schema hardening):**
+4. UserFactory/seeder broken (see story 1.2) - fixed; provisioning tests run against real schema
+
+**Deferred:** AC #1 "working code that can score against Easy bot" requires the Epic 3 game engine - deferred to stories 3.6/3.7 (recorded in deferred-work.md).
+
+**Verification:** e2e asserts StarterAI.js appears for fresh registrations; backend tests assert provisioning + re-login non-duplication.

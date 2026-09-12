@@ -1,9 +1,9 @@
 /**
  * Header - Main toolbar with user menu
- * OWNER: Winston (Software Architect)
+ * OWNER: Dev Team
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -13,11 +13,34 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const userSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
 
+  // Close the dropdown on outside click or Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (userSectionRef.current && !userSectionRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
   const handleLogout = () => {
     logout();
+    setMenuOpen(false);
     navigate('/login');
   };
 
@@ -43,11 +66,13 @@ export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
       <div style={styles.spacer} />
 
       {isAuthenticated && user && (
-        <div style={styles.userSection}>
+        <div style={styles.userSection} ref={userSectionRef}>
           <button
             data-testid="user-menu"
             style={styles.userButton}
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
           >
             <span style={styles.userAvatar}>
               {user.username.charAt(0).toUpperCase()}
@@ -57,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
           </button>
 
           {menuOpen && (
-            <div style={styles.dropdown}>
+            <div style={styles.dropdown} role="menu">
               <div style={styles.dropdownHeader}>
                 <div style={styles.userEmail}>{user.email}</div>
                 <div style={styles.userPoints}>{user.points} pts</div>
@@ -67,6 +92,7 @@ export const Header: React.FC<HeaderProps> = ({ onRunSimulation }) => {
                 data-testid="logout-button"
                 style={styles.dropdownItem}
                 onClick={handleLogout}
+                role="menuitem"
               >
                 Sign Out
               </button>

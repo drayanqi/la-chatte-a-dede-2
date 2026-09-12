@@ -338,3 +338,4 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-02-02: Story 2.5 implementation complete - JavaScript syntax error detection with Monaco validation
+- 2026-09-12: Integration fix pass - AC #2 (gutter icons) was previously marked done but never worked: Monaco standalone does not render marker icons in the glyph margin, and the unit test asserting "editor options as configured in MonacoEditor.tsx" tested a hardcoded object, not the component. Gutter icons are now implemented via marker→glyph-margin decoration sync in MonacoEditor.tsx (see syncGutterIcons). E2E tests rewritten for Monaco's auto-closing brackets (unterminated brackets self-heal, so stray-brace code is used instead) and cold language-worker start times.

@@ -1,0 +1,18 @@
+# Deferred Work
+
+## Deferred from: code review of stories 1.2, 1.3, 1.4, 2.1 (2026-09-11)
+
+- **Demo-tactic canvas wiring unobserved by tests** — AppShell → async `Game.init` → `pendingTactic` queue and the unmount-during-init race have no test observation. Needs browser-level e2e (assert a `<canvas>` mounts on /workspace). Pair with the workspace e2e infra restoration.
+- **Game.destroy()/init failure edges** — `isInitialized` is never reset after `destroy()` (allowing `loadTactic` to write into a destroyed instance) and a rejected `game.init()` leaves a dead game in `gameRef`. Only manifests on init failure; browser-level issue.
+- **Laravel scaffold hygiene** — README is stock promo text; `lachatadede-api/vite.config.js` references a missing `resources/` dir (breaks `composer setup`); unused sail/pail deps. Cleanup when the API docs are next touched.
+- **Shared API client** — fetch plumbing (API_URL, token header, `credentials: 'include'`) duplicated across 5 call sites with no central 401 handling. Introduce `apiClient` when story 2.3 adds save endpoints.
+- **API Resources** — script serialization duplicated 4× in ScriptController; user array 3× in AuthController. Extract JsonResources when response shapes evolve.
+- **Shared auth form component** — ~130 lines of duplicated form styles between LoginPage/RegisterPage. Extract during a UX polish pass.
+
+## Deferred from: integration fix pass over stories 2.2–2.8 (2026-09-12)
+
+- **Monaco bundle in main chunk** — `src/lib/monacoSetup.ts` replaced the CDN loader with the local npm bundle (fixes version mismatch: types 0.55.1 vs CDN 0.52.x, offline/CORS worker failures, and e2e flakiness). Cost: main bundle grew from ~0.5 MB to ~4.3 MB (gzip ~1.1 MB). Consider React.lazy around `MonacoEditor` to keep the bundle out of the login route.
+- **Real-browser Cmd+Z unverified** — in headless Chromium, Cmd+Z is swallowed by the browser's native edit-context undo and never reaches Monaco (Ctrl+Z works). The e2e undo test tries Meta+z then falls back to Ctrl+z, so the exact user-facing keystroke is only asserted indirectly per engine. If users report broken undo, check Monaco's native edit-context integration first.
+- **Gutter icons are a custom implementation** — Monaco standalone never renders marker icons in the glyph margin (Story 2.5's "Monaco displays error icons by default" claim was false). They are now drawn via marker→decoration sync in `MonacoEditor.tsx` (`syncGutterIcons`). If Monaco adds native gutter markers, this can be replaced.
+- **Firefox/WebKit e2e verified locally only** — all 64 tests pass per engine locally; CI installs the same browsers, but the 4-way sharded run has never completed on GitHub's runners. If CI e2e turns out to be slow, consider scoping the workflow to chromium or sharding finer.
+

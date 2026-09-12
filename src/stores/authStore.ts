@@ -68,12 +68,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       const data = await response.json();
 
       if (!response.ok) {
-        set({ error: data.message, isLoading: false });
+        set({ error: data.message || 'Authentication failed. Please try again.', isLoading: false });
         return;
       }
 
-      // Token is stored in HTTP-only cookie by server
-      // Store token in memory for API calls
+      // The API also sets an HTTP-only cookie as a secondary mechanism; the
+      // bearer token in localStorage is what this app actually authenticates with.
       localStorage.setItem('auth_token', data.token);
 
       set({
@@ -104,12 +104,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       const data = await response.json();
 
       if (!response.ok) {
-        set({ error: data.message, isLoading: false });
+        set({ error: data.message || 'Authentication failed. Please try again.', isLoading: false });
         return;
       }
 
-      // Token is stored in HTTP-only cookie by server
-      // Store token in memory for API calls
+      // The API also sets an HTTP-only cookie as a secondary mechanism; the
+      // bearer token in localStorage is what this app actually authenticates with.
       localStorage.setItem('auth_token', data.token);
 
       set({
@@ -125,7 +125,22 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
   },
 
   logout: () => {
-    // Clear stored token
+    // Terminate the server-side session (fire-and-forget: local state must
+    // clear even if the request fails). The store no longer holds the token
+    // after this call, so capture it first for the Authorization header.
+    const token = localStorage.getItem('auth_token');
+
+    if (token) {
+      void fetch(`${API_URL}/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+      }).catch(() => {});
+    }
+
     localStorage.removeItem('auth_token');
     set({ ...initialState, isRestoring: false });
   },
@@ -148,7 +163,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       });
 
       if (!response.ok) {
-        // Token is invalid, clear it
+        // Definitive rejection: the token is no longer valid, clear it
         localStorage.removeItem('auth_token');
         set({ isRestoring: false });
         return;
@@ -161,8 +176,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
         isRestoring: false,
       });
     } catch (error) {
+      // Network/transport failure: the token may still be valid, keep it and
+      // let the user retry rather than logging them out of a transient outage.
       console.error('Session restoration error:', error);
-      localStorage.removeItem('auth_token');
       set({ isRestoring: false });
     }
   },

@@ -1307,7 +1307,7 @@ describe('Editor Store', () => {
 
       // THEN: lastModified should be updated from server
       const script = useEditorStore.getState().scripts.get('timestamp-test');
-      expect(script?.lastModified.toISOString()).toBe(serverTimestamp);
+      expect(script?.lastModified.toISOString()).toBe(new Date(serverTimestamp).toISOString());
     });
   });
 
@@ -1663,7 +1663,7 @@ describe('Editor Store', () => {
 
       // THEN: lastModified should be updated from server
       const script = useEditorStore.getState().scripts.get('timestamp-rename-test');
-      expect(script?.lastModified.toISOString()).toBe(serverTimestamp);
+      expect(script?.lastModified.toISOString()).toBe(new Date(serverTimestamp).toISOString());
     });
   });
 

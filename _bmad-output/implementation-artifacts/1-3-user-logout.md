@@ -1,6 +1,6 @@
 # Story 1.3: User Logout
 
-Status: review
+Status: done
 
 ## Story
 
@@ -192,3 +192,30 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-01-25: Story 1.3 verification completed. All unit tests pass (118 total). Logout functionality verified through existing implementation from Story 1.1. Status updated to review.
+
+### Review Findings
+
+_Code review 2026-09-11 (commit 0194dad, 8 review layers)._
+
+- [x] [Review][Patch] HIGH — frontend logout() never calls `POST /api/logout`: the Sanctum token and the 7-day HTTP-only cookie remain valid after "Sign Out" (AC #1 "my session is terminated" is unmet; a replayed request with the old token still authenticates). Call the endpoint from the store; extend the unit test to assert the POST [src/stores/authStore.ts:127-131]
+- [x] [Review][Patch] Backend logout cookie-clearing is mismatched in non-production (cookie set with explicit `Domain=localhost`, forgotten with the default session domain) — resolve together with the session design decision in story 1.2 findings [lachatadede-api/app/Http/Controllers/AuthController.php:201]
+- [x] [Review][Patch] e2e logout test is commented out and never asserted the server call; add POST /logout assertion to the logout unit test while restoring e2e [tests/e2e/auth.spec.ts, tests/unit/stores/auth-store.test.ts:273-295]
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-09-11
+**Method:** bmad-code-review (8 layers)
+**Result:** FAILED initially - PASSED after fixes
+
+### Issues Found and Fixed (3)
+
+**HIGH (1 - fixed):**
+1. Frontend logout() never called POST /api/logout - session survived Sign Out (AC #1 unmet). Store now fires the request with the Bearer token before clearing local state; unit test asserts the POST.
+
+**MEDIUM (1 - fixed):**
+2. Logout cookie-clearing domain mismatch in non-prod (set with Domain=localhost, forgotten without) - forget now mirrors the set-domain logic.
+
+**LOW (1 - fixed):**
+3. No test asserted the server call - logout unit tests extended; e2e logout test asserts post-logout redirect + revoked token.
+
+**Verification:** backend 25/25 (logout test proves token revoked: subsequent request 401), unit 139/139, e2e 16/16.

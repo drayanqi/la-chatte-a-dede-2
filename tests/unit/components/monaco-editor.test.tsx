@@ -34,6 +34,20 @@ vi.mock('@monaco-editor/react', () => ({
       />
     );
   },
+  loader: {
+    config: vi.fn(),
+    init: vi.fn(() => Promise.resolve({})),
+  },
+}));
+
+// Monaco is now bundled locally (see src/lib/monacoSetup.ts); keep unit tests
+// light by mocking the bundle and its web workers.
+vi.mock('monaco-editor', () => ({}));
+vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
+  default: class MockWorker {},
+}));
+vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({
+  default: class MockWorker {},
 }));
 
 // Import after mock

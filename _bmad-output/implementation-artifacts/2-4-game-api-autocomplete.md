@@ -333,3 +333,4 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-02-02: Story 2.4 implementation complete - Game API autocomplete with Monaco completion provider
+- 2026-09-12: Integration fix pass - completion provider now registers against the locally bundled Monaco instance (`src/lib/monacoSetup.ts`) instead of the CDN-loaded one, eliminating a types/runtime version mismatch and cold-start flakiness under load.

@@ -230,3 +230,4 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ## Change Log
 
 - 2026-02-01: Story 2.2 implementation complete - Monaco Editor integrated with full AC coverage
+- 2026-09-12: Integration fix pass - Monaco core now bundled locally (`src/lib/monacoSetup.ts`) instead of the CDN default (fixes version mismatch with installed types, offline/CORS worker failures, and nondeterministic e2e startup). Undo e2e test made engine-robust: headless Chromium swallows Cmd+Z via the browser's native edit-context undo, so the test tries Meta+z and falls back to Ctrl+z (both trigger Monaco undo).
