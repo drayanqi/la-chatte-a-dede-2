@@ -34,4 +34,11 @@
 - **Fixed-px goal depth and line width** — goal depth (12px) and `LINE_WIDTH` (2px) in `Field.ts` are absolute pixels while every other marking now scales with the letterboxed pitch; on very small collapsed-panel pitches goals look chunky, on very large ones they nearly vanish. Consider deriving them from pitch size (e.g. `max(4, pitch.height * 0.02)`).
 - **Sprite-level unit tests for PlayerSprite** — `updateScreenSize` (radius/font refresh, redraw, reposition), hover-preservation through resize, and `Field.draw` on degenerate canvases are only covered at geometry level; `PlayerSprite` needs a Pixi-in-jsdom canvas harness (or a headless-WebGL setup) before it can be unit-tested. Add when test infra allows.
 
+## Deferred from: home-left-half kickoff review (2026-09-12)
+
+- **Non-finite position robustness in tacticBridge** — `normalizeHomeX` and the y clamps pass NaN/undefined/null through (pre-existing: the old `clamp(..., 0, 100)` behaved identically; API validation makes it unreachable through normal flows). If a hardening pass happens, guard both axes with `Number.isFinite` and a sane default in one place, not x-only.
+- **Server-side left-half enforcement** — the x ≤ 50 invariant lives only in the frontend bridge; the API still accepts x 0-100, so any non-bridge writer (seeder, import, API consumer) can persist right-half rows that the bridge will then silently heal. Spec marks backend validation as human-gated: decide whether the API should validate x ≤ 50 for home tactics (would 422 legacy rows on save) or keep bridge-level healing.
+- **E2E coverage for legacy-row healing** — the mirror-on-load/save self-heal is unit-tested at the bridge level only; no e2e creates a tactic with `position_x: 70` via the API, opens the workspace, saves, and asserts the stored payload is healed. Add when e2e infra is next touched.
+- **Three hand-rolled formation literals** — store `DEFAULT_FORMATION`, match-factory's fixture formation, and the 3-2 doc's formation table drift independently (deliberately distinct values, but nothing links them). If a fourth consumer appears, extract a shared constant or generate the doc table from it.
+
 

@@ -55,16 +55,17 @@ export class MatchFactory {
   }): Promise<Tactic> {
     const { token, scriptIds, name } = params;
 
-    // Default formation: 1-2-2 (GK, 2 DEF, 2 ATK); positions follow the
-    // API bounds (x 0-100, y 0-50, home attacks toward x=100)
+    // Kickoff-legal 1-2-2 fixture formation (GK, 2 DEF, 2 ATK); positions are
+    // kickoff positions in home's left half (x 0-50, home attacks toward x=100).
+    // Deliberately distinct from the store's DEFAULT_FORMATION — this is test data.
     const payload = {
       name: name || faker.word.adjective() + 'Formation',
       players: [
         { player_slot: 1, position_x: 8, position_y: 45, script_id: scriptIds[0] ?? null },    // GK
         { player_slot: 2, position_x: 25, position_y: 30, script_id: scriptIds[1] ?? null },   // DEF1
         { player_slot: 3, position_x: 25, position_y: 15, script_id: scriptIds[2] ?? null },   // DEF2
-        { player_slot: 4, position_x: 70, position_y: 30, script_id: scriptIds[3] ?? null },   // ATK1
-        { player_slot: 5, position_x: 70, position_y: 15, script_id: scriptIds[4] ?? null },   // ATK2
+        { player_slot: 4, position_x: 30, position_y: 30, script_id: scriptIds[3] ?? null },   // ATK1
+        { player_slot: 5, position_x: 30, position_y: 15, script_id: scriptIds[4] ?? null },   // ATK2
       ],
     };
 

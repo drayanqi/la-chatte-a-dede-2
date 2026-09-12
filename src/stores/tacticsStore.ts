@@ -63,15 +63,17 @@ const initialState: TacticsState = {
 };
 
 /**
- * Default formation applied when the "+" button creates a tactic
- * (matches Story 3.6 bot + demo geometry; API bounds: x 0-100, y 0-50).
+ * Default formation applied when the "+" button creates a tactic.
+ * Positions are kickoff positions in home's left half (x 0-50; home defends
+ * the left goal and attacks toward x=100), matching Story 3.6 bot geometry
+ * (API bounds: y 0-50).
  */
 const DEFAULT_FORMATION: TacticPlayerConfig[] = [
   { playerSlot: 1, positionX: 8, positionY: 25, scriptId: null }, // GK
   { playerSlot: 2, positionX: 25, positionY: 15, scriptId: null }, // DEF1
   { playerSlot: 3, positionX: 25, positionY: 35, scriptId: null }, // DEF2
-  { playerSlot: 4, positionX: 60, positionY: 15, scriptId: null }, // ATK1
-  { playerSlot: 5, positionX: 60, positionY: 35, scriptId: null }, // ATK2
+  { playerSlot: 4, positionX: 40, positionY: 15, scriptId: null }, // ATK1
+  { playerSlot: 5, positionX: 40, positionY: 35, scriptId: null }, // ATK2
 ];
 
 /** localStorage key remembering the last active tactic across sessions */

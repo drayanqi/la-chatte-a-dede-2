@@ -53,7 +53,7 @@ So that I can test my strategies.
 - Bot difficulty = "functional but simple". Use ONLY the canonical API (moveToward, dribble, stop, shoot, hasBall, isClosestToBall alias). Easy bot should be BEATABLE: slightly slow reactions are fine (e.g. only chase when `isClosestToBall()`), perfect play is wrong for AC #2.
 - Bots live in the ENGINE repo as fixtures (source of truth for tests) AND in the seeder (source of truth for production). Export a TS constant/module from the engine (`bots/easy/index.ts` re-exporting file contents) and have the Laravel seeder consume a copied JSON or keep strings in PHP — pragmatic choice: keep ONE JSON file `lachatadede-engine/src/engine/bots/easy/scripts.json` read by both the engine tests and (copied into) the Laravel seeder; note the duplication point in Completion Notes if you choose PHP strings instead.
 - script-ia-api.md examples use `me.team === 'home'` — engine maps challenger→home (3.4). Bots always play as 'away' from the user's perspective (user = challenger/home, orange — colors in 3.7).
-- Positions for the bot tactic: use 3.2's slot geometry mirrored for away side (slot 1 GK x=92, DEF x=75, ATK x=40).
+- Positions for the bot tactic: use 3.2's slot geometry mirrored for away side (slot 1 GK x=92, DEF x=75, ATK x=60 — ATK 40 → 60 because home ATK moved to x=40 in the corrected left-half kickoff geometry).
 - Do NOT make the bot smart (no passing networks, no interceptions prediction) — that's a post-MVP difficulty.
 - Architecture compliance: English-only code/comments. Bot scripts are user-facing artifacts — their comments may be shown nowhere, keep them minimal and English.
 

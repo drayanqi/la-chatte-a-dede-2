@@ -31,6 +31,9 @@ const slotForPlayerId = (playerId: string): number => {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+/** Home players hold the left half: mirror right-half x across the halfway line, then clamp to [0, 50] */
+const normalizeHomeX = (x: number): number => clamp(x > 50 ? 100 - x : x, 0, 50);
+
 const round = (value: number, decimals = 1): number => {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
@@ -47,7 +50,7 @@ export const tacticConfigToTacticData = (config: TacticConfig): TacticData => {
       teamId: 'home',
       number: slot.playerSlot,
       position: {
-        x: clamp(slot.positionX, 0, 100),
+        x: normalizeHomeX(slot.positionX),
         y: clamp(slot.positionY * API_Y_SCALE, 0, 100),
       },
       assignedScriptId: slot.scriptId,
@@ -74,7 +77,7 @@ export const tacticDataToPlayerConfigs = (tactic: TacticData): TacticPlayerConfi
 
     slots.push({
       playerSlot: slot as TacticPlayerConfig['playerSlot'],
-      positionX: clamp(round(player.position.x), 0, 100),
+      positionX: normalizeHomeX(round(player.position.x)),
       positionY: clamp(round(player.position.y / API_Y_SCALE), 0, 50),
       scriptId: player.assignedScriptId,
     });

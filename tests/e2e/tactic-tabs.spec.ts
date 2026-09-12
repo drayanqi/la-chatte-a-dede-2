@@ -155,8 +155,8 @@ test.describe('Tactic Tabs', () => {
       [8, 50], // GK (slot 1)
       [25, 30], // DEF1 (slot 2)
       [25, 70], // DEF2 (slot 3)
-      [60, 30], // ATK1 (slot 4)
-      [60, 70], // ATK2 (slot 5)
+      [40, 30], // ATK1 (slot 4)
+      [40, 70], // ATK2 (slot 5)
     ];
     const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
 
