@@ -93,6 +93,13 @@ context: []
 - **Known-bad state avoided:** a lone white dot floating on empty tiny canvases; illegible sub-6px labels when the radius floor engages; roundtrip regressions on non-default letterboxed sizes; keeping 1/18 would have ignored the human's sizing decision.
 - **KEEP:** proportionality with no upper cap (capping would reintroduce the gameplay distortion the renegotiation exists to fix); the 8px radius floor for usability; hover state preserved through resize redraws.
 
+### 2026-09-12 — post-done visual tweak (human-directed)
+
+- **Trigger:** human asked to make the goal 1.5× bigger.
+- **Amended:** `Field.ts` goal markings — depth 8px → 12px, height 0.2 → 0.3 of pitch height (both linear dimensions × 1.5, matching the linear-scaling convention used for players).
+- **Known-bad state avoided:** interpreting "bigger" as area-only (2.25× linear) or touching only one dimension, which would distort the goal's proportions.
+- **KEEP:** goal rect centered on the pitch height, drawn outside the pitch bounds as before.
+
 ## Design Notes
 
 Contain-fit math (the whole algorithm):

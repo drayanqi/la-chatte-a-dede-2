@@ -31,7 +31,7 @@
 ## Deferred from: field aspect-ratio fix review (2026-09-12)
 
 - **No rendered ball sprite** — `TacticData.ball` is data-only; the pitch shows no ball. The 2:1 aspect-ratio fix had nothing to scale for the ball. If a ball sprite is added later, derive its radius from the pitch rect (e.g. `computePitchRect`-based, ~0.45× player radius) so it scales with the same letterbox geometry.
-- **Fixed-px goal width and line width** — goal depth (8px) and `LINE_WIDTH` (2px) in `Field.ts` are absolute pixels while every other marking now scales with the letterboxed pitch; on very small collapsed-panel pitches goals look chunky, on very large ones they nearly vanish. Consider deriving them from pitch size (e.g. `max(4, pitch.height * 0.02)`).
+- **Fixed-px goal depth and line width** — goal depth (12px) and `LINE_WIDTH` (2px) in `Field.ts` are absolute pixels while every other marking now scales with the letterboxed pitch; on very small collapsed-panel pitches goals look chunky, on very large ones they nearly vanish. Consider deriving them from pitch size (e.g. `max(4, pitch.height * 0.02)`).
 - **Sprite-level unit tests for PlayerSprite** — `updateScreenSize` (radius/font refresh, redraw, reposition), hover-preservation through resize, and `Field.draw` on degenerate canvases are only covered at geometry level; `PlayerSprite` needs a Pixi-in-jsdom canvas harness (or a headless-WebGL setup) before it can be unit-tested. Add when test infra allows.
 
 

@@ -76,8 +76,8 @@ export class Field {
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Buts (lignes de but)
-    const goalWidth = 8;
-    const goalHeight = pitch.height * 0.2;
+    const goalWidth = 12;
+    const goalHeight = pitch.height * 0.3;
     const goalY = pitch.y + (pitch.height - goalHeight) / 2;
 
     // But gauche
