@@ -508,6 +508,55 @@ describe('Tactics Store', () => {
     });
   });
 
+  describe('Detach Deleted Script From Players', () => {
+    const tacticWithScript = (id: string, scriptId: string | null): TacticConfig => ({
+      id,
+      name: `Tactic ${id}`,
+      isSystem: false,
+      players: [
+        { playerSlot: 1, positionX: 8, positionY: 25, scriptId },
+        { playerSlot: 2, positionX: 25, positionY: 15, scriptId: 'script-other' },
+      ],
+    });
+
+    it('should null the script reference in every tactic holding it', () => {
+      useTacticsStore.setState({
+        tactics: [
+          tacticWithScript('tactic-1', 'script-deleted'),
+          tacticWithScript('tactic-2', 'script-deleted'),
+        ],
+      });
+
+      useTacticsStore.getState().detachScriptFromPlayers('script-deleted');
+
+      const { tactics } = useTacticsStore.getState();
+      for (const tactic of tactics) {
+        expect(tactic.players[0].scriptId).toBeNull();
+        expect(tactic.players[1].scriptId).toBe('script-other');
+      }
+    });
+
+    it('should only touch slots referencing the deleted script', () => {
+      const untouched = tacticWithScript('tactic-1', 'script-keep');
+      useTacticsStore.setState({ tactics: [untouched] });
+
+      useTacticsStore.getState().detachScriptFromPlayers('script-deleted');
+
+      expect(useTacticsStore.getState().tactics[0]).toBe(untouched);
+      expect(useTacticsStore.getState().tactics[0].players[0].scriptId).toBe('script-keep');
+    });
+
+    it('should be a no-op when no player references the deleted script', () => {
+      const before = [tacticWithScript('tactic-1', 'script-keep')];
+      useTacticsStore.setState({ tactics: before });
+
+      useTacticsStore.getState().detachScriptFromPlayers('script-deleted');
+
+      expect(useTacticsStore.getState().tactics[0].players[0].scriptId).toBe('script-keep');
+      expect(useTacticsStore.getState().tactics[0].players[1].scriptId).toBe('script-other');
+    });
+  });
+
   describe('Create Tactic (+ button, story 3.2)', () => {
     it('should POST the default formation with an auto-generated name', async () => {
       (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');

@@ -4,6 +4,8 @@
  * Tests the lineup manager: tab bar above the field with "+", rename,
  * auto-save on script assignment, delete with last-tactic guard, and
  * the "Test vs Bot" lineup gating.
+ * Also covers the delete-detach regression: deleting a script attached to
+ * players must detach it from the field and the cached lineups.
  *
  * @see Epic 3: Practice Mode & Match Experience
  * @see Story 3.2: Tactic Tabs & Auto-Saved Lineups
@@ -171,5 +173,125 @@ test.describe('Tactic Tabs', () => {
     // All 5 assigned -> the gate opens
     await expect(page.getByTestId('lineup-incomplete-message')).toBeHidden();
     await expect(page.getByTestId('test-vs-bot-button')).toBeEnabled();
+  });
+
+  test('should detach a deleted script from its players on the field @P0', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    apiContext,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    // A second script so the lineup can still be edited after the deletion
+    const backupScript = await scriptFactory.create({
+      token: user.token!,
+      name: 'BackupAI.js',
+      code: 'code',
+    });
+
+    await seedAuthToken(page, user.token ?? '');
+    await page.goto('/workspace');
+    await expect(page.getByTestId('tab-bar')).toBeVisible();
+    await expect(page.getByTestId('tactic-tab').filter({ hasText: 'Tactic 1' })).toBeVisible();
+
+    const scriptItem = page
+      .locator('[data-testid^="script-item-"]')
+      .filter({ hasText: 'StarterAI.js' });
+    await expect(scriptItem).toBeVisible();
+
+    const canvas = page.getByTestId('field-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Canvas not visible');
+    const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
+    const slots: Array<[number, number]> = [
+      [8, 50], // GK (slot 1)
+      [25, 30], // DEF1 (slot 2)
+      [25, 70], // DEF2 (slot 3)
+      [40, 30], // ATK1 (slot 4)
+      [40, 70], // ATK2 (slot 5)
+    ];
+
+    // Assign StarterAI.js to all 5 slots and capture its id from the auto-save
+    let starterScriptId: string | null = null;
+    for (const [x, y] of slots) {
+      const putTacticPromise = page.waitForResponse(
+        (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+      );
+      await scriptItem.dragTo(canvas, { targetPosition: percentToScreen(pitchRect, x, y) });
+      const putResponse = await putTacticPromise;
+      expect(putResponse.ok()).toBeTruthy();
+      const body = (await putResponse.json()) as {
+        players: { playerSlot: number; scriptId: string | null }[];
+      };
+      starterScriptId ??= body.players.find((player) => player.scriptId !== null)?.scriptId ?? null;
+    }
+    expect(starterScriptId).toBeTruthy();
+
+    // Full lineup -> the gate opens
+    await expect(page.getByTestId('lineup-incomplete-message')).toBeHidden();
+    await expect(page.getByTestId('test-vs-bot-button')).toBeEnabled();
+
+    // The detach must be silent: no redundant PUT may fire around the deletion
+    let putsAroundDelete = 0;
+    const countPut = (request: {
+      method: () => string;
+      url: () => string;
+    }) => {
+      if (request.method() === 'PUT' && /\/tactics\//.test(request.url())) putsAroundDelete++;
+    };
+    page.on('request', countPut);
+
+    // Delete StarterAI.js via the scripts panel
+    await scriptItem.click({ button: 'right' });
+    await expect(page.getByTestId('script-context-menu')).toBeVisible();
+    await page.getByTestId('delete-option').click();
+    await expect(page.getByTestId('delete-confirm-dialog')).toBeVisible();
+    await page.getByTestId('delete-confirm-button').click();
+    await expect(scriptItem).toBeHidden();
+
+    // Frontend detached the script: the Start gate re-locks without a reload
+    await expect(page.getByTestId('lineup-incomplete-message')).toBeVisible();
+    await expect(page.getByTestId('test-vs-bot-button')).toBeDisabled();
+    expect(putsAroundDelete).toBe(0);
+    page.off('request', countPut);
+
+    // The next auto-save must carry no deleted script id (regression: 422)
+    const backupItem = page
+      .locator('[data-testid^="script-item-"]')
+      .filter({ hasText: 'BackupAI.js' });
+    await expect(backupItem).toBeVisible();
+    const putAfterDelete = page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+    );
+    await backupItem.dragTo(canvas, { targetPosition: percentToScreen(pitchRect, 8, 50) });
+    const putResponse = await putAfterDelete;
+    expect(putResponse.ok()).toBeTruthy();
+
+    const payload = putResponse.request().postDataJSON() as {
+      players: { player_slot: number; script_id: string | null }[];
+    };
+    for (const slot of payload.players) {
+      expect(slot.script_id).not.toBe(starterScriptId);
+    }
+    expect(payload.players.find((slot) => slot.player_slot === 1)?.script_id).toBe(backupScript.id);
+
+    // The server truth (FK nullOnDelete) matches the detached frontend state
+    const tacticId = (await page.evaluate(() =>
+      localStorage.getItem('last_active_tactic_id')
+    )) as string | null;
+    expect(tacticId).toBeTruthy();
+    const saved = await apiContext.get(`tactics/${tacticId}`, {
+      headers: { Authorization: `Bearer ${user.token}` },
+    });
+    expect(saved.ok()).toBeTruthy();
+    const savedBody = (await saved.json()) as {
+      players: { playerSlot: number; scriptId: string | null }[];
+    };
+    for (const player of savedBody.players) {
+      expect(player.scriptId).not.toBe(starterScriptId);
+    }
+    expect(savedBody.players.find((player) => player.playerSlot === 1)?.scriptId).toBe(
+      backupScript.id
+    );
   });
 });

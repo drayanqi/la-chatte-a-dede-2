@@ -61,6 +61,9 @@ export interface TacticsCanvasHandle {
   /** Assigner un script à un joueur */
   assignScript: (playerId: string, scriptId: string) => void;
 
+  /** Détacher un script supprimé de tous les joueurs qui le référencent */
+  detachScript: (scriptId: string) => void;
+
   /** Lancer la simulation */
   runSimulation: () => Promise<SimulationResult>;
 
@@ -167,6 +170,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       },
       assignScript: (playerId: string, scriptId: string) => {
         gameRef.current?.assignScript(playerId, scriptId);
+      },
+      detachScript: (scriptId: string) => {
+        gameRef.current?.detachScript(scriptId);
       },
       runSimulation: async () => {
         if (!gameRef.current) {

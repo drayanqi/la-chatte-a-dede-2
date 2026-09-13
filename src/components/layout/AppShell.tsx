@@ -158,6 +158,14 @@ export const AppShell: React.FC = () => {
     []
   );
 
+  // Après une suppression de script : détacher la référence des joueurs.
+  // La base nullifie déjà tactic_player.script_id (FK nullOnDelete) — on
+  // resynchronise uniquement l'état local (moteur + cache des tactiques).
+  const handleScriptDeleted = useCallback((scriptId: string) => {
+    useTacticsStore.getState().detachScriptFromPlayers(scriptId);
+    canvasRef.current?.detachScript(scriptId);
+  }, []);
+
   // Start Match hand-off (story 3.5 replaces this handler with the real call)
   const handleStartPractice = useCallback(() => {
     if (!activeTactic) return;
@@ -220,7 +228,7 @@ export const AppShell: React.FC = () => {
               data-testid="left-panel"
               style={{ ...styles.leftPanel, width: `${layout.leftWidth}px` }}
             >
-              <ScriptsPanel />
+              <ScriptsPanel onScriptDeleted={handleScriptDeleted} />
             </div>
             <PanelDivider
               side="left"

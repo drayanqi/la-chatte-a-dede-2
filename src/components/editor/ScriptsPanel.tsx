@@ -65,7 +65,12 @@ const generateUniqueName = (existingNames: Set<string>, baseName = 'NewAI.js'): 
   return `${nameWithoutExt} (${counter}).js`;
 };
 
-export const ScriptsPanel: React.FC = () => {
+interface ScriptsPanelProps {
+  /** Appelé après une suppression réussie, pour détacher le script des joueurs */
+  onScriptDeleted?: (scriptId: string) => void;
+}
+
+export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) => {
   const {
     scripts,
     activeScriptId,
@@ -294,9 +299,13 @@ export const ScriptsPanel: React.FC = () => {
   // Confirm delete
   const confirmDelete = useCallback(async () => {
     if (!deleteConfirmScriptId || isDeleting) return;
-    await deleteScript(deleteConfirmScriptId);
+    const scriptId = deleteConfirmScriptId;
+    const deleted = await deleteScript(scriptId);
+    if (deleted) {
+      onScriptDeleted?.(scriptId);
+    }
     setDeleteConfirmScriptId(null);
-  }, [deleteConfirmScriptId, isDeleting, deleteScript]);
+  }, [deleteConfirmScriptId, isDeleting, deleteScript, onScriptDeleted]);
 
   // Cancel delete
   const cancelDelete = useCallback(() => {

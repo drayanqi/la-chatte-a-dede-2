@@ -44,6 +44,9 @@ interface TacticsActions {
   // Selection
   selectTactic: (id: string | null) => void;
 
+  // Cleanup: null out a deleted script's references in every cached tactic
+  detachScriptFromPlayers: (scriptId: string) => void;
+
   // Errors
   clearTacticsError: () => void;
 
@@ -398,6 +401,20 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
 
       return { activeTacticId };
     }),
+
+  detachScriptFromPlayers: (scriptId) =>
+    set((state) => ({
+      tactics: state.tactics.map((tactic) =>
+        tactic.players.some((player) => player.scriptId === scriptId)
+          ? {
+              ...tactic,
+              players: tactic.players.map((player) =>
+                player.scriptId === scriptId ? { ...player, scriptId: null } : player
+              ),
+            }
+          : tactic
+      ),
+    })),
 
   clearTacticsError: () => set({ tacticsError: null }),
 
