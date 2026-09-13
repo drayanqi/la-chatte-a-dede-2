@@ -50,7 +50,7 @@ export interface TacticsCanvasProps {
   /** Callback quand un script est déposé sur un joueur */
   onScriptDropped?: (playerId: string, scriptId: string) => void;
 
-  /** Callback après l'assignation effective d'un script (moteur) */
+  /** Callback after a script is actually assigned in the engine */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
 }
 
@@ -61,7 +61,7 @@ export interface TacticsCanvasHandle {
   /** Assigner un script à un joueur */
   assignScript: (playerId: string, scriptId: string) => void;
 
-  /** Détacher un script supprimé de tous les joueurs qui le référencent */
+  /** Detach a deleted script from every player referencing it */
   detachScript: (scriptId: string) => void;
 
   /** Lancer la simulation */
@@ -82,7 +82,7 @@ export interface TacticsCanvasHandle {
   /** Tester si un joueur est sous les coordonnées données */
   hitTestPlayer: (screenX: number, screenY: number) => string | null;
 
-  /** Lire l'état courant de la tactique (positions + scripts assignés) */
+  /** Read the tactic's current state (positions + assigned scripts) */
   getTactic: () => TacticData | null;
 }
 

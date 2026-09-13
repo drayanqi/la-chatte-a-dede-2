@@ -514,32 +514,48 @@ So that I don't have to reconfigure it every match.
 
 ---
 
-### Story 3.2: Team Lineup Configuration UI
+### Story 3.2: Tactic Tabs & Auto-Saved Lineups
+
+> Revised 2026-09-12: replaces the original "Team Lineup Configuration UI" design (the LineupDialog modal with 5 slot selects is dead). Tactics are managed as tabs above the field; every edit auto-saves; there is no draft state.
 
 As a user,
-I want to assign my AI scripts to the 5 player positions,
-So that I can create team strategies with different roles.
+I want to manage multiple team lineups as tabs above the field,
+So that I can create, switch, and refine as many tactics as I want without ever losing work.
 
 **Acceptance Criteria:**
 
-**Given** I am preparing for a match
-**When** I open the lineup screen
-**Then** I see 5 player slots with positions labeled (GK, DEF1, DEF2, ATK1, ATK2)
-**And** I can select any of my AI scripts for each slot
+**Given** I am on the workspace
+**When** I look between the header and the field canvas
+**Then** I see a tab bar listing my tactics, with the active tactic highlighted
+**And** clicking a tab loads that tactic into the canvas
 
-**Given** I assign different AIs to different positions
-**When** I view my lineup
-**Then** each position shows its assigned AI name
-**And** I can assign the same AI to multiple positions
+**Given** I click the "+" button in the tab bar
+**Then** a new tactic with the default formation (5 pre-placed slots, no scripts assigned) is created via the API
+**And** its tab becomes active immediately and the canvas shows the default positions — never an empty field
 
-**Given** not all 5 positions have AIs assigned
-**When** I try to start a match
-**Then** the "Start Match" button is disabled
-**And** I see a message "Assign AIs to all 5 positions"
+**Given** I modify a tactic (move a player on the canvas, or drop a script onto a player)
+**When** the action completes
+**Then** the change persists automatically via the tactics API with no manual save action
+**And** I see brief "saved" feedback near the tab
 
-**Given** all 5 positions have AIs
-**When** I view the lineup
-**Then** the "Start Match" button is enabled
+**Given** I double-click a tab
+**When** I type a new name and press Enter (or blur)
+**Then** the name persists via the API
+**And** Escape cancels the rename
+
+**Given** a tactic tab shows a delete affordance
+**When** I delete it with confirmation
+**Then** the tab disappears and a neighboring tactic becomes active and loads in the canvas
+**And** when it was the last tactic, a fresh default one is automatically created (the user always keeps at least one tactic)
+
+**Given** I open the workspace with no tactics yet
+**Then** a default tactic ("Tactic 1", default formation) is automatically created and activated
+**And** on reload, my tactics are fetched and the last active tactic hydrates the canvas
+
+**Given** not all 5 positions have scripts assigned
+**When** I view the header
+**Then** the "Test vs Bot" button is disabled with helper message "Assign AIs to all 5 positions"
+**And** it is enabled when all 5 have scripts
 
 ---
 

@@ -158,9 +158,9 @@ export const AppShell: React.FC = () => {
     []
   );
 
-  // Après une suppression de script : détacher la référence des joueurs.
-  // La base nullifie déjà tactic_player.script_id (FK nullOnDelete) — on
-  // resynchronise uniquement l'état local (moteur + cache des tactiques).
+  // After a script deletion: detach player references. The database already
+  // nulls tactic_player.script_id (FK nullOnDelete) — we only re-sync local
+  // state (engine + tactics cache).
   const handleScriptDeleted = useCallback((scriptId: string) => {
     useTacticsStore.getState().detachScriptFromPlayers(scriptId);
     canvasRef.current?.detachScript(scriptId);

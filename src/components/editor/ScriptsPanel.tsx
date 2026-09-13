@@ -66,7 +66,7 @@ const generateUniqueName = (existingNames: Set<string>, baseName = 'NewAI.js'): 
 };
 
 interface ScriptsPanelProps {
-  /** Appelé après une suppression réussie, pour détacher le script des joueurs */
+  /** Called after a successful deletion, to detach the script from players */
   onScriptDeleted?: (scriptId: string) => void;
 }
 

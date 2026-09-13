@@ -177,8 +177,8 @@ export class Game {
   }
 
   /**
-   * Détacher un script supprimé de tous les joueurs qui le référencent.
-   * Silencieux : contrairement à assignScript, ne déclenche pas onScriptAssigned.
+   * Detach a deleted script from every player referencing it.
+   * Silent: unlike assignScript, it does not fire onScriptAssigned.
    */
   detachScript(scriptId: string): void {
     for (const player of this.players.values()) {
@@ -187,8 +187,8 @@ export class Game {
       }
     }
 
-    // Suppression avant la fin de l'init moteur : la tactique en attente ne
-    // doit pas réinjecter le script supprimé lors du chargement.
+    // Deletion before engine init finished: the pending tactic must not
+    // re-inject the deleted script when it loads.
     if (this.pendingTactic) {
       this.pendingTactic = {
         ...this.pendingTactic,

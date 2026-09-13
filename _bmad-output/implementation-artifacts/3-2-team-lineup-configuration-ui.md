@@ -1,6 +1,10 @@
+---
+baseline_commit: d3ce790b818a9ab9acb29971c7854c36227144d1
+---
+
 # Story 3.2: Tactic Tabs & Auto-Saved Lineups
 
-Status: ready-for-dev
+Status: review
 
 > Revised 2026-09-12 (party-mode session): this story REPLACES the original "Team Lineup Configuration UI" design. The `LineupDialog` modal (5 slot selects) is dead. Tactics are now managed by a tab bar above the field, every edit auto-saves, and there is no draft state. The epics.md entry for 3.2 should be updated to match.
 
@@ -127,6 +131,7 @@ euria-code (infomaniak/euria-code) via opencode, party-mode session 2026-09-12
 
 - First e2e run: 3× firefox/webkit failures on the auto-save spec — root cause was the spec still clicking "+" on top of the new mount-time auto-create (two tactics existed; after reload "Tactic 2" was active). Fixed the spec, not the app.
 - Monaco-related pre-existing issues confirmed unrelated: 13 unhandled rejections in `monaco-editor.test.tsx` (unit) and 3 flaky Monaco e2e tests (2.4 autocomplete ×2, 2.5 squiggles — pass on retry).
+- Re-verification session 2026-09-13 (gds-dev-story wrap-up): commits `9416450c` (constrain home players — carried the engine-side `detachScript`) and `d3ce790` (wip: script-deletion detach wiring + tests) landed after the original verification, so the full DoD suite was re-run at `d3ce790`. E2E showed 2 first-attempt failures, both known Monaco flakes (2.3 Cmd+S Saved indicator, 2.4 autocomplete suggest-widget) — pass 6/6 on isolated re-run.
 
 ### Completion Notes List
 
@@ -134,6 +139,10 @@ euria-code (infomaniak/euria-code) via opencode, party-mode session 2026-09-12
 - `createTactic`/`saveTactic`/`selectTactic` persist `localStorage.last_active_tactic_id` so a reload restores the last active tactic.
 - Engine read-back added: `Game.getTactic()` + `GameCallbacks.onScriptAssigned` (fires after `assignScript`), exposed on `TacticsCanvasHandle`.
 - Verification at wrap-up: unit 297/297 green (12 files), lint 0 errors (5 pre-existing warnings), `tsc` clean, tactic-tabs e2e 9/9 (chromium+firefox+webkit), full workspace+auth e2e 187 passed / 0 failed (3 Monaco-flaky on first attempt, 5 total first-attempt failures all Monaco-related).
+- Follow-up commits `9416450c` + `d3ce790` implemented the "detach deleted script from players" bugfix (`spec-detach-deleted-script-from-players.md`, all tasks checked) inside this story's blast radius. Full DoD re-verified at `d3ce790` on 2026-09-13: unit 337/337 green (14 files), `tsc` clean, lint 0 errors (5 pre-existing warnings), full e2e 214 passed with 2 known Monaco flakes passing on re-run — no regressions.
+- English-only compliance restored: French comments introduced by `c1f20d4`/`9416450c`/`d3ce790` in `TacticsCanvas.tsx`, `Game.ts`, `ScriptsPanel.tsx`, `AppShell.tsx` translated (comments only, zero behavior change). Pre-existing 2026-01 scaffold comments intentionally untouched.
+- `epics.md` Story 3.2 entry rewritten to match this revised design (it still described the dead LineupDialog modal).
+- Status advanced `ready-for-dev` → `review` after re-verification; `baseline_commit` captured (`d3ce790`).
 
 ### File List
 
@@ -145,6 +154,7 @@ euria-code (infomaniak/euria-code) via opencode, party-mode session 2026-09-12
 - `src/components/canvas/TacticsCanvas.tsx` (onScriptAssigned prop, getTactic handle, field-canvas testid)
 - `src/components/layout/AppShell.tsx` (TabBar mount, hydration + auto-create, auto-save wiring, start-practice hand-off, demo tactic removed)
 - `src/components/layout/Header.tsx` (Test vs Bot gating, Save/Load placeholders removed)
+- `src/components/editor/ScriptsPanel.tsx` (onScriptDeleted prop — script-deletion detach wiring, follow-up commits 9416450c/d3ce790)
 - `tests/unit/stores/tactics-store.test.ts` (create/delete/invariant/selection tests)
 - `tests/unit/components/tab-bar.test.tsx` (new — 13 component tests)
 - `tests/e2e/tactic-tabs.spec.ts` (new — 3 specs × 3 browsers)
