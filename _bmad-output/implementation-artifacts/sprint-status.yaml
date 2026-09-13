@@ -63,7 +63,7 @@ development_status:
   epic-3: in-progress
   3-1-tactics-data-model-and-api: done
   3-2-team-lineup-configuration-ui: done
-  3-3-game-engine-core-deterministic-simulation: ready-for-dev
+  3-3-game-engine-core-deterministic-simulation: done
   3-4-script-sandboxing-and-execution: ready-for-dev
   3-5-practice-match-trigger: ready-for-dev
   3-6-easy-bot-ai: ready-for-dev

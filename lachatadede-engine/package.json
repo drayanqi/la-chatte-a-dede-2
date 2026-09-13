@@ -1,0 +1,25 @@
+{
+  "name": "lachatadede-engine",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Deterministic 5v5 futsal match simulation engine for Lachatadede",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.6.2",
+    "vitest": "^2.1.8"
+  }
+}

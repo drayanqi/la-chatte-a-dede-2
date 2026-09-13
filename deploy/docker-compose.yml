@@ -1,5 +1,5 @@
 # La Chatte à Dédé - Production Docker Compose
-# Services: nginx, laravel, node (placeholder), mysql
+# Services: nginx, laravel, node (game engine), mysql
 
 services:
   nginx:
@@ -55,8 +55,8 @@ services:
 
   node:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.node
+      context: ../lachatadede-engine
+      dockerfile: ../deploy/docker/Dockerfile.node
       target: production
     volumes:
       - ../lachatadede-api/storage:/app/storage
@@ -65,10 +65,7 @@ services:
       - PORT=3001
     networks:
       - lachatadede_net
-    restart: "no"
-    # Note: This container will fail until Epic 3 implements the game engine
-    # Use `docker compose up -d nginx laravel mysql` to skip it for now
-    # restart: "no" prevents crash loops for placeholder
+    restart: unless-stopped
 
   mysql:
     image: mysql:8.0
