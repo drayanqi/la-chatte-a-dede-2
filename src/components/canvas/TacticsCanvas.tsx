@@ -52,6 +52,9 @@ export interface TacticsCanvasProps {
 
   /** Callback after a script is actually assigned in the engine */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
+
+  /** Callback when a player drag-move completes (auto-save trigger) */
+  onPlayerMoved?: (playerId: string, position: Position) => void;
 }
 
 export interface TacticsCanvasHandle {
@@ -99,6 +102,7 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       onSimulationComplete,
       onScriptDropped,
       onScriptAssigned,
+      onPlayerMoved,
     },
     ref
   ) => {
@@ -127,6 +131,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         },
         onScriptAssigned: (playerId, scriptId) => {
           onScriptAssigned?.(playerId, scriptId);
+        },
+        onPlayerMoved: (playerId, position) => {
+          onPlayerMoved?.(playerId, position);
         },
       });
 

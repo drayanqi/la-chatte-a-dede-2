@@ -42,3 +42,10 @@
 - **Three hand-rolled formation literals** — store `DEFAULT_FORMATION`, match-factory's fixture formation, and the 3-2 doc's formation table drift independently (deliberately distinct values, but nothing links them). If a fourth consumer appears, extract a shared constant or generate the doc table from it.
 
 
+
+## Deferred from: code review of 3-2-team-lineup-configuration-ui (2026-09-13)
+
+- **deleteTactic→createTactic network failure** — deleting the last tactic then failing to recreate (network/401) leaves a degraded zero-tactic state: tacticsError surfaces, but activeTacticId is null and the canvas keeps rendering the deleted tactic. Needs a recovery-UX decision (auto-retry, keep-soft-deleted, or block delete-last while offline).
+- **E2E canvas-side assertions missing** — tactic-tabs e2e asserts tabs/aria-current/API state only; a regression breaking canvas hydration (e.g. the `loadedTacticIdRef` load effect in AppShell) would pass the suite. Add assertions that the canvas actually re-renders the loaded tactic's players after switch/create/delete/reload.
+- **TabBar a11y pass** — tactic tabs are non-focusable divs (no role="tab"/tabIndex/keyboard activation), rename is double-click-only with no keyboard alternative, the delete dialog lacks role="dialog"/aria-modal/focus trap, and collapsed panel strips set aria-controls to elements that don't exist while collapsed.
+- **Rename blur-commit 100ms timer** — commit-on-blur is delayed by a fixed 100ms setTimeout to let click handlers land; no demonstrated defect (Escape is safe via re-render) but the pattern is fragile. Replace with a mousedown-aware commit or an activeElement check if flakiness appears.

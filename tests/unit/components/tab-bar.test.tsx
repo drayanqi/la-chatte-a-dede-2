@@ -4,8 +4,9 @@
  * Tests the tactic tab bar (story 3.2):
  * - Renders one tab per user tactic (system tactics filtered out)
  * - "+" creates a tactic via the store
- * - Double-click rename: Enter commits, Escape cancels
- * - Delete affordance: hidden with a single tactic, confirm dialog, promote
+ * - Double-click rename: Enter or blur commits, Escape cancels
+ * - Delete affordance: visible even on the last tactic (deleting it recreates
+ *   a default), confirm dialog, neighbor promotion
  *
  * @see Epic 3: Practice Mode & Match Experience
  * @see Story 3.2: Tactic Tabs & Auto-Saved Lineups
@@ -138,6 +139,33 @@ describe('TabBar Component', () => {
 
     fireEvent.change(input, { target: { value: 'Attacking' } });
     fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics/tactic-1'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ name: 'Attacking' }),
+        })
+      );
+    });
+    expect(screen.queryByTestId('tab-rename-input')).not.toBeInTheDocument();
+  });
+
+  it('should commit rename on blur', async () => {
+    seedStore([makeTactic()], 'tactic-1');
+    (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => makeTactic({ name: 'Attacking' }),
+    });
+
+    render(<TabBar />);
+
+    fireEvent.doubleClick(screen.getByText('Tactic 1'));
+    const input = screen.getByTestId('tab-rename-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Attacking' } });
+    fireEvent.blur(input);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(

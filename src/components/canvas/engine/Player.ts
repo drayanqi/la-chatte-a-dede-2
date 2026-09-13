@@ -26,7 +26,7 @@ export class PlayerSprite {
   private isHovered: boolean = false;
   private radius: number;
 
-  // Couleurs (Epic 5.1 — Rocket League, jamais la teinte du sol en dessous)
+  // Colors (Epic 5.1 — Rocket League-style, never the ground tint underneath)
   private readonly HOME_COLOR = 0xff6b1a; // Orange
   private readonly AWAY_COLOR = 0x1a8cff; // Bleu
   private readonly SELECTED_COLOR = 0xfbbf24; // Jaune
@@ -141,6 +141,20 @@ export class PlayerSprite {
     this.player.assignedScriptId = scriptId;
     this.hasScript = scriptId !== null;
     this.updateScriptIndicator();
+  }
+
+  /**
+   * Move the player to a new percent position (drag support). The engine
+   * stores the position; the container is repositioned to match.
+   */
+  setPosition(position: Position): void {
+    this.player.position = position;
+    this.updatePosition();
+  }
+
+  /** Toggle drag visual feedback (cursor) */
+  setDragging(dragging: boolean): void {
+    this.container.cursor = dragging ? 'grabbing' : 'pointer';
   }
 
   updateFromState(state: PlayerFrameState): void {

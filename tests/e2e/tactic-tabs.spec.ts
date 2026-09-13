@@ -127,6 +127,53 @@ test.describe('Tactic Tabs', () => {
     );
   });
 
+  test('should auto-save a player drag-move on the canvas @P0', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/workspace');
+    await expect(page.getByTestId('tab-bar')).toBeVisible();
+
+    // A default tactic is auto-created on mount (story 3.2 AC #6)
+    await expect(page.getByTestId('tactic-tab').filter({ hasText: 'Tactic 1' })).toBeVisible();
+
+    const canvas = page.getByTestId('field-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Canvas not visible');
+    const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
+
+    // Drag the GK (slot 1, default percent 8/50) toward (30, 25) — still in
+    // the left half (kickoff invariant: home x <= 50)
+    const gk = percentToScreen(pitchRect, 8, 50);
+    const target = percentToScreen(pitchRect, 30, 25);
+
+    const putTacticPromise = page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+    );
+    await page.mouse.move(canvasBox.x + gk.x, canvasBox.y + gk.y);
+    await page.mouse.down();
+    await page.mouse.move(canvasBox.x + target.x, canvasBox.y + target.y, { steps: 10 });
+    await page.mouse.up();
+
+    // The move-end auto-saves the full lineup via the tactics API (AC #3)
+    const putResponse = await putTacticPromise;
+    expect(putResponse.ok()).toBeTruthy();
+
+    const payload = putResponse.request().postDataJSON() as {
+      players: { player_slot: number; position_x: number; position_y: number }[];
+    };
+    const gkSlot = payload.players.find((slot) => slot.player_slot === 1);
+    expect(gkSlot).toBeTruthy();
+    // Engine percent 30 -> API x ~30 (left-half, not mirrored), y 25 -> ~12.5
+    expect(gkSlot?.position_x).toBeGreaterThan(25);
+    expect(gkSlot?.position_x).toBeLessThanOrEqual(35);
+    expect(gkSlot?.position_y).toBeGreaterThan(10);
+    expect(gkSlot?.position_y).toBeLessThanOrEqual(15);
+  });
+
   test('should gate Test vs Bot on a complete 5-slot lineup @P1', async ({
     page,
     userFactory,

@@ -4,7 +4,7 @@ baseline_commit: d3ce790b818a9ab9acb29971c7854c36227144d1
 
 # Story 3.2: Tactic Tabs & Auto-Saved Lineups
 
-Status: review
+Status: done
 
 > Revised 2026-09-12 (party-mode session): this story REPLACES the original "Team Lineup Configuration UI" design. The `LineupDialog` modal (5 slot selects) is dead. Tactics are now managed by a tab bar above the field, every edit auto-saves, and there is no draft state. The epics.md entry for 3.2 should be updated to match.
 
@@ -63,12 +63,33 @@ So that I can create, switch, and refine as many tactics as I want without ever 
   - [x] Enabled click calls `onStartPractice(tacticConfig)` prop from AppShell; in THIS story AppShell logs the payload — Story 3.5 replaces the handler
   - [x] Dead "Save"/"Load" placeholder buttons removed (auto-save makes them lies)
 - [x] Task 7: Unit tests — `tests/unit/stores/tactics-store.test.ts` extensions + TabBar component test (AC: #1-#5)
-  - [x] createTactic posts default slots and sets active; deleteTactic promotes neighbor and recreates a default when deleting the last; rename commits and Escape reverts; same script assignable to multiple slots via drop
+  - [x] createTactic posts default slots and sets active; deleteTactic promotes neighbor and recreates a default when deleting the last; rename commits (Enter, and blur — unit-tested in the 2026-09-13 review pass) and Escape reverts; same script assignable to multiple slots via drop (covered by the e2e gating spec dragging one script to all 5 slots; engine drag makes jsdom-level unit coverage of the drop path impractical)
 
 ### Testing Tasks (E2E)
 
 - [x] Task 8: E2E `tests/e2e/tactic-tabs.spec.ts` (AC: #1-#7)
   - [x] Fresh user → default tactic auto-created → rename → drop script onto players → switch tabs → changes persisted → reload page → tactic restored → delete active tab promotes neighbor → delete last tactic recreates a default → Test vs Bot disabled until 5 assigned, enabled after
+
+### Review Findings
+
+_Three-layer adversarial review 2026-09-13 (blind hunter + edge-case hunter + acceptance auditor), diff `961323e..d3ce790` (story's 13 files). DoD claims re-verified green: unit 337/337, tsc clean, lint 0 errors/5 warnings._
+
+- [x] [Review][Patch] AC #3's "move a player on the canvas" branch: engine drag-move implemented (stage-level pointer tracking, left-half clamp, move-end event) + auto-save on move end via getTactic() + e2e coverage (decision 2026-09-13: implement in this story) [src/components/canvas/engine/Player.ts, Game.ts, AppShell.tsx]
+- [x] [Review][Patch] In-flight `isSavingTactic` guard silently drops auto-saves and renames (no queue/retry) and silently no-ops deleteTactic's recreate-a-default, stranding the ≥1-tactic invariant [src/stores/tacticsStore.ts:210, 267, 367]
+- [x] [Review][Patch] updateTactic PUT response can resurrect a deleted scriptId in the cache (overwrites a concurrent detach) → next auto-save PUTs a dead script_id [src/stores/tacticsStore.ts:233]
+- [x] [Review][Patch] Hydration auto-creates a default tactic even when fetchTactics failed (no tacticsError guard) → spurious tactic POSTed on transient failures [src/components/layout/AppShell.tsx:86]
+- [x] [Review][Patch] isSystem filtering inconsistent: fetchTactics keeps system tactics while TabBar/AppShell filter them; delete-neighbor promotion and remembered-id restore can select a hidden system tactic [src/stores/tacticsStore.ts:112, 349]
+- [x] [Review][Patch] lineupComplete vacuously true on an empty players array (`every` on []) [src/components/layout/AppShell.tsx:59]
+- [x] [Review][Patch] deleteTactic's `!response.ok` branch is dead code — apiFetch already throws ApiError on non-ok [src/stores/tacticsStore.ts:334]
+- [x] [Review][Patch] Unguarded localStorage writes; a throw (quota/private mode) escapes selectTactic's set() updater [src/stores/tacticsStore.ts:397]
+- [x] [Review][Patch] Missing data-testid on tactics-error dismiss button [src/components/tactics/TabBar.tsx:231]
+- [x] [Review][Patch] French comments added within review range (Epic 5 commit 9416450) [src/components/canvas/engine/Game.ts:29, src/components/canvas/engine/Player.ts:29]
+- [x] [Review][Patch] Stale comments contradict revised delete design ("never the last one" / "hidden with a single tactic") [src/components/tactics/TabBar.tsx:7, tests/unit/components/tab-bar.test.tsx:8]
+- [x] [Review][Patch] Story record inaccuracies: 9416450/99c70fd misattribution, tests/unit/lib/tactic-bridge.test.ts missing from File List, Task 7's multi-slot "unit test" is e2e-only, blur-commit rename path untested [_bmad-output/implementation-artifacts/3-2-team-lineup-configuration-ui.md]
+- [x] [Review][Defer] deleteTactic→createTactic network failure leaves degraded zero-tactic state (error surfaced, canvas stale) [src/stores/tacticsStore.ts:367] — deferred, needs recovery-UX decision
+- [x] [Review][Defer] E2E never asserts canvas-side hydration of ACs #1/#2/#5/#6 (tabs/API only) [tests/e2e/tactic-tabs.spec.ts] — deferred, test enhancement
+- [x] [Review][Defer] A11y: tabs are non-focusable divs without role; delete dialog lacks role/focus trap; strips set aria-controls to absent elements [src/components/tactics/TabBar.tsx, src/components/layout/AppShell.tsx] — deferred, project-wide a11y pass
+- [x] [Review][Defer] Rename blur commits via a 100ms setTimeout window — fragile pattern, no demonstrated defect [src/components/tactics/TabBar.tsx:115] — deferred
 
 ## Dev Notes
 
@@ -131,7 +152,7 @@ euria-code (infomaniak/euria-code) via opencode, party-mode session 2026-09-12
 
 - First e2e run: 3× firefox/webkit failures on the auto-save spec — root cause was the spec still clicking "+" on top of the new mount-time auto-create (two tactics existed; after reload "Tactic 2" was active). Fixed the spec, not the app.
 - Monaco-related pre-existing issues confirmed unrelated: 13 unhandled rejections in `monaco-editor.test.tsx` (unit) and 3 flaky Monaco e2e tests (2.4 autocomplete ×2, 2.5 squiggles — pass on retry).
-- Re-verification session 2026-09-13 (gds-dev-story wrap-up): commits `9416450c` (constrain home players — carried the engine-side `detachScript`) and `d3ce790` (wip: script-deletion detach wiring + tests) landed after the original verification, so the full DoD suite was re-run at `d3ce790`. E2E showed 2 first-attempt failures, both known Monaco flakes (2.3 Cmd+S Saved indicator, 2.4 autocomplete suggest-widget) — pass 6/6 on isolated re-run.
+- Re-verification session 2026-09-13 (gds-dev-story wrap-up): commit `99c70fd` (constrain home players to left half as kickoff positions, + tactic-bridge unit tests) and commit `9416450` (Arcade Wild Card pitch visual identity, Epic 5 — carried the engine-side `detachScript`) and `d3ce790` (wip: script-deletion detach wiring + tests) landed after the original verification, so the full DoD suite was re-run at `d3ce790`. E2E showed 2 first-attempt failures, both known Monaco flakes (2.3 Cmd+S Saved indicator, 2.4 autocomplete suggest-widget) — pass 6/6 on isolated re-run.
 
 ### Completion Notes List
 
@@ -144,17 +165,27 @@ euria-code (infomaniak/euria-code) via opencode, party-mode session 2026-09-12
 - `epics.md` Story 3.2 entry rewritten to match this revised design (it still described the dead LineupDialog modal).
 - Status advanced `ready-for-dev` → `review` after re-verification; `baseline_commit` captured (`d3ce790`).
 
+### Code Review Session (2026-09-13, gds-code-review)
+
+Three-layer adversarial review (blind hunter / edge-case hunter / acceptance auditor) over `961323e..d3ce790`, limited to the story's files. 1 decision, 12 patches applied, 4 defers logged to `deferred-work.md`, 12 findings dismissed after code verification.
+
+- **Decision resolved:** AC #3's "move a player on the canvas" branch was missing (no drag existed; auto-save only fired on script assignment). Pelo chose to implement it in this story: stage-level pointer drag in `Game.ts` (percent coords via `screenToPercent`, home players clamped to the left half, move-end `onPlayerMoved` event, no auto-save on click-without-move), wired through `TacticsCanvas` → `AppShell.persistActiveTacticFromEngine`, covered by a new e2e drag spec.
+- **Store hardening:** queued saves behind an in-flight PUT (latest-wins, merged fields per tactic — no edit silently dropped) incl. deleteTactic's default-recreation; script-id tombstones prevent stale PUT responses from resurrecting deleted scripts; system tactics filtered at the fetch source; dead `!response.ok` branch removed; localStorage writes wrapped against quota/private-mode throws.
+- **AppShell/UI:** hydration no longer auto-creates a default tactic when `fetchTactics` failed; `lineupComplete` requires exactly 5 players; error dismiss got its `data-testid`; stale/French comments fixed (Game.ts, Player.ts, TabBar header, tab-bar test header).
+- **Verification after patches:** unit 344/344 (+7 review tests), `tsc` clean, lint 0 errors (5 pre-existing warnings), tactic-tabs e2e 15/15 (chromium+firefox+webkit, incl. new drag-move spec), full e2e 214 passed / 2 known Monaco flakes (pass on isolated re-run) — identical profile to the DoD record.
+
 ### File List
 
 - `src/components/tactics/TabBar.tsx` (new) + `src/components/tactics/index.ts` (new)
 - `src/lib/tacticBridge.ts` (new — TacticConfig ↔ TacticData + y-axis scaling)
 - `src/stores/tacticsStore.ts` (createTactic, deleteTactic + always-≥1 invariant, last-active persistence, saved feedback state)
-- `src/components/canvas/engine/Game.ts` (getTactic, onScriptAssigned, tactic identity tracking)
-- `src/components/canvas/engine/Player.ts` (read-back getters)
-- `src/components/canvas/TacticsCanvas.tsx` (onScriptAssigned prop, getTactic handle, field-canvas testid)
-- `src/components/layout/AppShell.tsx` (TabBar mount, hydration + auto-create, auto-save wiring, start-practice hand-off, demo tactic removed)
+- `src/components/canvas/engine/Game.ts` (getTactic, onScriptAssigned, tactic identity tracking; player drag-move with left-half clamp + onPlayerMoved move-end event)
+- `src/components/canvas/engine/Player.ts` (read-back getters; setPosition/setDragging for drag support)
+- `src/components/canvas/TacticsCanvas.tsx` (onScriptAssigned/onPlayerMoved props, getTactic handle, field-canvas testid)
+- `src/components/layout/AppShell.tsx` (TabBar mount, hydration + auto-create, auto-save wiring for script-assignment and move-end, start-practice hand-off, demo tactic removed)
 - `src/components/layout/Header.tsx` (Test vs Bot gating, Save/Load placeholders removed)
 - `src/components/editor/ScriptsPanel.tsx` (onScriptDeleted prop — script-deletion detach wiring, follow-up commits 9416450c/d3ce790)
-- `tests/unit/stores/tactics-store.test.ts` (create/delete/invariant/selection tests)
-- `tests/unit/components/tab-bar.test.tsx` (new — 13 component tests)
-- `tests/e2e/tactic-tabs.spec.ts` (new — 3 specs × 3 browsers)
+- `tests/unit/stores/tactics-store.test.ts` (create/delete/invariant/selection tests + queued-save/tombstone/system-filter tests from the 2026-09-13 review)
+- `tests/unit/components/tab-bar.test.tsx` (new — 14 component tests incl. blur-commit rename)
+- `tests/e2e/tactic-tabs.spec.ts` (new — 5 specs × 3 browsers, incl. drag-move auto-save)
+- `tests/unit/lib/tactic-bridge.test.ts` (added by follow-up commit 99c70fd within this story's blast radius; missing from earlier revisions of this list)

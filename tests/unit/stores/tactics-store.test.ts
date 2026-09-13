@@ -757,7 +757,6 @@ describe('Tactics Store', () => {
           status: 201,
           json: async () => mockTacticFromApi({ id: 'recreated-1', name: 'Tactic 1' }),
         });
-
       await useTacticsStore.getState().deleteTactic('tactic-1');
 
       const state = useTacticsStore.getState();
@@ -837,6 +836,211 @@ describe('Tactics Store', () => {
       expect(state.isLoadingTactics).toBe(false);
       expect(state.isSavingTactic).toBe(false);
       expect(state.tacticsError).toBeNull();
+    });
+  });
+
+  describe('Queued saves & script tombstones (code review 2026-09-13)', () => {
+    it('should queue an update issued while a save is in flight and run it after', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      let resolveFirst: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () =>
+          mockTacticFromApi({
+            players: [{ playerSlot: 1, positionX: 30.0, positionY: 20.0, scriptId: 'script-9' }],
+          }),
+      });
+
+      const first = useTacticsStore.getState().updateTactic('tactic-1', 'First');
+      const second = useTacticsStore.getState().updateTactic('tactic-1', undefined, [
+        { playerSlot: 1, positionX: 30, positionY: 20, scriptId: 'script-9' },
+      ]);
+      await second; // resolves immediately: queued, not dropped
+
+      resolveFirst!({ ok: true, json: async () => mockTacticFromApi({ name: 'First' }) });
+      await first;
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+      const secondCall = mockFetch.mock.calls[1];
+      expect(JSON.parse((secondCall?.[1] as RequestInit).body as string)).toEqual({
+        players: [{ player_slot: 1, position_x: 30, position_y: 20, script_id: 'script-9' }],
+      });
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+    });
+
+    it('should persist a rename queued behind an in-flight slots PUT', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      let resolveFirst: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi({ name: 'Renamed' }),
+      });
+
+      const first = useTacticsStore.getState().updateTactic('tactic-1', undefined, makeSlots());
+      // Same tactic: the rename queues behind the in-flight slots PUT
+      const second = useTacticsStore.getState().updateTactic('tactic-1', 'Renamed');
+      await second;
+
+      resolveFirst!({ ok: true, json: async () => mockTacticFromApi() });
+      await first;
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+      // First PUT carried the slots edit, the trailing PUT carries the rename
+      expect(JSON.parse((mockFetch.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
+        players: [
+          { player_slot: 1, position_x: 50, position_y: 45, script_id: 'script-1' },
+          { player_slot: 2, position_x: 25, position_y: 30, script_id: null },
+        ],
+      });
+      expect(JSON.parse((mockFetch.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({
+        name: 'Renamed',
+      });
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+      const finalTactic = useTacticsStore.getState().tactics[0];
+      expect(finalTactic?.name).toBe('Renamed');
+      expect(finalTactic?.players).toHaveLength(2);
+    });
+
+    it('should merge multiple queued edits for the same tactic into one trailing PUT', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      let resolveFirst: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi({ name: 'Renamed' }),
+      });
+
+      const first = useTacticsStore.getState().updateTactic('tactic-1', undefined, makeSlots());
+      // Two edits queue while the PUT is in flight: they merge (latest-wins)
+      await useTacticsStore.getState().updateTactic('tactic-1', undefined, [
+        { playerSlot: 1, positionX: 10, positionY: 20, scriptId: null },
+      ]);
+      await useTacticsStore.getState().updateTactic('tactic-1', 'Renamed');
+
+      resolveFirst!({ ok: true, json: async () => mockTacticFromApi() });
+      await first;
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+      expect(JSON.parse((mockFetch.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({
+        name: 'Renamed',
+        players: [{ player_slot: 1, position_x: 10, position_y: 20, script_id: null }],
+      });
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+    });
+
+    it('should not resurrect a deleted script from a stale PUT response', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      let resolvePut: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePut = resolve;
+        })
+      );
+
+      const put = useTacticsStore.getState().updateTactic('tactic-1', undefined, makeSlots());
+
+      // The script is deleted (and detached) while the PUT is in flight
+      useTacticsStore.getState().detachScriptFromPlayers('script-1');
+
+      resolvePut!({
+        ok: true,
+        json: async () => mockTacticFromApi(), // stale body still carries scriptId 'script-1'
+      });
+      await put;
+
+      const players = useTacticsStore.getState().tactics[0]?.players ?? [];
+      for (const player of players) {
+        expect(player.scriptId).not.toBe('script-1');
+      }
+    });
+
+    it('should queue the default recreation behind an in-flight save when deleting the last tactic', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+        activeTacticId: 'tactic-1',
+      });
+
+      let resolveSave: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        })
+      );
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => mockTacticFromApi({ id: 'recreated-1', name: 'Tactic 1' }),
+        });
+
+      const save = useTacticsStore.getState().updateTactic('tactic-1', 'In-flight');
+      const deleted = await useTacticsStore.getState().deleteTactic('tactic-1');
+
+      expect(deleted).toBe(true);
+      expect(useTacticsStore.getState().tactics).toHaveLength(0); // recreate still queued
+
+      resolveSave!({ ok: true, json: async () => mockTacticFromApi({ name: 'In-flight' }) });
+      await save;
+
+      await vi.waitFor(() => expect(useTacticsStore.getState().tactics).toHaveLength(1));
+      expect(useTacticsStore.getState().tactics[0]?.id).toBe('recreated-1');
+      expect(useTacticsStore.getState().activeTacticId).toBe('recreated-1');
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+    });
+
+    it('should filter system tactics out of the fetched list', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          mockTacticFromApi(),
+          mockTacticFromApi({ id: 'system-1', name: 'System', isSystem: true }),
+        ],
+      });
+
+      await useTacticsStore.getState().fetchTactics();
+
+      expect(useTacticsStore.getState().tactics).toHaveLength(1);
+      expect(useTacticsStore.getState().tactics[0]?.id).toBe('tactic-1');
     });
   });
 });

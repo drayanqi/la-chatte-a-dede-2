@@ -31,6 +31,10 @@ interface TacticsState {
 
   // Error state for tactics
   tacticsError: string | null;
+
+  // Work queued while a save is in flight (drained when the in-flight settles)
+  pendingUpdate: { id: string; name?: string; slots?: TacticPlayerConfig[] } | null;
+  pendingCreate: boolean;
 }
 
 interface TacticsActions {
@@ -63,6 +67,24 @@ const initialState: TacticsState = {
   lastSavedTacticId: null,
   lastSavedAt: null,
   tacticsError: null,
+  pendingUpdate: null,
+  pendingCreate: false,
+};
+
+/**
+ * Drain the work queued while a save was in flight (latest-wins). Called when
+ * an in-flight save settles, so no edit is silently dropped: the last queued
+ * update (merged fields, same id) or a queued default-creation runs next.
+ */
+const runPendingWork = (): void => {
+  const state = useTacticsStore.getState();
+  if (state.pendingUpdate) {
+    useTacticsStore.setState({ pendingUpdate: null });
+    void state.updateTactic(state.pendingUpdate.id, state.pendingUpdate.name, state.pendingUpdate.slots);
+  } else if (state.pendingCreate) {
+    useTacticsStore.setState({ pendingCreate: false });
+    void state.createTactic();
+  }
 };
 
 /**
@@ -81,6 +103,38 @@ const DEFAULT_FORMATION: TacticPlayerConfig[] = [
 
 /** localStorage key remembering the last active tactic across sessions */
 const LAST_ACTIVE_KEY = 'last_active_tactic_id';
+
+/** localStorage can throw (quota exceeded, private mode) — persistence is best-effort */
+const safeSetItem = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable */
+  }
+};
+
+const safeRemoveItem = (key: string): void => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable */
+  }
+};
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Script ids observed deleted while a save referencing them could be in
+ * flight. A stale server response must never resurrect them into the cache
+ * (the next auto-save would PUT a dead script_id and 422).
+ */
+const deletedScriptIds = new Set<string>();
 
 /** camelCase store shape -> snake_case API payload */
 const slotsToPayload = (slots: TacticPlayerConfig[]) =>
@@ -109,7 +163,9 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       const tacticsData = await response.json();
 
       set((state) => {
-        const fetched = tacticsData as TacticConfig[];
+        // System tactics are never editable in MVP — filter at the source so
+        // every selection path (tabs, delete-neighbor, restore) sees users' only
+        const fetched = (tacticsData as TacticConfig[]).filter((tactic) => !tactic.isSystem);
         let activeTacticId =
           state.activeTacticId !== null && fetched.some((tactic) => tactic.id === state.activeTacticId)
             ? state.activeTacticId
@@ -117,7 +173,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
 
         // Restore the last active tactic from a previous session
         if (activeTacticId === null) {
-          const remembered = localStorage.getItem(LAST_ACTIVE_KEY);
+          const remembered = safeGetItem(LAST_ACTIVE_KEY);
           if (remembered && fetched.some((tactic) => tactic.id === remembered)) {
             activeTacticId = remembered;
           }
@@ -181,7 +237,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         lastSavedAt: Date.now(),
         tacticsError: null,
       }));
-      localStorage.setItem(LAST_ACTIVE_KEY, newTactic.id);
+      safeSetItem(LAST_ACTIVE_KEY, newTactic.id);
     } catch (error) {
       if (error instanceof ApiError) {
         set({
@@ -195,6 +251,8 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         tacticsError: 'Failed to save tactic. Please try again.',
         isSavingTactic: false,
       });
+    } finally {
+      runPendingWork();
     }
   },
 
@@ -206,8 +264,15 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       return;
     }
 
-    // Prevent overlapping updates (last-write-wins races)
+    // A save is in flight: never drop the edit — queue it (latest-wins,
+    // merged fields for the same tactic) and it runs when the PUT settles
     if (get().isSavingTactic) {
+      const prev = get().pendingUpdate;
+      const pendingUpdate =
+        prev && prev.id === id
+          ? { id, name: name ?? prev.name, slots: slots ?? prev.slots }
+          : { id, name, slots };
+      set({ pendingUpdate });
       return;
     }
 
@@ -230,9 +295,20 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       const tacticData = await response.json();
       const updatedTactic = tacticData as TacticConfig;
 
+      // A script deleted while this PUT was in flight must not be resurrected
+      // by the stale response body
+      const sanitized: TacticConfig = {
+        ...updatedTactic,
+        players: updatedTactic.players.map((player) =>
+          player.scriptId && deletedScriptIds.has(player.scriptId)
+            ? { ...player, scriptId: null }
+            : player
+        ),
+      };
+
       set((state) => ({
         tactics: state.tactics.map((tactic) =>
-          tactic.id === id ? updatedTactic : tactic,
+          tactic.id === id ? sanitized : tactic,
         ),
         isSavingTactic: false,
         lastSavedTacticId: id,
@@ -252,6 +328,8 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         tacticsError: 'Failed to update tactic. Please try again.',
         isSavingTactic: false,
       });
+    } finally {
+      runPendingWork();
     }
   },
 
@@ -292,7 +370,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         lastSavedAt: Date.now(),
         tacticsError: null,
       }));
-      localStorage.setItem(LAST_ACTIVE_KEY, newTactic.id);
+      safeSetItem(LAST_ACTIVE_KEY, newTactic.id);
 
       return newTactic;
     } catch (error) {
@@ -309,6 +387,8 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         isSavingTactic: false,
       });
       return null;
+    } finally {
+      runPendingWork();
     }
   },
 
@@ -327,17 +407,10 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     set({ isDeletingTactic: true, tacticsError: null });
 
     try {
-      const response = await apiFetch(`/tactics/${id}`, {
+      // apiFetch throws ApiError on non-ok responses — the catch handles it
+      await apiFetch(`/tactics/${id}`, {
         method: 'DELETE',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(
-          response.status,
-          (errorData as { message?: string }).message || 'Failed to delete tactic'
-        );
-      }
 
       set((state) => {
         const index = state.tactics.findIndex((tactic) => tactic.id === id);
@@ -351,7 +424,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         }
 
         if (activeTacticId === null) {
-          localStorage.removeItem(LAST_ACTIVE_KEY);
+          safeRemoveItem(LAST_ACTIVE_KEY);
         }
 
         return {
@@ -363,9 +436,14 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       });
 
       // Invariant (story 3.2): the user always keeps at least one tactic —
-      // deleting the last one immediately recreates a default one.
+      // deleting the last one immediately recreates a default one. If a save
+      // is still in flight, queue the creation so it survives the guard.
       if (get().tactics.length === 0) {
-        await get().createTactic();
+        if (get().isSavingTactic) {
+          set({ pendingCreate: true });
+        } else {
+          await get().createTactic();
+        }
       }
 
       return true;
@@ -394,15 +472,18 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
 
       // Remember the selection so a reload restores it (story 3.2 AC #6)
       if (activeTacticId !== null && activeTacticId !== state.activeTacticId) {
-        localStorage.setItem(LAST_ACTIVE_KEY, activeTacticId);
+        safeSetItem(LAST_ACTIVE_KEY, activeTacticId);
       } else if (activeTacticId === null) {
-        localStorage.removeItem(LAST_ACTIVE_KEY);
+        safeRemoveItem(LAST_ACTIVE_KEY);
       }
 
       return { activeTacticId };
     }),
 
-  detachScriptFromPlayers: (scriptId) =>
+  detachScriptFromPlayers: (scriptId) => {
+    // Tombstone: in-flight saves must not resurrect this id from stale responses
+    deletedScriptIds.add(scriptId);
+
     set((state) => ({
       tactics: state.tactics.map((tactic) =>
         tactic.players.some((player) => player.scriptId === scriptId)
@@ -414,7 +495,8 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
             }
           : tactic
       ),
-    })),
+    }));
+  },
 
   clearTacticsError: () => set({ tacticsError: null }),
 

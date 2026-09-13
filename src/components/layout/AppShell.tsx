@@ -55,9 +55,10 @@ export const AppShell: React.FC = () => {
   // Track which tactic id is currently loaded in the canvas
   const loadedTacticIdRef = useRef<string | null>(null);
 
-  // Lineup gating: all 5 slots must have a script assigned
+  // Lineup gating: all 5 slots must exist and have a script assigned
   const lineupComplete = activeTactic
-    ? activeTactic.players.every((player) => player.scriptId !== null)
+    ? activeTactic.players.length === 5 &&
+      activeTactic.players.every((player) => player.scriptId !== null)
     : false;
 
   // Fetch user scripts when authenticated
@@ -80,7 +81,13 @@ export const AppShell: React.FC = () => {
         activeTacticId: fetchedActiveId,
         selectTactic,
         createTactic,
+        tacticsError,
       } = useTacticsStore.getState();
+
+      // Fetch failed: do not decide anything from an empty list (a spurious
+      // default tactic would be POSTed on every reload until the fetch works)
+      if (tacticsError) return;
+
       const userTactics = tactics.filter((tactic) => !tactic.isSystem);
 
       if (userTactics.length === 0) {
@@ -138,9 +145,10 @@ export const AppShell: React.FC = () => {
     setSimulationReady(true);
   }, [setSimulationReady]);
 
-  // Auto-save (story 3.2): a script assignment is an action completion —
-  // read the engine state back and persist it immediately.
-  const handleScriptAssigned = useCallback(() => {
+  // Auto-save (story 3.2): a discrete action completion — script assignment
+  // or player move-end — reads the engine state back and persists it
+  // immediately. Discrete actions only; never mid-drag.
+  const persistActiveTacticFromEngine = useCallback(() => {
     const { activeTacticId: currentActiveId, updateTactic } = useTacticsStore.getState();
 
     if (!isAuthenticated || !currentActiveId) return; // no tactic behind the field yet
@@ -150,6 +158,14 @@ export const AppShell: React.FC = () => {
 
     void updateTactic(currentActiveId, undefined, tacticDataToPlayerConfigs(engineTactic));
   }, [isAuthenticated]);
+
+  const handleScriptAssigned = useCallback(() => {
+    persistActiveTacticFromEngine();
+  }, [persistActiveTacticFromEngine]);
+
+  const handlePlayerMoved = useCallback(() => {
+    persistActiveTacticFromEngine();
+  }, [persistActiveTacticFromEngine]);
 
   const handleScriptDropped = useCallback(
     (playerId: string, scriptId: string) => {
@@ -251,6 +267,7 @@ export const AppShell: React.FC = () => {
             onSimulationComplete={handleSimulationComplete}
             onScriptDropped={handleScriptDropped}
             onScriptAssigned={handleScriptAssigned}
+            onPlayerMoved={handlePlayerMoved}
           />
         </div>
 

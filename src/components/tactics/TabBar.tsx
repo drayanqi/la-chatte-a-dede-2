@@ -4,8 +4,8 @@
  *
  * The lineup manager: one tab per user tactic, "+" to create a new one
  * with the default formation, double-click to rename, delete with
- * confirmation (never the last one). Every edit auto-saves; this bar
- * only switches, renames, creates and deletes.
+ * confirmation (even the last one — a fresh default is recreated).
+ * Every edit auto-saves; this bar only switches, renames, creates and deletes.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -228,7 +228,12 @@ export const TabBar: React.FC = () => {
         {tacticsError && (
           <span data-testid="tactics-error" style={styles.error}>
             {tacticsError}
-            <button style={styles.errorDismiss} onClick={clearTacticsError} title="Dismiss">
+            <button
+              data-testid="tactics-error-dismiss"
+              style={styles.errorDismiss}
+              onClick={clearTacticsError}
+              title="Dismiss"
+            >
               ×
             </button>
           </span>

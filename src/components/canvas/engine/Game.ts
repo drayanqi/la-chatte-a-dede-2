@@ -3,9 +3,10 @@
  * PROPRIÉTAIRE: Cloud Dragonborn (Game Architect)
  */
 
-import { Application, Container } from 'pixi.js';
+import { Application, Container, FederatedPointerEvent } from 'pixi.js';
 import { Field } from './Field';
 import { PlayerSprite } from './Player';
+import { computePitchRect, screenToPercent } from './fieldGeometry';
 import type { Player, TacticData, Position, PlayerFrameState, SimulationResult } from '@/types';
 
 export interface GameConfig {
@@ -21,12 +22,14 @@ export interface GameCallbacks {
   onSimulationComplete: (result: SimulationResult) => void;
   /** Fired after a script assignment completes (drag & drop onto a player) */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
+  /** Fired when a player drag-move completes (pointerup ends the move) */
+  onPlayerMoved?: (playerId: string, position: Position) => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
   width: 800,
   height: 600,
-    backgroundColor: 0x111a24, // Letterbox hors-jeu (Epic 5.1)
+    backgroundColor: 0x111a24, // Off-field letterbox (Epic 5.1)
 };
 
 export class Game {
@@ -50,6 +53,11 @@ export class Game {
   private currentTacticId: string = '';
   private currentTacticName: string = '';
 
+  // Active player drag (pointerdown selects, pointermove moves, pointerup commits)
+  private draggingPlayerId: string | null = null;
+  private dragStartPosition: Position | null = null;
+  private dragMoved: boolean = false;
+
   constructor(callbacks: GameCallbacks, config: Partial<GameConfig> = {}) {
     const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -70,6 +78,13 @@ export class Game {
 
     container.appendChild(this.app.canvas);
     this.app.stage.addChild(this.gameContainer);
+
+    // Stage-level pointer tracking for player drag-moves (auto-save on move end)
+    this.app.stage.eventMode = 'static';
+    this.app.stage.hitArea = this.app.screen;
+    this.app.stage.on('pointermove', this.onStagePointerMove);
+    this.app.stage.on('pointerup', this.onStagePointerUp);
+    this.app.stage.on('pointerupoutside', this.onStagePointerUp);
 
     // Create the field
     this.field = new Field(this.app.screen.width, this.app.screen.height);
@@ -136,6 +151,11 @@ export class Game {
     }
     this.players.clear();
 
+    // A destroyed drag target must not leave a stale drag session behind
+    this.draggingPlayerId = null;
+    this.dragStartPosition = null;
+    this.dragMoved = false;
+
     // Remember the tactic identity for read-back
     this.currentTacticId = tactic.id;
     this.currentTacticName = tactic.name;
@@ -148,6 +168,12 @@ export class Game {
         this.app.screen.height,
         {
           onSelect: (id) => {
+            // Pointerdown on a player starts a drag-move (AC #3)
+            this.draggingPlayerId = id;
+            this.dragStartPosition = { ...this.players.get(id)!.getPosition() };
+            this.dragMoved = false;
+            this.players.get(id)?.setDragging(true);
+
             const p = tactic.players.find(pl => pl.id === id);
             if (p) {
               this.callbacks.onPlayerSelected(id, p.teamId, p.position, p.assignedScriptId);
@@ -167,6 +193,52 @@ export class Game {
     this.currentFrame = 0;
     this.isPlaying = false;
   }
+
+  /** Track a drag in progress: move the player in percent coordinates, clamped to its half */
+  private onStagePointerMove = (event: FederatedPointerEvent): void => {
+    if (!this.draggingPlayerId) return;
+    const player = this.players.get(this.draggingPlayerId);
+    if (!player) {
+      this.draggingPlayerId = null;
+      return;
+    }
+
+    const pitch = computePitchRect(this.app.screen.width, this.app.screen.height);
+    const percent = screenToPercent(pitch, event.global.x, event.global.y);
+
+    // Home players hold the left half (kickoff invariant), y spans full height
+    const maxX = player.getTeamId() === 'home' ? 50 : 100;
+    const clamped: Position = {
+      x: Math.max(0, Math.min(maxX, percent.x)),
+      y: Math.max(0, Math.min(100, percent.y)),
+    };
+
+    const previous = player.getPosition();
+    if (clamped.x !== previous.x || clamped.y !== previous.y) {
+      player.setPosition(clamped);
+      this.dragMoved = true;
+    }
+  };
+
+  /** A move ends on pointerup: fire the move-end event so the edit auto-saves */
+  private onStagePointerUp = (): void => {
+    if (!this.draggingPlayerId) return;
+
+    const playerId = this.draggingPlayerId;
+    const player = this.players.get(playerId);
+    const moved = this.dragMoved;
+    const startedAt = this.dragStartPosition;
+
+    this.draggingPlayerId = null;
+    this.dragStartPosition = null;
+    this.dragMoved = false;
+    player?.setDragging(false);
+
+    // A click without movement is a selection, not a move — no auto-save
+    if (player && moved && startedAt) {
+      this.callbacks.onPlayerMoved?.(playerId, player.getPosition());
+    }
+  };
 
   assignScript(playerId: string, scriptId: string): void {
     const player = this.players.get(playerId);

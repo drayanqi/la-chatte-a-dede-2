@@ -62,7 +62,7 @@ development_status:
   # Epic 3: Practice Mode & Match Experience
   epic-3: in-progress
   3-1-tactics-data-model-and-api: done
-  3-2-team-lineup-configuration-ui: review
+  3-2-team-lineup-configuration-ui: done
   3-3-game-engine-core-deterministic-simulation: ready-for-dev
   3-4-script-sandboxing-and-execution: ready-for-dev
   3-5-practice-match-trigger: ready-for-dev
