@@ -3,13 +3,15 @@
  * PROPRIÉTAIRE: Winston (Software Architect)
  */
 
-import { useDebuggerStore, useCanvasStore } from '@/stores';
+import { useMemo } from 'react';
+import { useDebuggerStore, useCanvasStore, useTacticsStore } from '@/stores';
+import { rosterFromTactic } from '@/lib/tacticBridge';
+import type { PlayerFrameState } from '@/types';
 
 export const DebuggerPanel: React.FC = () => {
   const {
     isDebugging,
     breakpoints,
-    watchedVariables,
     consoleOutput,
     startDebugging,
     stopDebugging,
@@ -17,9 +19,28 @@ export const DebuggerPanel: React.FC = () => {
 
   const { selectedPlayerId, playerStates } = useCanvasStore();
 
-  const selectedPlayerState = playerStates.find(
-    (p) => p.playerId === selectedPlayerId
+  const activeTactic = useTacticsStore((state) =>
+    state.activeTacticId
+      ? state.tactics.find((tactic) => tactic.id === state.activeTacticId) ?? null
+      : null
   );
+
+  const roster = rosterFromTactic(activeTactic);
+
+  const stateByPlayerId = useMemo(() => {
+    const map = new Map<string, PlayerFrameState>();
+    for (const state of playerStates) {
+      map.set(state.playerId, state);
+    }
+    return map;
+  }, [playerStates]);
+
+  // Selection IS the filter: nothing selected → all players, one → that player only
+  const visiblePlayers = selectedPlayerId
+    ? roster.filter((player) => player.id === selectedPlayerId)
+    : roster;
+
+  const selectedEntry = roster.find((player) => player.id === selectedPlayerId);
 
   return (
     <div style={styles.container}>
@@ -34,33 +55,47 @@ export const DebuggerPanel: React.FC = () => {
         </button>
       </div>
 
-      {/* Player info */}
+      {/* Watch: player states, filtered by the pitch selection */}
       <div style={styles.section}>
-        <h4 style={styles.sectionTitle}>Joueur sélectionné</h4>
-        {selectedPlayerId ? (
-          <div style={styles.playerInfo}>
-            <div style={styles.infoRow}>
-              <span style={styles.label}>ID:</span>
-              <span style={styles.value}>{selectedPlayerId}</span>
-            </div>
-            {selectedPlayerState && (
-              <>
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>Position:</span>
-                  <span style={styles.value}>
-                    ({selectedPlayerState.position.x.toFixed(1)},{' '}
-                    {selectedPlayerState.position.y.toFixed(1)})
+        <h4 style={styles.sectionTitle} data-testid="debug-watch-title">
+          {selectedEntry
+            ? `Watch — P${selectedEntry.number} ${selectedEntry.name}`
+            : 'Watch (tous les joueurs)'}
+        </h4>
+        {visiblePlayers.length > 0 ? (
+          <div style={styles.list} data-testid="debug-watch-list">
+            {visiblePlayers.map((player) => {
+              const live = stateByPlayerId.get(player.id);
+              return (
+                <div
+                  key={player.id}
+                  style={styles.watchRow}
+                  data-testid={`debug-watch-row-${player.id}`}
+                >
+                  <span
+                    style={{
+                      ...styles.teamDot,
+                      backgroundColor:
+                        player.teamId === 'home' ? '#ff6b1a' : '#1a8cff',
+                    }}
+                  />
+                  <span style={styles.watchName}>
+                    P{player.number} {player.name}
                   </span>
+                  <span style={styles.watchValue}>
+                    {live
+                      ? `(${live.position.x.toFixed(1)}, ${live.position.y.toFixed(1)})`
+                      : '—'}
+                  </span>
+                  <span style={styles.watchState}>{live?.state ?? '—'}</span>
                 </div>
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>État:</span>
-                  <span style={styles.value}>{selectedPlayerState.state}</span>
-                </div>
-              </>
-            )}
+              );
+            })}
           </div>
         ) : (
-          <div style={styles.noSelection}>Aucun joueur sélectionné</div>
+          <div style={styles.noItems} data-testid="debug-watch-empty">
+            Aucun joueur à afficher
+          </div>
         )}
       </div>
 
@@ -89,25 +124,6 @@ export const DebuggerPanel: React.FC = () => {
           </div>
         ) : (
           <div style={styles.noItems}>Aucun breakpoint</div>
-        )}
-      </div>
-
-      {/* Watch */}
-      <div style={styles.section}>
-        <h4 style={styles.sectionTitle}>Watch</h4>
-        {watchedVariables.length > 0 ? (
-          <div style={styles.list}>
-            {watchedVariables.map((v) => (
-              <div key={v.id} style={styles.listItem}>
-                <span style={styles.watchName}>{v.name}:</span>
-                <span style={styles.watchValue}>
-                  {JSON.stringify(v.value) ?? 'undefined'}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={styles.noItems}>Ajoutez des variables à surveiller</div>
         )}
       </div>
 
@@ -192,29 +208,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#888888',
     textTransform: 'uppercase',
   },
-  playerInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  infoRow: {
-    display: 'flex',
-    gap: '8px',
-    fontSize: '12px',
-  },
-  label: {
-    color: '#888888',
-    minWidth: '60px',
-  },
-  value: {
-    color: '#cccccc',
-    fontFamily: 'monospace',
-  },
-  noSelection: {
-    fontSize: '12px',
-    color: '#666666',
-    fontStyle: 'italic',
-  },
   list: {
     display: 'flex',
     flexDirection: 'column',
@@ -226,6 +219,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     fontSize: '12px',
   },
+  watchRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12px',
+  },
+  teamDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
   breakpointDot: {
     fontSize: '10px',
   },
@@ -236,9 +241,15 @@ const styles: Record<string, React.CSSProperties> = {
   watchName: {
     color: '#9cdcfe',
     fontFamily: 'monospace',
+    minWidth: '90px',
   },
   watchValue: {
     color: '#ce9178',
+    fontFamily: 'monospace',
+    flex: 1,
+  },
+  watchState: {
+    color: '#888888',
     fontFamily: 'monospace',
   },
   noItems: {

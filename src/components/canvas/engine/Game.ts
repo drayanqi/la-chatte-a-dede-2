@@ -24,6 +24,8 @@ export interface GameCallbacks {
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
   /** Fired when a player drag-move completes (pointerup ends the move) */
   onPlayerMoved?: (playerId: string, position: Position) => void;
+  /** Fired when the selection is cleared by clicking empty pitch */
+  onPlayerDeselected?: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -58,6 +60,9 @@ export class Game {
   private dragStartPosition: Position | null = null;
   private dragMoved: boolean = false;
 
+  // Persistently selected player (mirrors canvasStore.selectedPlayerId)
+  private selectedPlayerId: string | null = null;
+
   constructor(callbacks: GameCallbacks, config: Partial<GameConfig> = {}) {
     const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -82,6 +87,7 @@ export class Game {
     // Stage-level pointer tracking for player drag-moves (auto-save on move end)
     this.app.stage.eventMode = 'static';
     this.app.stage.hitArea = this.app.screen;
+    this.app.stage.on('pointerdown', this.onStagePointerDown);
     this.app.stage.on('pointermove', this.onStagePointerMove);
     this.app.stage.on('pointerup', this.onStagePointerUp);
     this.app.stage.on('pointerupoutside', this.onStagePointerUp);
@@ -156,6 +162,9 @@ export class Game {
     this.dragStartPosition = null;
     this.dragMoved = false;
 
+    // A destroyed selection must not leave a stale ring behind
+    this.selectedPlayerId = null;
+
     // Remember the tactic identity for read-back
     this.currentTacticId = tactic.id;
     this.currentTacticName = tactic.name;
@@ -193,6 +202,19 @@ export class Game {
     this.currentFrame = 0;
     this.isPlaying = false;
   }
+
+  /**
+   * Clicking empty pitch clears the selection. A pointerdown on a player
+   * bubbles here too — the hit-test keeps that click selection-only.
+   */
+  private onStagePointerDown = (event: FederatedPointerEvent): void => {
+    if (this.selectedPlayerId === null) return;
+
+    if (this.hitTestPlayer(event.global.x, event.global.y) === null) {
+      this.setSelectedPlayer(null);
+      this.callbacks.onPlayerDeselected?.();
+    }
+  };
 
   /** Track a drag in progress: move the player in percent coordinates, clamped to its half */
   private onStagePointerMove = (event: FederatedPointerEvent): void => {
@@ -245,6 +267,17 @@ export class Game {
     if (player) {
       player.setScript(scriptId);
       this.callbacks.onScriptAssigned?.(playerId, scriptId);
+    }
+  }
+
+  /**
+   * Mirror the persistent selection (canvasStore.selectedPlayerId) onto the
+   * sprites: exactly the selected player keeps its ring.
+   */
+  setSelectedPlayer(playerId: string | null): void {
+    this.selectedPlayerId = playerId;
+    for (const [id, sprite] of this.players) {
+      sprite.setSelected(id === playerId);
     }
   }
 

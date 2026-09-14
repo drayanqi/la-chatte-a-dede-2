@@ -55,6 +55,9 @@ export interface TacticsCanvasProps {
 
   /** Callback when a player drag-move completes (auto-save trigger) */
   onPlayerMoved?: (playerId: string, position: Position) => void;
+
+  /** Callback when the selection is cleared by clicking empty pitch */
+  onPlayerDeselected?: () => void;
 }
 
 export interface TacticsCanvasHandle {
@@ -87,6 +90,9 @@ export interface TacticsCanvasHandle {
 
   /** Read the tactic's current state (positions + assigned scripts) */
   getTactic: () => TacticData | null;
+
+  /** Mirror the persistent selection onto the sprites (null clears it) */
+  setSelectedPlayer: (playerId: string | null) => void;
 }
 
 // ============================================================================
@@ -103,6 +109,7 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       onScriptDropped,
       onScriptAssigned,
       onPlayerMoved,
+      onPlayerDeselected,
     },
     ref
   ) => {
@@ -134,6 +141,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         },
         onPlayerMoved: (playerId, position) => {
           onPlayerMoved?.(playerId, position);
+        },
+        onPlayerDeselected: () => {
+          onPlayerDeselected?.();
         },
       });
 
@@ -204,6 +214,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       },
       getTactic: () => {
         return gameRef.current?.getTactic() ?? null;
+      },
+      setSelectedPlayer: (playerId: string | null) => {
+        gameRef.current?.setSelectedPlayer(playerId);
       },
     }));
 

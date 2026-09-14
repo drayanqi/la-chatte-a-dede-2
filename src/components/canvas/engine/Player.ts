@@ -24,6 +24,7 @@ export class PlayerSprite {
   private callbacks: PlayerCallbacks;
   private hasScript: boolean = false;
   private isHovered: boolean = false;
+  private isSelected: boolean = false;
   private radius: number;
 
   // Colors (Epic 5.1 — Rocket League-style, never the ground tint underneath)
@@ -125,9 +126,15 @@ export class PlayerSprite {
 
     this.container.on('pointerout', () => {
       this.isHovered = false;
-      this.drawCircle(false);
+      this.drawCircle(this.isSelected);
       this.callbacks.onHover(null, null);
     });
+  }
+
+  /** Persistent selection: the ring stays until explicitly deselected */
+  setSelected(selected: boolean): void {
+    this.isSelected = selected;
+    this.drawCircle(selected || this.isHovered);
   }
 
   private updatePosition(): void {
@@ -172,7 +179,7 @@ export class PlayerSprite {
     this.screenHeight = height;
     this.radius = computePlayerRadius(computePitchRect(width, height));
     this.numberText.style.fontSize = Math.max(10, this.radius * 0.7);
-    this.drawCircle(this.isHovered);
+    this.drawCircle(this.isHovered || this.isSelected);
     this.updateScriptIndicator();
     this.updatePosition();
   }

@@ -10,7 +10,7 @@
  * in both directions.
  */
 
-import type { TacticConfig, TacticData, Player, TacticPlayerConfig } from '@/types';
+import type { TacticConfig, TacticData, Player, TacticPlayerConfig, TeamId } from '@/types';
 
 /** API y (0-50) -> engine y (0-100) multiplier */
 const API_Y_SCALE = 2;
@@ -84,4 +84,31 @@ export const tacticDataToPlayerConfigs = (tactic: TacticData): TacticPlayerConfi
   }
 
   return slots.sort((a, b) => a.playerSlot - b.playerSlot);
+};
+
+/** Watch/debug roster entry: stable player identity for panel display */
+export interface RosterEntry {
+  id: string;
+  name: string;
+  number: number;
+  teamId: TeamId;
+}
+
+/**
+ * Watch/debug roster for a saved tactic, sorted by slot. Uses the same
+ * engine id convention as tacticConfigToTacticData so live frame states
+ * (keyed by engine player id) join directly onto roster entries.
+ */
+export const rosterFromTactic = (config: TacticConfig | null): RosterEntry[] => {
+  if (!config) return [];
+
+  return config.players
+    .slice()
+    .sort((a, b) => a.playerSlot - b.playerSlot)
+    .map((slot) => ({
+      id: playerIdForSlot(slot.playerSlot),
+      name: SLOT_LABELS[slot.playerSlot - 1] ?? `Player ${slot.playerSlot}`,
+      number: slot.playerSlot,
+      teamId: 'home' as const,
+    }));
 };

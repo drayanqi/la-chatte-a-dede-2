@@ -72,6 +72,39 @@ describe('Canvas Store', () => {
       // THEN: New player should be selected
       expect(useCanvasStore.getState().selectedPlayerId).toBe('player-2');
     });
+
+    it('should select a player with toggle when none selected', () => {
+      // GIVEN: No selection
+      expect(useCanvasStore.getState().selectedPlayerId).toBeNull();
+
+      // WHEN: Toggling a player
+      useCanvasStore.getState().toggleSelectedPlayer('player-1');
+
+      // THEN: Player should be selected
+      expect(useCanvasStore.getState().selectedPlayerId).toBe('player-1');
+    });
+
+    it('should deselect with toggle when clicking the same player', () => {
+      // GIVEN: A selected player
+      useCanvasStore.getState().toggleSelectedPlayer('player-1');
+
+      // WHEN: Toggling the same player again
+      useCanvasStore.getState().toggleSelectedPlayer('player-1');
+
+      // THEN: Selection should be cleared
+      expect(useCanvasStore.getState().selectedPlayerId).toBeNull();
+    });
+
+    it('should switch selection with toggle to a different player', () => {
+      // GIVEN: A selected player
+      useCanvasStore.getState().toggleSelectedPlayer('player-1');
+
+      // WHEN: Toggling another player
+      useCanvasStore.getState().toggleSelectedPlayer('player-2');
+
+      // THEN: New player should be selected
+      expect(useCanvasStore.getState().selectedPlayerId).toBe('player-2');
+    });
   });
 
   describe('Player Hover', () => {

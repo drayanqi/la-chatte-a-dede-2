@@ -27,6 +27,8 @@ interface CanvasState {
 interface CanvasActions {
   // Mise à jour depuis le Canvas
   setSelectedPlayer: (id: string | null) => void;
+  /** Toggle semantics: clicking the selected player again deselects it */
+  toggleSelectedPlayer: (id: string) => void;
   setHoveredPlayer: (id: string | null) => void;
   updatePlaybackState: (playing: boolean, frame: number, total: number) => void;
   updatePlayerStates: (states: PlayerFrameState[]) => void;
@@ -54,6 +56,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>((set) => ({
   ...initialState,
 
   setSelectedPlayer: (id) => set({ selectedPlayerId: id }),
+
+  toggleSelectedPlayer: (id) =>
+    set((state) => ({ selectedPlayerId: state.selectedPlayerId === id ? null : id })),
 
   setHoveredPlayer: (id) => set({ hoveredPlayerId: id }),
 

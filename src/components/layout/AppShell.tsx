@@ -16,6 +16,7 @@ import { useCanvasStore, useEditorStore, useMatchStore, useTacticsStore } from '
 import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
+import type { PlayerFrameState } from '@/types';
 
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
@@ -32,9 +33,12 @@ export const AppShell: React.FC = () => {
   } = usePanelLayout();
 
   const {
+    selectedPlayerId,
     setSelectedPlayer,
+    toggleSelectedPlayer,
     setHoveredPlayer,
     updatePlaybackState,
+    updatePlayerStates,
     setTacticLoaded,
     setSimulationReady,
     isPlaying,
@@ -116,17 +120,28 @@ export const AppShell: React.FC = () => {
     if (!target) return;
 
     loadedTacticIdRef.current = activeTacticId;
+    setSelectedPlayer(null);
     canvasRef.current?.loadTactic(tacticConfigToTacticData(target));
     setTacticLoaded(true);
-  }, [activeTacticId, setTacticLoaded]);
+  }, [activeTacticId, setTacticLoaded, setSelectedPlayer]);
+
+  // Mirror the persistent selection into the engine so exactly the selected
+  // player keeps its ring (single source of truth: the store)
+  useEffect(() => {
+    canvasRef.current?.setSelectedPlayer(selectedPlayerId);
+  }, [selectedPlayerId]);
 
   // Canvas callbacks
   const handlePlayerSelected = useCallback(
     (playerId: string, teamId: 'home' | 'away') => {
-      setSelectedPlayer(playerId);
+      toggleSelectedPlayer(playerId);
     },
-    [setSelectedPlayer]
+    [toggleSelectedPlayer]
   );
+
+  const handlePlayerDeselected = useCallback(() => {
+    setSelectedPlayer(null);
+  }, [setSelectedPlayer]);
 
   const handlePlayerHovered = useCallback(
     (playerId: string | null) => {
@@ -136,10 +151,11 @@ export const AppShell: React.FC = () => {
   );
 
   const handleFrameChanged = useCallback(
-    (frame: number, total: number) => {
+    (frame: number, total: number, states: PlayerFrameState[]) => {
       updatePlaybackState(isPlaying, frame, total);
+      updatePlayerStates(states);
     },
-    [updatePlaybackState, isPlaying]
+    [updatePlaybackState, updatePlayerStates, isPlaying]
   );
 
   const handleSimulationComplete = useCallback(() => {
@@ -289,6 +305,7 @@ export const AppShell: React.FC = () => {
             onScriptDropped={handleScriptDropped}
             onScriptAssigned={handleScriptAssigned}
             onPlayerMoved={handlePlayerMoved}
+            onPlayerDeselected={handlePlayerDeselected}
           />
         </div>
 
