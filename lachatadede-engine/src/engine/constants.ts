@@ -30,6 +30,16 @@ export const BALL_FRICTION = 0.95;
 export const MIN_BALL_SPEED = 0.1;
 export const COLLISION_RADIUS = 2.0;
 
+// Sandboxing (script-ia-api.md + backend-architecture.md "Limites Sandboxing")
+export const TICK_TIMEOUT_MS = 10; // per-tick script deadline
+export const MEMORY_LIMIT_MB = 8; // per-script heap limit
+export const MATCH_TIME_BUDGET_MS = 30_000; // total simulation hard cap
+export const SCRIPT_INIT_TIMEOUT_MS = 1_000; // top-level script init deadline
+export const SHOOT_POWER_MIN = 0.1;
+export const SHOOT_POWER_MAX = 1.0;
+export const MAX_LOGS_PER_MATCH = 10_000; // frame-log cap across the whole match
+export const MAX_LOG_MESSAGE_LENGTH = 500; // per-entry message truncation
+
 // Ranking points
 export const POINTS_WIN = 3;
 export const POINTS_DRAW = 1;

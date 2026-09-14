@@ -1,6 +1,7 @@
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { IsolatedScriptRunner } from '../engine/IsolatedScriptRunner.js';
 import { Simulation } from '../engine/Simulation.js';
 import {
   FIELD_HEIGHT,
@@ -94,9 +95,12 @@ export async function simulateRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const payload = request.body as SimulatePayload;
+    // Sandboxed script execution (story 3.4): one isolate per player with
+    // 8MB / 10ms / 30s limits. `errors` marks match-level execution problems.
+    const runner = new IsolatedScriptRunner();
     try {
       // Deterministic full-match simulation (10800 ticks).
-      const simulation = new Simulation(payload);
+      const simulation = new Simulation(payload, runner);
       const frameFile = await simulation.run();
 
       // Write the frame file to {output_path}/{match_id}.json (create dir if
@@ -116,6 +120,7 @@ export async function simulateRoutes(app: FastifyInstance): Promise<void> {
           score_opponent: frameFile.result.score_opponent,
           duration_frames: TOTAL_TICKS,
         },
+        errors: runner.matchErrors,
       };
     } catch (err) {
       request.log.error(err);
@@ -123,6 +128,8 @@ export async function simulateRoutes(app: FastifyInstance): Promise<void> {
         success: false as const,
         error: err instanceof Error ? err.message : 'internal simulation failure',
       });
+    } finally {
+      runner.dispose();
     }
   });
 }

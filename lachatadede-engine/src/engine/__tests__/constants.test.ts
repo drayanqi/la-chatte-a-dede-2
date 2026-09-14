@@ -11,13 +11,16 @@ import {
   GOAL_Y_MIN,
   GOAL_WIDTH,
   MATCH_DURATION_SECONDS,
+  MATCH_TIME_BUDGET_MS,
   MAX_BALL_SPEED,
+  MEMORY_LIMIT_MB,
   MIN_BALL_SPEED,
   PLAYERS_PER_TEAM,
   PLAYER_SPEED,
   POINTS_DRAW,
   POINTS_LOSS,
   POINTS_WIN,
+  TICK_TIMEOUT_MS,
   TICKS_PER_SECOND,
   TOTAL_TICKS,
 } from '../constants.js';
@@ -61,5 +64,11 @@ describe('game constants', () => {
     expect(POINTS_WIN).toBe(3);
     expect(POINTS_DRAW).toBe(1);
     expect(POINTS_LOSS).toBe(-1);
+  });
+
+  it('sandboxing limits (script-ia-api.md + backend-architecture.md)', () => {
+    expect(TICK_TIMEOUT_MS).toBe(10);
+    expect(MEMORY_LIMIT_MB).toBe(8);
+    expect(MATCH_TIME_BUDGET_MS).toBe(30_000);
   });
 });

@@ -21,6 +21,16 @@ class Script extends Model
         'name',
         'code',
         'language',
+        'is_valid',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'is_valid' => 'boolean',
     ];
 
     /**

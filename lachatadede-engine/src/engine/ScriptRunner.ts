@@ -1,4 +1,4 @@
-import type { SlotAction, Team } from './types.js';
+import type { FrameLog, SlotAction, Team } from './types.js';
 
 export interface PlayerScript {
   slot: number;
@@ -11,6 +11,8 @@ export interface ScriptTickContext {
   ball: {
     x: number;
     y: number;
+    vx: number;
+    vy: number;
     owner: { slot: number; team: Team } | null;
   };
   players: {
@@ -23,7 +25,7 @@ export interface ScriptTickContext {
 
 export interface TickOutcome {
   actions: SlotAction[];
-  logs: string[];
+  logs: FrameLog[];
 }
 
 /**

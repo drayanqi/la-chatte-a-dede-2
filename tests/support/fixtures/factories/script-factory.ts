@@ -18,29 +18,33 @@ export type Script = {
   updatedAt: string;
 };
 
-// Default starter AI code
-const STARTER_AI_CODE = `// This runs every tick for your player
-if (me.isClosestToBall()) {
-  me.moveTo(ball.position);
-  if (me.distanceTo(ball.position) < 10) {
-    me.kick(goal.enemy);
+// Default starter AI code (canonical script-ia-api.md v2.0 API)
+const STARTER_AI_CODE = `function update(game) {
+  const { me, ball } = game;
+  const goalX = me.team === 'home' ? 100 : 0;
+
+  if (me.hasBall) {
+    me.dribble(goalX, 25);
+  } else {
+    me.moveToward(ball.position.x, ball.position.y);
   }
-} else {
-  me.moveTo(goal.own);
 }`;
 
 // Goalkeeper AI code
-const GOALKEEPER_AI_CODE = `// Goalkeeper stays near goal
-const goalCenter = goal.own;
-const ballX = ball.position.x;
+const GOALKEEPER_AI_CODE = `function update(game) {
+  const { me, ball } = game;
+  const goalX = me.team === 'home' ? 5 : 95;
 
-if (ballX < 200 && me.isClosestToBall()) {
-  me.moveTo(ball.position);
-  if (me.distanceTo(ball.position) < 10) {
-    me.kick({ x: 500, y: 300 }); // Clear to midfield
+  if (me.hasBall) {
+    if (game.teammates.length > 0) {
+      me.shoot(game.teammates[0].position.x, game.teammates[0].position.y, 0.8);
+    } else {
+      me.stop();
+    }
+  } else {
+    const targetY = Math.max(15, Math.min(35, ball.position.y));
+    me.moveToward(goalX, targetY);
   }
-} else {
-  me.moveTo({ x: goalCenter.x + 30, y: ball.position.y });
 }`;
 
 export class ScriptFactory {

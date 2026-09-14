@@ -94,8 +94,8 @@ interface Field {
   width: 100;
   height: 50;
   goals: {
-    home: { x: 0, y: 25, width: 10 };    // But gauche
-    away: { x: 100, y: 25, width: 10 };  // But droite
+    home: { x: 0, y: 25, width: 20 };    // But gauche
+    away: { x: 100, y: 25, width: 20 };  // But droite
   };
   zones: {
     homeBox: { x1: 0, y1: 15, x2: 16, y2: 35 };

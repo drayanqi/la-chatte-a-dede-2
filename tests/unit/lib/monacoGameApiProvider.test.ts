@@ -2,9 +2,10 @@
  * Monaco Game API Completion Provider Unit Tests
  *
  * Tests the completion provider that provides autocomplete suggestions
- * for the game API (me, ball, goal, teammates, opponents).
+ * for the canonical game API (game, me, ball, field, teammates, opponents).
  *
  * @see Story 2.4: Game API Autocomplete
+ * @see Story 3.4: AI-API alignment (canonical script-ia-api.md v2.0 contract)
  * @priority P1
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -92,6 +93,14 @@ function createMockModelAndPosition(textBeforeCursor: string): { model: MockMode
   return { model, position };
 }
 
+function getSuggestions(textBeforeCursor: string): MockCompletionItem[] {
+  const { monaco } = createMockMonaco();
+  registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
+  const provider = monaco.getRegisteredProvider();
+  const { model, position } = createMockModelAndPosition(textBeforeCursor);
+  return provider?.provideCompletionItems(model, position)?.suggestions ?? [];
+}
+
 describe('Monaco Game API Completion Provider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,28 +148,27 @@ describe('Monaco Game API Completion Provider', () => {
     });
   });
 
-  describe('Player Completions (me.)', () => {
-    it('should return player methods for "me."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me.');
-
+  describe('Controlled Player Completions (me.)', () => {
+    it('should return canonical action methods and properties for "me."', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('me.');
 
-      // THEN: Should return player methods and properties
-      expect(result?.suggestions).toBeDefined();
-      expect(result?.suggestions.length).toBeGreaterThan(0);
-
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
-      expect(labels).toContain('kick');
+      // THEN: Should return the canonical script-ia-api.md surface
+      const labels = suggestions.map((s) => s.label);
+      expect(labels).toContain('moveToward');
+      expect(labels).toContain('dribble');
+      expect(labels).toContain('stop');
+      expect(labels).toContain('shoot');
       expect(labels).toContain('isClosestToBall');
       expect(labels).toContain('position');
-      expect(labels).toContain('velocity');
+      expect(labels).toContain('hasBall');
+      expect(labels).toContain('slot');
+      expect(labels).toContain('team');
+      // The superseded Epic-2 API must not be taught anymore
+      expect(labels).not.toContain('moveTo');
+      expect(labels).not.toContain('kick');
+      expect(labels).not.toContain('kickBall');
+      expect(labels).not.toContain('velocity');
     });
 
     it('should have correct completion kind for methods', () => {
@@ -168,15 +176,14 @@ describe('Monaco Game API Completion Provider', () => {
       const { monaco } = createMockMonaco();
       registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
       const provider = monaco.getRegisteredProvider();
-
       const { model, position } = createMockModelAndPosition('me.');
 
       // WHEN: Getting completions
       const result = provider?.provideCompletionItems(model, position);
 
       // THEN: Methods should have Method kind
-      const moveTo = result?.suggestions.find((s) => s.label === 'moveTo');
-      expect(moveTo?.kind).toBe(monaco.languages.CompletionItemKind.Method);
+      const moveToward = result?.suggestions.find((s) => s.label === 'moveToward');
+      expect(moveToward?.kind).toBe(monaco.languages.CompletionItemKind.Method);
     });
 
     it('should have correct completion kind for properties', () => {
@@ -184,325 +191,202 @@ describe('Monaco Game API Completion Provider', () => {
       const { monaco } = createMockMonaco();
       registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
       const provider = monaco.getRegisteredProvider();
-
       const { model, position } = createMockModelAndPosition('me.');
 
       // WHEN: Getting completions
       const result = provider?.provideCompletionItems(model, position);
 
       // THEN: Properties should have Property kind
-      const position_prop = result?.suggestions.find((s) => s.label === 'position');
-      expect(position_prop?.kind).toBe(monaco.languages.CompletionItemKind.Property);
+      const positionProp = result?.suggestions.find((s) => s.label === 'position');
+      expect(positionProp?.kind).toBe(monaco.languages.CompletionItemKind.Property);
     });
 
-    it('should have snippet insert for moveTo with placeholders', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me.');
-
+    it('should have snippet insert for moveToward with placeholders', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('me.');
 
-      // THEN: moveTo should have snippet with x, y placeholders
-      const moveTo = result?.suggestions.find((s) => s.label === 'moveTo');
-      expect(moveTo?.insertText).toBe('moveTo(${1:x}, ${2:y})');
-      expect(moveTo?.insertTextRules).toBe(monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet);
+      // THEN: moveToward should have snippet with x, y placeholders
+      const moveToward = suggestions.find((s) => s.label === 'moveToward');
+      expect(moveToward?.insertText).toBe('moveToward(${1:x}, ${2:y})');
+      expect(moveToward?.insertTextRules).toBe(4);
+    });
+
+    it('should have snippet insert for shoot with power placeholder', () => {
+      // WHEN: Getting completions
+      const suggestions = getSuggestions('me.');
+
+      // THEN: shoot should have snippet with x, y, power placeholders
+      const shoot = suggestions.find((s) => s.label === 'shoot');
+      expect(shoot?.insertText).toBe('shoot(${1:x}, ${2:y}, ${3:power})');
     });
 
     it('should include documentation for methods', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('me.');
 
       // THEN: Methods should have documentation
-      const moveTo = result?.suggestions.find((s) => s.label === 'moveTo');
-      expect(moveTo?.documentation?.value).toContain('Move the player');
-      expect(moveTo?.detail).toContain('moveTo');
+      const moveToward = suggestions.find((s) => s.label === 'moveToward');
+      expect(moveToward?.documentation?.value).toContain('Move the player');
+      expect(moveToward?.detail).toContain('moveToward');
+      const shoot = suggestions.find((s) => s.label === 'shoot');
+      expect(shoot?.documentation?.value).toContain('0.1 and 1.0');
     });
   });
 
-  describe('Player Array Completions (teammates[0]., opponents[0].)', () => {
-    it('should return player methods for "teammates."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('teammates.');
-
+  describe('Read-only Player Completions (teammates[0]., opponents[0].)', () => {
+    it('should return read-only properties and isClosestToBall for "teammates[0]." (no action methods)', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('teammates[0].');
 
-      // THEN: Should return player methods (for array access context)
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
+      // THEN: Read-only player surface: properties + isClosestToBall only
+      const labels = suggestions.map((s) => s.label);
       expect(labels).toContain('position');
+      expect(labels).toContain('hasBall');
+      expect(labels).toContain('slot');
+      expect(labels).toContain('team');
+      expect(labels).toContain('isClosestToBall');
+      expect(labels).not.toContain('moveToward');
+      expect(labels).not.toContain('dribble');
+      expect(labels).not.toContain('shoot');
+      expect(labels).not.toContain('stop');
     });
 
-    it('should return player methods for "teammates[0]."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('teammates[0].');
-
+    it('should return read-only completions for "opponents[idx]." (no action methods)', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('opponents[idx].');
 
-      // THEN: Should return player methods
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
-      expect(labels).toContain('kick');
+      // THEN: Read-only player surface
+      const labels = suggestions.map((s) => s.label);
+      expect(labels).toContain('position');
+      expect(labels).toContain('hasBall');
+      expect(labels).not.toContain('moveToward');
+      expect(labels).not.toContain('shoot');
     });
 
-    it('should return player methods for "opponents[idx]."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('opponents[idx].');
-
+    it('should suggest the same surface for "teammates." before indexing', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('teammates.');
 
-      // THEN: Should return player methods
-      const labels = result?.suggestions.map((s) => s.label);
+      // THEN: Read-only player surface
+      const labels = suggestions.map((s) => s.label);
       expect(labels).toContain('position');
-      expect(labels).toContain('velocity');
+      expect(labels).toContain('isClosestToBall');
     });
   });
 
   describe('Ball Completions (ball.)', () => {
     it('should return ball properties for "ball."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('ball.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('ball.');
 
-      // THEN: Should return ball properties
-      const labels = result?.suggestions.map((s) => s.label);
+      // THEN: Should return ball properties including owner
+      const labels = suggestions.map((s) => s.label);
       expect(labels).toContain('position');
       expect(labels).toContain('velocity');
+      expect(labels).toContain('owner');
       // Ball has no methods in our API
-      expect(labels).not.toContain('moveTo');
-      expect(labels).not.toContain('kick');
+      expect(labels).not.toContain('moveToward');
+      expect(labels).not.toContain('isClosestToBall');
     });
 
     it('should have position property with documentation', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('ball.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('ball.');
 
       // THEN: Position should have documentation
-      const positionProp = result?.suggestions.find((s) => s.label === 'position');
+      const positionProp = suggestions.find((s) => s.label === 'position');
       expect(positionProp?.documentation?.value).toContain('position');
-      expect(positionProp?.kind).toBe(monaco.languages.CompletionItemKind.Property);
+      expect(positionProp?.kind).toBe(1);
     });
   });
 
-  describe('Goal Completions (goal.)', () => {
-    it('should return goal properties for "goal."', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('goal.');
-
+  describe('Field Completions (field.)', () => {
+    it('should return field properties for "field."', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('field.');
 
-      // THEN: Should return goal properties
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('position');
+      // THEN: Should return field dimensions, goals and zones
+      const labels = suggestions.map((s) => s.label);
       expect(labels).toContain('width');
-      // Goal has no methods
-      expect(labels).not.toContain('moveTo');
+      expect(labels).toContain('height');
+      expect(labels).toContain('goals');
+      expect(labels).toContain('zones');
     });
+  });
 
-    it('should have width property', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('goal.');
-
+  describe('Game Root Completions (game.)', () => {
+    it('should return the game context members for "game."', () => {
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('game.');
 
-      // THEN: Width should exist and have documentation
-      const width = result?.suggestions.find((s) => s.label === 'width');
-      expect(width).toBeDefined();
-      expect(width?.detail).toContain('width');
+      // THEN: Should return me, ball, teammates, opponents, field
+      const labels = suggestions.map((s) => s.label);
+      expect(labels).toEqual(expect.arrayContaining(['me', 'ball', 'teammates', 'opponents', 'field']));
     });
   });
 
   describe('Unknown Context', () => {
     it('should return empty suggestions for unknown variable', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('unknownVar.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('unknownVar.');
 
       // THEN: Should return empty suggestions
-      expect(result?.suggestions).toEqual([]);
+      expect(suggestions).toEqual([]);
     });
 
     it('should return empty suggestions for no dot context', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('function update(');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('function update(');
 
       // THEN: Should return empty suggestions
-      expect(result?.suggestions).toEqual([]);
+      expect(suggestions).toEqual([]);
     });
 
     it('should return empty suggestions for partial variable name', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me');
-
       // WHEN: Getting completions (no dot yet)
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('me');
 
       // THEN: Should return empty suggestions
-      expect(result?.suggestions).toEqual([]);
+      expect(suggestions).toEqual([]);
     });
   });
 
   describe('Context Detection Edge Cases', () => {
-    it('should handle "player." as player context', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('player.');
-
-      // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
-
-      // THEN: Should return player methods
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
-    });
-
     it('should handle code with existing content before variable', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('if (me.isClosestToBall()) { me.');
-
-      // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      // WHEN: Getting completions after an if-block
+      const suggestions = getSuggestions('if (me.isClosestToBall()) { me.');
 
       // THEN: Should still detect "me." context
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
+      const labels = suggestions.map((s) => s.label);
+      expect(labels).toContain('moveToward');
     });
 
     it('should handle whitespace after dot', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me. ');
-
-      // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      // WHEN: Getting completions with trailing whitespace
+      const suggestions = getSuggestions('me. ');
 
       // THEN: Should still return player completions
-      const labels = result?.suggestions.map((s) => s.label);
-      expect(labels).toContain('moveTo');
+      const labels = suggestions.map((s) => s.label);
+      expect(labels).toContain('moveToward');
     });
   });
 
   describe('Tab/Enter Selection', () => {
-    it('should have correct insertText for kick method with optional params', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me.');
-
-      // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
-
-      // THEN: kick should have snippet with optional parameters
-      const kick = result?.suggestions.find((s) => s.label === 'kick');
-      expect(kick?.insertText).toBe('kick(${1:force}, ${2:angle})');
-    });
-
     it('should have correct insertText for isClosestToBall method', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('me.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('me.');
 
       // THEN: isClosestToBall should insert without parameters
-      const isClosestToBall = result?.suggestions.find((s) => s.label === 'isClosestToBall');
+      const isClosestToBall = suggestions.find((s) => s.label === 'isClosestToBall');
       expect(isClosestToBall?.insertText).toBe('isClosestToBall()');
     });
 
     it('should have property insertText without parentheses', () => {
-      // GIVEN: Registered provider
-      const { monaco } = createMockMonaco();
-      registerGameApiCompletionProvider(monaco as unknown as typeof import('monaco-editor'));
-      const provider = monaco.getRegisteredProvider();
-
-      const { model, position } = createMockModelAndPosition('ball.');
-
       // WHEN: Getting completions
-      const result = provider?.provideCompletionItems(model, position);
+      const suggestions = getSuggestions('ball.');
 
       // THEN: position property should insert just the property name
-      const positionProp = result?.suggestions.find((s) => s.label === 'position');
+      const positionProp = suggestions.find((s) => s.label === 'position');
       expect(positionProp?.insertText).toBe('position');
     });
   });

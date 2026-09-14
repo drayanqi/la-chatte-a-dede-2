@@ -22,6 +22,7 @@ import { SeededRandom } from './seededRandom.js';
 import type {
   Frame,
   FrameEvent,
+  FrameLog,
   FramePlayer,
   PlayerAction,
   PlayerActionState,
@@ -71,7 +72,7 @@ export class Simulation {
   private scoreOpponentValue = 0;
   private tick = 0;
   private currentEvents: FrameEvent[] = [];
-  private currentLogs: string[] = [];
+  private currentLogs: FrameLog[] = [];
 
   constructor(payload: SimulatePayload, runner: ScriptRunner = new NoopScriptRunner()) {
     this.payload = payload;
@@ -101,6 +102,9 @@ export class Simulation {
     const order = this.rng.shuffle(this.players);
     // 2. Collect actions from the ScriptRunner (pre-tick state snapshot).
     const outcome = this.runner.runTick(currentTick, this.buildContext(currentTick));
+    // Script output (console capture, warnings, script errors) is frame data
+    // consumed by the debug panel (story 3.10) - never just logged away.
+    this.currentLogs.push(...outcome.logs);
     // 3-4. Apply actions and update positions.
     this.applyActions(outcome, order);
     // 5. Ball possession check (free ball only).
@@ -150,6 +154,8 @@ export class Simulation {
       ball: {
         x: this.ball.x,
         y: this.ball.y,
+        vx: this.ball.vx,
+        vy: this.ball.vy,
         owner: owner === null ? null : { slot: owner.slot, team: owner.team },
       },
       players: this.players.map((p) => ({ slot: p.slot, team: p.team, x: p.x, y: p.y })),
@@ -192,7 +198,7 @@ export class Simulation {
       case 'shoot': {
         if (!this.isValidTarget(action.x, action.y)) break;
         player.state = 'action';
-        if (this.isOwner(player)) this.ball.shoot(action.x, action.y);
+        if (this.isOwner(player)) this.ball.shoot(action.x, action.y, action.power);
         break;
       }
       case 'stop': {

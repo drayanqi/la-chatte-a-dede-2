@@ -83,20 +83,21 @@ export class BallState {
     this.vy = 0;
   }
 
-  /** Kicks the ball toward (tx, ty) at MAX_BALL_SPEED and releases possession. */
-  shoot(tx: number, ty: number): void {
+  /** Kicks the ball toward (tx, ty) at power x MAX_BALL_SPEED and releases possession. */
+  shoot(tx: number, ty: number, power: number = 1): void {
     if (this.owner !== null) this.releasedBy = this.owner;
     this.owner = null;
+    const speed = power * MAX_BALL_SPEED;
     const dx = tx - this.x;
     const dy = ty - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist === 0) {
       // Deterministic fallback when the target equals the ball position.
-      this.vx = MAX_BALL_SPEED;
+      this.vx = speed;
       this.vy = 0;
     } else {
-      this.vx = (dx / dist) * MAX_BALL_SPEED;
-      this.vy = (dy / dist) * MAX_BALL_SPEED;
+      this.vx = (dx / dist) * speed;
+      this.vy = (dy / dist) * speed;
     }
   }
 

@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { simulateRoutes } from './routes/simulate.js';
+import { validateRoutes } from './routes/validate.js';
 
 /**
  * Builds the Fastify application instance with all routes registered.
@@ -11,6 +12,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/health', async () => ({ status: 'ok' }));
 
   await app.register(simulateRoutes);
+  await app.register(validateRoutes);
 
   return app;
 }

@@ -145,7 +145,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'MonacoTest.js',
-      code: 'function update(me, ball) {\n  me.moveTo(ball.position);\n}',
+      code: 'function update(game) {\n  game.me.moveToward(game.ball.position.x, game.ball.position.y);\n}',
     });
 
     await page.goto('/');
@@ -962,10 +962,10 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
 
     // Verify player methods are suggested
     const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/moveTo|kick|isClosestToBall|position|velocity/);
+    expect(suggestionText).toMatch(/moveToward|dribble|shoot|isClosestToBall|hasBall|position/);
   });
 
-  test('should show moveTo method with description @P1', async ({
+  test('should show moveToward method with description @P1', async ({
     page,
     userFactory,
     scriptFactory,
@@ -995,9 +995,9 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     // Wait for autocomplete
     await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
 
-    // THEN: moveTo should be in the suggestions
+    // THEN: moveToward should be in the suggestions
     const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toContain('moveTo');
+    expect(suggestionText).toContain('moveToward');
   });
 
   test('should show ball properties when typing "ball." @P0', async ({
@@ -1033,7 +1033,7 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     expect(suggestionText).toMatch(/position|velocity/);
   });
 
-  test('should show goal properties when typing "goal." @P1', async ({
+  test('should show field properties when typing "field." @P1', async ({
     page,
     userFactory,
     scriptFactory,
@@ -1042,7 +1042,7 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
-      name: 'GoalTest.js',
+      name: 'FieldTest.js',
       code: '',
     });
 
@@ -1056,14 +1056,14 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
-    // WHEN: User types "goal."
+    // WHEN: User types "field."
     await page.click('.monaco-editor');
-    await page.keyboard.type('goal.');
+    await page.keyboard.type('field.');
 
-    // THEN: Autocomplete shows goal properties
+    // THEN: Autocomplete shows field properties
     await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
     const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/position|width/);
+    expect(suggestionText).toMatch(/width|goals|zones/);
   });
 
   test('should insert suggestion with Tab key @P0', async ({
@@ -1105,7 +1105,7 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
 
     // The editor should now contain the inserted method
     const editorContent = await page.locator('.monaco-editor .view-line').textContent();
-    expect(editorContent).toMatch(/me\.(moveTo|kick|isClosestToBall|position|velocity)/);
+    expect(editorContent).toMatch(/me\.(moveToward|dribble|shoot|stop|isClosestToBall|hasBall|position)/);
   });
 
   test('should trigger autocomplete manually with Ctrl+Space @P1', async ({
@@ -1175,10 +1175,11 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     await page.click('.monaco-editor');
     await page.keyboard.type('teammates[0].');
 
-    // THEN: Autocomplete shows player methods (same as "me.")
+    // THEN: Autocomplete shows the read-only player surface
+    // (position/hasBall/slot/team + isClosestToBall, no action methods)
     await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
     const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/moveTo|position/);
+    expect(suggestionText).toMatch(/isClosestToBall|position|hasBall/);
   });
 
   test('should dismiss autocomplete with Escape @P2', async ({
@@ -1364,7 +1365,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
 
     // WHEN: User types valid JavaScript
     await page.click('.monaco-editor');
-    await page.keyboard.type('function update(me, ball) { me.moveTo(ball.position.x, ball.position.y); }');
+    await page.keyboard.type("function update(game) { game.me.moveToward(game.ball.position.x, game.ball.position.y); }");
 
     // Wait for validation
     await page.waitForTimeout(1000);

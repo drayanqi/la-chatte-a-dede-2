@@ -42,6 +42,15 @@ class RegisterTest extends TestCase
             'language' => 'javascript',
         ]);
 
+        // The starter uses the canonical script-ia-api.md v2.0 API and is
+        // engine-valid by construction (Story 3.4).
+        $starter = Script::where('user_id', $user->id)->firstOrFail();
+        $this->assertStringContainsString('function update(game)', $starter->code);
+        $this->assertStringContainsString('me.moveToward', $starter->code);
+        $this->assertStringContainsString('me.dribble', $starter->code);
+        $this->assertStringContainsString('me.shoot', $starter->code);
+        $this->assertTrue($starter->is_valid);
+
         // HTTP-only auth cookie is set alongside the bearer token
         $response->assertCookie('auth_token');
     }

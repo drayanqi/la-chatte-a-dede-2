@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-13
+last_updated: 2026-09-14
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -64,7 +64,7 @@ development_status:
   3-1-tactics-data-model-and-api: done
   3-2-team-lineup-configuration-ui: done
   3-3-game-engine-core-deterministic-simulation: done
-  3-4-script-sandboxing-and-execution: ready-for-dev
+  3-4-script-sandboxing-and-execution: done
   3-5-practice-match-trigger: ready-for-dev
   3-6-easy-bot-ai: ready-for-dev
   3-7-match-canvas-renderer: ready-for-dev

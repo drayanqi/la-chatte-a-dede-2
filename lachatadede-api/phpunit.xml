@@ -31,5 +31,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Unreachable port: tests without an Http::fake exercise the
+             graceful-degradation path of the game engine validation. -->
+        <env name="GAME_ENGINE_URL" value="http://127.0.0.1:9"/>
     </php>
 </phpunit>

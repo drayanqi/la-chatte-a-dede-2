@@ -59,6 +59,7 @@ describe('POST /simulate', () => {
         success: true,
         file: path.join(outputDir, 'match-abc-123.json'),
         result: { score_challenger: 0, score_opponent: 0, duration_frames: TOTAL_TICKS },
+        errors: [],
       });
 
       const written = JSON.parse(await readFile(body.file as string, 'utf8'));

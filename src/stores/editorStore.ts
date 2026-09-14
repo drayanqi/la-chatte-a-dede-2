@@ -128,12 +128,12 @@ const generateDefaultCode = (name: string): string => {
   return `// AI Script: ${name}
 // Created: ${date}
 
-function update(me, ball, teammates, opponents, goal) {
+function update(game) {
   // Your AI logic here
 
   // Example: Move toward the ball if closest
-  if (me.isClosestToBall()) {
-    me.moveTo(ball.position.x, ball.position.y);
+  if (game.me.isClosestToBall()) {
+    game.me.moveToward(game.ball.position.x, game.ball.position.y);
   }
 }
 `;

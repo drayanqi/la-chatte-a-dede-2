@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { IsolatedScriptRunner } from '../IsolatedScriptRunner.js';
 import { Simulation } from '../Simulation.js';
 import { TOTAL_TICKS } from '../constants.js';
 import { type PlayerScript, type ScriptRunner, type ScriptTickContext, type TickOutcome } from '../ScriptRunner.js';
@@ -456,7 +457,7 @@ describe('Simulation - action application', () => {
       runTick(tick: number): TickOutcome {
         if (tick !== 0) return { actions: [], logs: [] };
         return {
-          actions: [{ team: 'challenger', slot: 5, action: { type: 'shoot', x: 100, y: 25 } }],
+          actions: [{ team: 'challenger', slot: 5, action: { type: 'shoot', x: 100, y: 25, power: 1 } }],
           logs: [],
         };
       }
@@ -469,12 +470,33 @@ describe('Simulation - action application', () => {
     const f0 = sim.stepTick();
     expect(sim.ball.owner).toBeNull();
     expect(f0.players[4]?.state).toBe('action');
-    expect(f0.ball.x).toBe(35); // 30 + MAX_BALL_SPEED 5.0
+    expect(f0.ball.x).toBe(35); // 30 + power(1) * MAX_BALL_SPEED 5.0
     // friction applied in the same tick: 5.0 * 0.95
     expect(Math.hypot(sim.ball.vx, sim.ball.vy)).toBeCloseTo(4.75, 12);
 
     sim.stepTick();
     expect(sim.ball.x).toBeCloseTo(39.75, 9); // 35 + 4.75
+  });
+
+  it('shoot velocity scales with power (velocity = power x MAX_BALL_SPEED)', () => {
+    class HalfPowerRunner implements ScriptRunner {
+      prepare(): void {}
+      runTick(tick: number): TickOutcome {
+        if (tick !== 0) return { actions: [], logs: [] };
+        return {
+          actions: [{ team: 'challenger', slot: 5, action: { type: 'shoot', x: 100, y: 25, power: 0.5 } }],
+          logs: [],
+        };
+      }
+    }
+    const sim = new Simulation(makePayload(), new HalfPowerRunner());
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 30;
+    sim.ball.y = 25;
+
+    sim.stepTick();
+    expect(sim.ball.owner).toBeNull();
+    expect(sim.ball.x).toBeCloseTo(32.5, 9); // 30 + 0.5 * 5.0
   });
 });
 
@@ -493,7 +515,7 @@ describe('Simulation - ScriptRunner integration', () => {
     const ownerBefore = sim.ball.owner;
     sim.stepTick();
     expect(runner.firstContext?.tick).toBe(0);
-    expect(runner.firstContext?.ball).toEqual({ x: 50, y: 25, owner: ownerBefore });
+    expect(runner.firstContext?.ball).toEqual({ x: 50, y: 25, vx: 0, vy: 0, owner: ownerBefore });
     expect(runner.firstContext?.players).toHaveLength(10);
   });
 });
@@ -532,4 +554,67 @@ describe('Simulation - determinism and performance', () => {
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(2000);
   });
+});
+
+describe('Simulation - sandboxed scripts (IsolatedScriptRunner)', () => {
+  const ATTACKER_SCRIPT = `
+function update(game) {
+  const { me, ball } = game;
+  const goalX = me.team === 'home' ? 100 : 0;
+  if (me.hasBall) {
+    me.dribble(goalX, 25);
+  } else {
+    me.moveToward(ball.position.x, ball.position.y);
+  }
+}`;
+
+  function scriptedPayload(seed = 12345, script = ATTACKER_SCRIPT): SimulatePayload {
+    const payload = makePayload(seed);
+    for (const team of [payload.challenger, payload.opponent]) {
+      for (const p of team.players) {
+        p.script = script;
+      }
+    }
+    return payload;
+  }
+
+  // Full-match sandboxed runs use a generous tick deadline: under parallel
+  // test-suite CPU load, a 10ms deadline can spuriously fire even for trivial
+  // scripts and break byte-equality (the 10ms contract itself is covered by
+  // the fast IsolatedScriptRunner unit tests).
+  const integrationRunnerOptions = { tickTimeoutMs: 1000 };
+
+  it('same seed + same scripts produce byte-identical output (extends 3.3 determinism)', async () => {
+    const a = JSON.stringify(
+      await new Simulation(scriptedPayload(), new IsolatedScriptRunner(integrationRunnerOptions)).run(),
+    );
+    const b = JSON.stringify(
+      await new Simulation(scriptedPayload(), new IsolatedScriptRunner(integrationRunnerOptions)).run(),
+    );
+    expect(a).toBe(b);
+  }, 30_000);
+
+  it('records console.log entries in frame logs with the right slot and team', async () => {
+    const payload = scriptedPayload();
+    payload.challenger.players[0]!.script = `function update(game) { console.log('tick', game.me.slot); }`;
+    const file = await new Simulation(payload, new IsolatedScriptRunner(integrationRunnerOptions)).run();
+    const expected = { team: 'challenger', slot: 1, level: 'log', type: 'CONSOLE', message: 'tick 1' };
+    // The script logs on every tick it executes.
+    const frame0 = file.frames[0] as NonNullable<(typeof file.frames)[number]>;
+    expect(frame0.logs).toEqual([expected]);
+    const frame1 = file.frames[1] as NonNullable<(typeof file.frames)[number]>;
+    expect(frame1.logs).toEqual([expected]);
+
+    // Scripts without console output carry empty frame logs.
+    const silent = await new Simulation(scriptedPayload(), new IsolatedScriptRunner(integrationRunnerOptions)).run();
+    const silentFrame0 = silent.frames[0] as NonNullable<(typeof silent.frames)[number]>;
+    expect(silentFrame0.logs).toEqual([]);
+  }, 30_000);
+
+  it('full 10-player sandboxed match completes well under the 30s hard cap (NFR2)', async () => {
+    const start = performance.now();
+    await new Simulation(scriptedPayload(), new IsolatedScriptRunner()).run();
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(15_000);
+  }, 30_000);
 });

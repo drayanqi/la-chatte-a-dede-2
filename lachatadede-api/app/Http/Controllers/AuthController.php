@@ -13,35 +13,38 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Default starter AI script code
+     * Default starter AI script code (canonical script-ia-api.md v2.0 API).
      */
     private const STARTER_AI_CODE = <<<'JAVASCRIPT'
 /**
  * StarterAI - Your first AI script!
  *
- * This AI demonstrates basic game mechanics:
- * - Moving toward the ball
- * - Checking if closest to ball
- * - Basic positioning
+ * Every tick the engine calls your update(game) function with:
+ *   game.me         - your player (position, hasBall, team, slot, actions...)
+ *   game.ball       - the ball (position, velocity, owner)
+ *   game.teammates  - your 4 teammates (read-only)
+ *   game.opponents  - the 5 opponents (read-only)
+ *   game.field      - field dimensions, goals and zones
  *
- * Modify this script to create your own strategy!
+ * This starter attacks: chase the ball, dribble toward the goal, and
+ * shoot when close. Modify it to build your own strategy!
+ *
+ * Remember: only the FIRST action per tick applies.
  */
-function update(me, ball, teammates, opponents) {
-  // Check if I'm the closest player to the ball
-  if (me.isClosestToBall()) {
-    // Move toward the ball
-    me.moveTo(ball.position.x, ball.position.y);
-  } else {
-    // Support position - stay in my zone
-    const targetX = me.teamId === 'home' ? 30 : 70;
-    const targetY = 50;
-    me.moveTo(targetX, targetY);
-  }
+function update(game) {
+  const { me, ball } = game;
+  const goalX = me.team === 'home' ? 100 : 0;
 
-  // If close to ball and facing goal, kick!
-  if (me.distanceTo(ball) < 5) {
-    const goalX = me.teamId === 'home' ? 100 : 0;
-    me.kickBall(goalX, 50);
+  if (me.hasBall) {
+    const distToGoal = Math.abs(me.position.x - goalX);
+
+    if (distToGoal < 30) {
+      me.shoot(goalX, 25, 1.0);
+    } else {
+      me.dribble(goalX, 25);
+    }
+  } else {
+    me.moveToward(ball.position.x, ball.position.y);
   }
 }
 JAVASCRIPT;
@@ -98,6 +101,10 @@ JAVASCRIPT;
                     'name' => 'StarterAI.js',
                     'code' => self::STARTER_AI_CODE,
                     'language' => 'javascript',
+                    // The starter ships with the app and follows the canonical
+                    // API (validated by the test suites): engine-checking it
+                    // would make registration depend on a running engine.
+                    'is_valid' => true,
                 ]);
 
                 return $user;

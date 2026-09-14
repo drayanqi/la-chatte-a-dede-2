@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    /*
+    |----------------------------------------------------------------------
+    | Game Engine (Node.js simulation service)
+    |----------------------------------------------------------------------
+    |
+    | Internal service used to sandbox-execute user AI scripts. Used by
+    | ScriptController to validate scripts (POST /validate-script) and by the
+    | match flow to run simulations (POST /simulate).
+    |
+    */
+
+    'game_engine' => [
+        'url' => env('GAME_ENGINE_URL', 'http://localhost:3001'),
+    ],
+
 ];
