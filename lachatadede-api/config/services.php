@@ -47,7 +47,9 @@ return [
     */
 
     'game_engine' => [
-        'url' => env('GAME_ENGINE_URL', 'http://localhost:3001'),
+        // 127.0.0.1 on purpose: 'localhost' may resolve to ::1 first and miss
+        // an engine listening on IPv4 only (same default as .env.example).
+        'url' => env('GAME_ENGINE_URL', 'http://127.0.0.1:3001'),
     ],
 
 ];

@@ -114,6 +114,33 @@ export interface SimulationResult {
 }
 
 // ============================================================================
+// MATCHES
+// ============================================================================
+
+export type MatchMode = 'practice' | 'ranked';
+
+export type MatchStatus = 'pending' | 'completed' | 'failed';
+
+/** Final outcome, derived from the score by the API (null while pending/failed) */
+export type MatchOutcome = 'challenger_win' | 'opponent_win' | 'draw' | null;
+
+/**
+ * A match as exposed by the API (camelCase shape). The challenger is the
+ * user who started the match; scores compare their AI against the bot
+ * (practice) or the opponent (ranked, Epic 4).
+ */
+export interface MatchResult {
+  id: string;
+  mode: MatchMode;
+  status: MatchStatus;
+  scoreChallenger: number;
+  scoreOpponent: number;
+  result: MatchOutcome;
+  durationFrames: number;
+  createdAt: string;
+}
+
+// ============================================================================
 // DEBUGGER
 // ============================================================================
 

@@ -10,11 +10,13 @@ import { useAuthStore } from '@/stores/authStore';
 interface HeaderProps {
   /** True when all 5 lineup slots have a script assigned (story 3.2 AC #7) */
   lineupComplete: boolean;
-  /** Start a practice match; story 3.5 wires the real handler */
+  /** True while a practice match simulation is running (blocks double-start) */
+  isSimulating: boolean;
+  /** Start a practice match (story 3.5 wiring) */
   onStartPractice: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ lineupComplete, onStartPractice }) => {
+export const Header: React.FC<HeaderProps> = ({ lineupComplete, isSimulating, onStartPractice }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const userSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -60,10 +62,10 @@ export const Header: React.FC<HeaderProps> = ({ lineupComplete, onStartPractice 
             data-testid="test-vs-bot-button"
             style={{
               ...styles.button,
-              ...(!lineupComplete ? styles.buttonDisabled : {}),
+              ...(!lineupComplete || isSimulating ? styles.buttonDisabled : {}),
             }}
             onClick={onStartPractice}
-            disabled={!lineupComplete}
+            disabled={!lineupComplete || isSimulating}
           >
             ▶ Test vs Bot
           </button>

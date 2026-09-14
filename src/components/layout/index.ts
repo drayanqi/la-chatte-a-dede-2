@@ -6,3 +6,4 @@
 export { AppShell } from './AppShell';
 export { Header } from './Header';
 export { Timeline } from './Timeline';
+export { MatchStatusOverlay } from './MatchStatusOverlay';

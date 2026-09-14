@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
+import { useMatchStore } from './matchStore';
 
 export interface User {
   id: string;
@@ -122,6 +123,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     }
 
     localStorage.removeItem('auth_token');
+    // Match state is user-scoped: never leak the previous user's result
+    // banner or error into the next session.
+    useMatchStore.getState().reset();
     set({ ...initialState, isRestoring: false });
   },
 

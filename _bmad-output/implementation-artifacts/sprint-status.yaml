@@ -65,7 +65,7 @@ development_status:
   3-2-team-lineup-configuration-ui: done
   3-3-game-engine-core-deterministic-simulation: done
   3-4-script-sandboxing-and-execution: done
-  3-5-practice-match-trigger: ready-for-dev
+  3-5-practice-match-trigger: in-progress
   3-6-easy-bot-ai: ready-for-dev
   3-7-match-canvas-renderer: ready-for-dev
   3-8-replay-playback-system: ready-for-dev

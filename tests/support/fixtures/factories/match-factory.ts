@@ -2,24 +2,26 @@
  * Match Factory - Creates test matches with auto-cleanup
  *
  * Usage:
- *   const match = await matchFactory.createPractice({ userId, tacticId });
+ *   const match = await matchFactory.createPractice({ token, tacticId });
  *   // ... test code ...
- *   // Cleanup happens automatically after test
+ *
+ * Matches are created through the real POST /api/matches endpoint (story
+ * 3.5): the request is synchronous — the returned match is already completed
+ * (or failed). There is no DELETE /matches endpoint, so matches are not
+ * cleaned up.
  */
 import { APIRequestContext } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 
 export type Match = {
   id: string;
-  type: 'practice' | 'ranked';
-  status: 'pending' | 'simulating' | 'completed';
-  challengerId: string;
-  opponentId?: string;
-  scoreChallenCger: number;
+  mode: 'practice' | 'ranked';
+  status: 'pending' | 'completed' | 'failed';
+  scoreChallenger: number;
   scoreOpponent: number;
-  seed: number;
+  result: 'challenger_win' | 'opponent_win' | 'draw' | null;
+  durationFrames: number;
   createdAt: string;
-  completedAt?: string;
 };
 
 export type Tactic = {
@@ -37,7 +39,6 @@ export type TacticPlayer = {
 };
 
 export class MatchFactory {
-  private createdMatchIds: string[] = [];
   private createdTactics: { id: string; token: string }[] = [];
   private apiContext: APIRequestContext;
 
@@ -87,7 +88,9 @@ export class MatchFactory {
   }
 
   /**
-   * Create a practice match
+   * Create a practice match against the Easy Bot. The endpoint is
+   * synchronous (story 3.5 AC #3): the response already carries the final
+   * scores and status.
    */
   async createPractice(params: {
     token: string;
@@ -97,29 +100,30 @@ export class MatchFactory {
 
     const response = await this.apiContext.post('matches', {
       data: {
-        type: 'practice',
-        tacticId,
-        seed: faker.number.int({ min: 1, max: 999999 }),
+        mode: 'practice',
+        tactic_id: tacticId,
+        bot: 'easy',
       },
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      timeout: 60000, // full simulation can take a few seconds
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to create match: ${response.status()}`);
+      const body = await response.text();
+      throw new Error(`Failed to create match: ${response.status()} - ${body}`);
     }
 
-    const created = await response.json();
-    this.createdMatchIds.push(created.id);
-
-    return created;
+    return (await response.json()) as Match;
   }
 
   /**
-   * Wait for match to complete simulation
+   * Fetch a match until it is completed. Story 3.5 matches are synchronous —
+   * the first GET already returns the final state; the loop only guards
+   * against future async flows.
    */
-  async waitForCompletion(matchId: string, token: string, timeoutMs = 10000): Promise<Match> {
+  async waitForCompletion(matchId: string, token: string, timeoutMs = 30000): Promise<Match> {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
@@ -129,7 +133,11 @@ export class MatchFactory {
         },
       });
 
-      const match = await response.json();
+      if (!response.ok()) {
+        throw new Error(`Failed to fetch match: ${response.status()}`);
+      }
+
+      const match = (await response.json()) as Match;
 
       if (match.status === 'completed') {
         return match;
@@ -143,19 +151,9 @@ export class MatchFactory {
   }
 
   /**
-   * Cleanup all created matches and tactics
+   * Cleanup created tactics (matches have no delete endpoint)
    */
   async cleanup(): Promise<void> {
-    // Cleanup matches
-    for (const matchId of this.createdMatchIds) {
-      try {
-        await this.apiContext.delete(`matches/${matchId}`);
-      } catch (error) {
-        console.warn(`Failed to cleanup match ${matchId}:`, error);
-      }
-    }
-    this.createdMatchIds = [];
-
     // Cleanup tactics (authenticated: the routes are owner-scoped)
     for (const { id, token } of this.createdTactics) {
       try {

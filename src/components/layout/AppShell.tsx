@@ -11,7 +11,8 @@ import { TabBar } from '../tactics';
 import { Header } from './Header';
 import { Timeline } from './Timeline';
 import { PanelDivider } from './PanelDivider';
-import { useCanvasStore, useEditorStore, useTacticsStore } from '@/stores';
+import { MatchStatusOverlay } from './MatchStatusOverlay';
+import { useCanvasStore, useEditorStore, useMatchStore, useTacticsStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
@@ -182,11 +183,22 @@ export const AppShell: React.FC = () => {
     canvasRef.current?.detachScript(scriptId);
   }, []);
 
-  // Start Match hand-off (story 3.5 replaces this handler with the real call)
+  // Start Match (story 3.5): launch the practice simulation against the Easy
+  // Bot with the active tactic. The request is synchronous; the overlay and
+  // the disabled button block any double-start.
+  const { isSimulating, lastMatch, matchError, startPracticeMatch } = useMatchStore();
+
   const handleStartPractice = useCallback(() => {
-    if (!activeTactic) return;
-    console.log('Start practice with tactic:', activeTactic);
-  }, [activeTactic]);
+    if (!activeTactic || !lineupComplete || isSimulating) return;
+    void startPracticeMatch(activeTactic.id);
+  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch]);
+
+  const handleRetryMatch = useCallback(() => {
+    // Same guards as start: a lineup that became incomplete must not fire a
+    // doomed request.
+    if (!activeTactic || !lineupComplete || isSimulating) return;
+    void startPracticeMatch(activeTactic.id);
+  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch]);
 
   // Contrôles de lecture
   const handlePlay = useCallback(() => {
@@ -215,11 +227,20 @@ export const AppShell: React.FC = () => {
       {/* Header */}
       <Header
         lineupComplete={lineupComplete}
+        isSimulating={isSimulating}
         onStartPractice={handleStartPractice}
       />
 
       {/* Tactic tabs (between header and field) */}
       <TabBar />
+
+      {/* Practice match feedback: simulating overlay, result banner or error */}
+      <MatchStatusOverlay
+        isSimulating={isSimulating}
+        match={lastMatch}
+        error={matchError}
+        onRetry={handleRetryMatch}
+      />
 
       {/* Main content */}
       <div style={styles.main}>

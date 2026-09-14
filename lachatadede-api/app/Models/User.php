@@ -62,4 +62,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Tactic::class);
     }
+
+    /**
+     * Get the matches the user started (challenger side).
+     */
+    public function matches(): HasMany
+    {
+        return $this->hasMany(GameMatch::class, 'challenger_id');
+    }
 }

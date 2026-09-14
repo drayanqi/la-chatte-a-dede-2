@@ -56,8 +56,10 @@ export default defineConfig({
     },
   ],
 
-  // Dev servers: the Laravel API backend and the Vite frontend. The frontend
-  // proxies /api to the backend, so both must be up before tests run.
+  // Dev servers: the Laravel API backend, the Vite frontend and the Node
+  // game engine. The frontend proxies /api to the backend and the backend
+  // POSTs simulations to the engine, so all three must be up before tests
+  // run (story 3.5 practice matches).
   webServer: [
     {
       command: 'php artisan migrate:fresh --force && php artisan serve --host=127.0.0.1 --port=8000',
@@ -75,6 +77,13 @@ export default defineConfig({
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000, // 2 min for dev server startup
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://127.0.0.1:3001/health',
+      cwd: 'lachatadede-engine',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000, // 2 min for engine startup
     },
   ],
 });

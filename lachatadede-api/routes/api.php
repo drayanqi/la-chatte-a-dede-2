@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MatchController;
 use App\Http\Controllers\ScriptController;
 use App\Http\Controllers\TacticController;
 use Illuminate\Support\Facades\Route;
@@ -30,4 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tactics', [TacticController::class, 'store']);
     Route::put('/tactics/{id}', [TacticController::class, 'update']);
     Route::delete('/tactics/{id}', [TacticController::class, 'destroy']);
+
+    // Matches API
+    Route::get('/matches', [MatchController::class, 'index']);
+    Route::post('/matches', [MatchController::class, 'store']);
+    Route::get('/matches/{id}', [MatchController::class, 'show']);
+    Route::get('/matches/{id}/frames', [MatchController::class, 'frames']);
 });
