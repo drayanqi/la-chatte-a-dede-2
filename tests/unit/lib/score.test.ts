@@ -7,7 +7,7 @@
  * @priority P1
  */
 import { describe, it, expect } from 'vitest';
-import { computeScore } from '@/lib/score';
+import { computeScore, extractGoalTicks } from '@/lib/score';
 import type { MatchFrame, MatchFrameEvent, MatchFramePlayer } from '@/types';
 
 /** Frame factory: 10 players + centered ball, customizable events */
@@ -103,5 +103,51 @@ describe('computeScore', () => {
     // THEN: the goal counts at the goal frame's POSITION, whatever index says
     expect(computeScore(frames, 0)).toEqual({ challenger: 1, opponent: 0 });
     expect(computeScore(frames, 1)).toEqual({ challenger: 1, opponent: 0 });
+  });
+});
+
+// Story 3.9 (Task 3): goal positions for the timeline scrubber markers
+describe('extractGoalTicks', () => {
+  it('should return an empty list for frames without any goal event', () => {
+    const frames = [makeFrame(0), makeFrame(1), makeFrame(2)];
+    expect(extractGoalTicks(frames)).toEqual([]);
+  });
+
+  it('should return an empty list for an empty frame list', () => {
+    expect(extractGoalTicks([])).toEqual([]);
+  });
+
+  it('should map one entry per goal event, keyed on array position', () => {
+    const frames = [
+      makeFrame(0),
+      makeFrame(1, [goalEvent('challenger')]),
+      makeFrame(2),
+      makeFrame(3, [goalEvent('opponent')]),
+    ];
+    expect(extractGoalTicks(frames)).toEqual([
+      { tick: 1, team: 'challenger' },
+      { tick: 3, team: 'opponent' },
+    ]);
+  });
+
+  it('should keep every goal carried by the same frame', () => {
+    const frames = [makeFrame(0, [goalEvent('challenger', 1), goalEvent('opponent', 2)])];
+    expect(extractGoalTicks(frames)).toEqual([
+      { tick: 0, team: 'challenger' },
+      { tick: 0, team: 'opponent' },
+    ]);
+  });
+
+  it('should key on array position, not the frame.index data field', () => {
+    const frames = [makeFrame(0, [goalEvent('challenger')]), makeFrame(7)];
+    expect(extractGoalTicks(frames)).toEqual([{ tick: 0, team: 'challenger' }]);
+  });
+
+  it('should ignore non-goal events gracefully', () => {
+    const frames = [
+      makeFrame(0, [{ type: 'whistle' } as unknown as MatchFrameEvent]),
+      makeFrame(1, [goalEvent('opponent')]),
+    ];
+    expect(extractGoalTicks(frames)).toEqual([{ tick: 1, team: 'opponent' }]);
   });
 });

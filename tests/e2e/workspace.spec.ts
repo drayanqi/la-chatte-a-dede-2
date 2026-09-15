@@ -13,6 +13,13 @@
  */
 import { test, expect } from '../support/fixtures';
 import { seedAuthToken } from '../support/helpers/auth';
+import { withUpdate } from '../support/fixtures/factories/script-factory';
+import {
+  TYPED_SCAFFOLD,
+  openWorkspaceScript,
+  typeInsideUpdate,
+  suggestionLabels,
+} from '../support/helpers/editor';
 
 // Active highlight (pre-Monaco signal for "file opened in editor"): #37373d
 const ACTIVE_ITEM_BACKGROUND = 'rgb(55, 55, 61)';
@@ -175,7 +182,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ContentTest.js',
-      code: testCode,
+      code: withUpdate(testCode),
     });
 
     await page.goto('/');
@@ -206,7 +213,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'LineNumbersTest.js',
-      code: 'line1\nline2\nline3',
+      code: withUpdate('line1\nline2\nline3'),
     });
 
     await page.goto('/');
@@ -238,7 +245,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'SyntaxTest.js',
-      code: 'function test() {\n  const x = "hello";\n  return x;\n}',
+      code: withUpdate('function test() {\n  const x = "hello";\n  return x;\n}'),
     });
 
     await page.goto('/');
@@ -269,7 +276,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'UndoTest.js',
-      code: 'original',
+      code: withUpdate('original'),
     });
 
     await page.goto('/');
@@ -316,7 +323,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'SaveTest.js',
-      code: 'original code',
+      code: withUpdate('original code'),
     });
 
     await page.goto('/');
@@ -351,7 +358,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'UnsavedTest.js',
-      code: 'original',
+      code: withUpdate('original'),
     });
 
     await page.goto('/');
@@ -383,7 +390,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ErrorSaveTest.js',
-      code: 'original',
+      code: withUpdate('original'),
     });
 
     await page.goto('/');
@@ -427,7 +434,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'PersistTest.js',
-      code: 'original code',
+      code: withUpdate('original code'),
     });
 
     await page.goto('/');
@@ -442,9 +449,11 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.waitForSelector('.monaco-editor');
     await page.click('.monaco-editor');
 
-    // Select all and replace
+    // Select all and replace with a valid, bracket-free script (story 3.4
+    // validates the saved code; balanced parens typed blind get mangled by
+    // Monaco's auto-close pair insertion).
     await page.keyboard.press('Meta+a');
-    await page.keyboard.type('UPDATED CODE');
+    await page.keyboard.type('// UPDATED CODE: const update = (game) => game.me.stop();');
 
     // Save
     await page.keyboard.press('Meta+s');
@@ -470,7 +479,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'LeaveTest.js',
-      code: 'original',
+      code: withUpdate('original'),
     });
 
     await page.goto('/');
@@ -926,144 +935,97 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   // });
 // });
 
-test.describe('Story 2.4 - Game API Autocomplete', () => {
-  test('should show autocomplete suggestions when typing "me." @P0', async ({
+test.describe('Story 2.4 - Game API IntelliSense', () => {
+  test('should show autocomplete suggestions when typing "game.me." @P0', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with an AI file open in editor
+    // GIVEN: User with a typed AI file open in editor
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'AutocompleteTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    // Open the file
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // WHEN: User types "me."
-    await page.click('.monaco-editor');
-    await page.keyboard.type('me.');
+    // WHEN: User types "game.me." inside update(game)
+    await typeInsideUpdate(page, 'game.me.');
 
     // THEN: Autocomplete popup appears with player methods
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
-    const suggestions = page.locator('.suggest-widget .monaco-list-row');
-    await expect(suggestions.first()).toBeVisible();
-
-    // Verify player methods are suggested
-    const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/moveToward|dribble|shoot|isClosestToBall|hasBall|position/);
+    const labels = await suggestionLabels(page);
+    expect(labels.join(' ')).toMatch(/moveToward|dribble|shoot|isClosestToBall|hasBall|position/);
   });
 
-  test('should show moveToward method with description @P1', async ({
+  test('should show moveToward method in suggestions @P1', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with an AI file open
+    // GIVEN: User with a typed AI file open
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'MoveToTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // WHEN: User types "me."
-    await page.click('.monaco-editor');
-    await page.keyboard.type('me.');
-
-    // Wait for autocomplete
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
+    // WHEN: User types "game.me." inside update(game)
+    await typeInsideUpdate(page, 'game.me.');
 
     // THEN: moveToward should be in the suggestions
-    const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toContain('moveToward');
+    const labels = await suggestionLabels(page);
+    expect(labels.join(' ')).toContain('moveToward');
   });
 
-  test('should show ball properties when typing "ball." @P0', async ({
+  test('should show ball properties when typing "game.ball." @P0', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with an AI file open
+    // GIVEN: User with a typed AI file open
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'BallTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // WHEN: User types "ball."
-    await page.click('.monaco-editor');
-    await page.keyboard.type('ball.');
+    // WHEN: User types "game.ball." inside update(game)
+    await typeInsideUpdate(page, 'game.ball.');
 
     // THEN: Autocomplete shows ball properties
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
-    const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/position|velocity/);
+    const labels = await suggestionLabels(page);
+    expect(labels.join(' ')).toMatch(/position|velocity/);
   });
 
-  test('should show field properties when typing "field." @P1', async ({
+  test('should show field properties when typing "game.field." @P1', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with an AI file open
+    // GIVEN: User with a typed AI file open
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'FieldTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // WHEN: User types "field."
-    await page.click('.monaco-editor');
-    await page.keyboard.type('field.');
+    // WHEN: User types "game.field." inside update(game)
+    await typeInsideUpdate(page, 'game.field.');
 
     // THEN: Autocomplete shows field properties
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
-    const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/width|goals|zones/);
+    const labels = await suggestionLabels(page);
+    expect(labels.join(' ')).toMatch(/width|goals|zones/);
   });
 
   test('should insert suggestion with Tab key @P0', async ({
@@ -1076,22 +1038,13 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'TabInsertTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
-
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
+    await openWorkspaceScript(page, user.token, script.id);
 
     // Type to trigger autocomplete
-    await page.click('.monaco-editor');
-    await page.keyboard.type('me.');
+    await typeInsideUpdate(page, 'game.me.');
 
     // Wait for autocomplete
     await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
@@ -1103,9 +1056,11 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     // Wait for the suggest widget to close
     await page.waitForSelector('.suggest-widget', { state: 'hidden', timeout: 3000 });
 
-    // The editor should now contain the inserted method
-    const editorContent = await page.locator('.monaco-editor .view-line').textContent();
-    expect(editorContent).toMatch(/me\.(moveToward|dribble|shoot|stop|isClosestToBall|hasBall|position)/);
+    // The editor should now contain the inserted member
+    const editorContent = await page.locator('.monaco-editor .view-lines').textContent();
+    expect(editorContent).toMatch(
+      /game\.me\.(moveToward|dribble|shoot|stop|isClosestToBall|hasBall|position|slot|team)/,
+    );
   });
 
   test('should trigger autocomplete manually with Ctrl+Space @P1', async ({
@@ -1113,27 +1068,18 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with "me" already typed (no dot yet)
+    // GIVEN: User with a member access already typed (no popup)
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'CtrlSpaceTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // Type "me." but autocomplete might not trigger immediately
-    await page.click('.monaco-editor');
-    await page.keyboard.type('me.');
+    // Type "game.me." but autocomplete might not trigger immediately
+    await typeInsideUpdate(page, 'game.me.');
 
     // Dismiss any existing autocomplete
     await page.keyboard.press('Escape');
@@ -1148,38 +1094,33 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     await expect(suggestions.first()).toBeVisible();
   });
 
-  test('should show player methods for teammates[0]. @P1', async ({
+  test('should show read-only player members for game.teammates[0]. @P1', async ({
     page,
     userFactory,
     scriptFactory,
   }) => {
-    // GIVEN: User with an AI file open
+    // GIVEN: User with a typed AI file open
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'TeammatesTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
+    await openWorkspaceScript(page, user.token, script.id);
 
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
-
-    // WHEN: User types "teammates[0]."
-    await page.click('.monaco-editor');
-    await page.keyboard.type('teammates[0].');
+    // WHEN: User types "game.teammates[0]." inside update(game)
+    await typeInsideUpdate(page, 'game.teammates[0].');
 
     // THEN: Autocomplete shows the read-only player surface
-    // (position/hasBall/slot/team + isClosestToBall, no action methods)
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
+    // (position/hasBall/slot/team + isClosestToBall) and NO action methods,
+    // matching the engine shim which attaches actions to `me` only.
+    const labels = await suggestionLabels(page);
+    expect(labels.join(' ')).toMatch(/isClosestToBall|position|hasBall/);
     const suggestionText = await page.locator('.suggest-widget').textContent();
-    expect(suggestionText).toMatch(/isClosestToBall|position|hasBall/);
+    expect(suggestionText).not.toContain('moveToward');
+    expect(suggestionText).not.toContain('dribble');
+    expect(suggestionText).not.toContain('shoot');
   });
 
   test('should dismiss autocomplete with Escape @P2', async ({
@@ -1192,25 +1133,16 @@ test.describe('Story 2.4 - Game API Autocomplete', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'EscapeTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
-    await page.goto('/');
-    await page.evaluate((token) => {
-      localStorage.setItem('auth_token', token);
-    }, user.token);
-    await page.goto('/workspace');
-    await page.waitForSelector('[data-testid="scripts-list"]');
-
-    await page.click(`[data-testid="script-item-${script.id}"]`);
-    await page.waitForSelector('.monaco-editor');
+    await openWorkspaceScript(page, user.token, script.id);
 
     // Type to trigger autocomplete
-    await page.click('.monaco-editor');
-    await page.keyboard.type('me.');
+    await typeInsideUpdate(page, 'game.me.');
 
-    // Wait for autocomplete
-    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 5000 });
+    // Wait for autocomplete (longer than default: the sweep loads the box)
+    await page.waitForSelector('.suggest-widget', { state: 'visible', timeout: 10000 });
 
     // WHEN: User presses Escape
     await page.keyboard.press('Escape');
@@ -1231,7 +1163,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'SyntaxErrorTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
     await page.goto('/');
@@ -1245,8 +1177,11 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
 
-    // WHEN: User types invalid JavaScript (missing closing parenthesis)
+    // WHEN: User types invalid JavaScript (missing closing parenthesis).
+    // The scaffold is replaced entirely: story 3.4 only accepts scripts that
+    // define `update`, so the file starts valid.
     await page.click('.monaco-editor');
+    await page.keyboard.press('Meta+a');
     await page.keyboard.type('function test() { return (');
 
     // Wait for Monaco to analyze the code (debounced validation)
@@ -1267,7 +1202,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'HoverErrorTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
     await page.goto('/');
@@ -1282,8 +1217,9 @@ test.describe('Story 2.5 - Code Error Detection', () => {
 
     // Type invalid JavaScript. A stray closing brace is used because Monaco
     // auto-closes opened brackets, so unterminated brackets would never
-    // produce an error.
+    // produce an error. The scaffold is replaced entirely (see note above).
     await page.click('.monaco-editor');
+    await page.keyboard.press('Meta+a');
     await page.keyboard.type('let x = 1;\n}');
 
     // Wait for the language worker to analyze the code (cold start can be slow)
@@ -1315,7 +1251,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'GutterIconTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
     await page.goto('/');
@@ -1330,8 +1266,10 @@ test.describe('Story 2.5 - Code Error Detection', () => {
 
     // Type invalid JavaScript. A stray closing brace is used because Monaco
     // auto-closes opened brackets (auto-closing brackets are enabled), so an
-    // unterminated "{(" would never produce an error.
+    // unterminated "{(" would never produce an error. The scaffold is
+    // replaced entirely (see note on SyntaxErrorTest).
     await page.click('.monaco-editor');
+    await page.keyboard.press('Meta+a');
     await page.keyboard.type('let x = 1;\n}');
 
     // THEN: Error icon appears in the gutter
@@ -1350,7 +1288,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ValidCodeTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
     await page.goto('/');
@@ -1365,6 +1303,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
 
     // WHEN: User types valid JavaScript
     await page.click('.monaco-editor');
+    await page.keyboard.press('Meta+a');
     await page.keyboard.type("function update(game) { game.me.moveToward(game.ball.position.x, game.ball.position.y); }");
 
     // Wait for validation
@@ -1384,7 +1323,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'FixErrorTest.js',
-      code: '',
+      code: TYPED_SCAFFOLD,
     });
 
     await page.goto('/');
@@ -1399,7 +1338,9 @@ test.describe('Story 2.5 - Code Error Detection', () => {
 
     // Type invalid JavaScript. A stray closing brace is used because Monaco
     // auto-closes opened brackets; the error is fixed by deleting the brace.
+    // The scaffold is replaced entirely (see note on SyntaxErrorTest).
     await page.click('.monaco-editor');
+    await page.keyboard.press('Meta+a');
     await page.keyboard.type('let x = 1;\n}');
 
     // Wait for the language worker to analyze the code (cold start can be slow)
@@ -1427,7 +1368,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'RenameTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1455,7 +1396,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'InlineRenameTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1489,7 +1430,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'DoubleClickTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1518,7 +1459,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'OldName.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1553,7 +1494,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'EscapeTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1588,7 +1529,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'EmptyNameTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1624,7 +1565,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'InvalidCharsTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1658,7 +1599,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'HeaderTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1699,7 +1640,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'PersistTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1737,7 +1678,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'DuplicateTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1858,7 +1799,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'Independent.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1940,7 +1881,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'PersistDup.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -1976,7 +1917,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'DeleteTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2004,7 +1945,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ConfirmDeleteTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2038,7 +1979,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ToBeDeleted.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2071,7 +2012,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'CancelDeleteTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2104,7 +2045,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'EscapeDeleteTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2137,7 +2078,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ClickOutsideTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');
@@ -2260,7 +2201,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'PersistDeleteTest.js',
-      code: 'code',
+      code: withUpdate('code'),
     });
 
     await page.goto('/');

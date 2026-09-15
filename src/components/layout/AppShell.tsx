@@ -16,8 +16,9 @@ import { useCanvasStore, useEditorStore, useMatchStore, useTacticsStore } from '
 import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
-import { computeScore } from '@/lib/score';
+import { computeScore, extractGoalTicks } from '@/lib/score';
 import { shouldTogglePlayback } from '@/lib/playbackShortcuts';
+import { isTypingContext } from '@/lib/keyboard';
 import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
 import type { MatchFrame, PlayerFrameState, TeamId } from '@/types';
 
@@ -261,6 +262,10 @@ export const AppShell: React.FC = () => {
     [matchFrames, currentFrame]
   );
 
+  // Goal markers for the timeline scrubber (story 3.9, Task 3): precomputed
+  // once per replay load — pure positions + scoring teams
+  const goalTicks = useMemo(() => extractGoalTicks(matchFrames), [matchFrames]);
+
   // Replay mode: a loaded replay owns the canvas (edit mode shows the tactic)
   const isReplayMode = replayFrames.length > 0;
 
@@ -400,8 +405,8 @@ export const AppShell: React.FC = () => {
     const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
       useCanvasStore.getState();
 
-    // Nothing loaded: the Timeline button is disabled for the same reason —
-    // toggling would set a phantom "playing" state with zero frames
+    // Nothing loaded: no-op (the Timeline itself is hidden outside replay
+    // mode) — toggling would set a phantom "playing" state with zero frames
     if (total === 0) return;
 
     if (playing) {
@@ -413,8 +418,52 @@ export const AppShell: React.FC = () => {
     }
   }, [updatePlaybackState]);
 
+  // Arrow navigation (story 3.9, AC #3/#4): ±1 tick per press, ±60 ticks
+  // (1 second at the engine's 60 fps) with Shift. While paused, the step
+  // renders immediately (single frame apply, no play() call).
+  const navigate = useCallback(
+    (direction: 'forward' | 'backward', ticks: number) => {
+      const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
+        useCanvasStore.getState();
+
+      // Nothing loaded: same guard as the disabled Timeline controls
+      if (total === 0) return;
+
+      // Stepping while playing pauses first (video-player convention)
+      if (playing) {
+        canvasRef.current?.pause();
+        updatePlaybackState(false, frame, total);
+      }
+
+      if (ticks === 1) {
+        canvasRef.current?.step(direction);
+      } else {
+        const delta = ticks * (direction === 'forward' ? 1 : -1);
+        const target = Math.min(Math.max(0, frame + delta), Math.max(0, total - 1));
+        canvasRef.current?.seekFrame(target);
+      }
+    },
+    [updatePlaybackState]
+  );
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Arrow navigation (story 3.9): auto-repeat stays welcome (hold to
+      // scrub) — only typing surfaces steal the keys
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        // Same chord policy as the Space path: Ctrl/Alt/Meta combos belong
+        // to the OS/browser (desktop switching, word-jump) — never hijack
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (isTypingContext(event)) return;
+        // Only swallow the keys when a replay can actually navigate —
+        // otherwise arrow scrolling dies app-wide for nothing
+        if (useCanvasStore.getState().totalFrames === 0) return;
+        event.preventDefault();
+        const direction = event.key === 'ArrowRight' ? 'forward' : 'backward';
+        navigate(direction, event.shiftKey ? 60 : 1);
+        return;
+      }
+
       // Ignore auto-repeat: a held Space would machine-gun the toggle
       if (event.repeat) return;
       if (!shouldTogglePlayback(event)) return;
@@ -426,7 +475,7 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback]);
+  }, [togglePlayback, navigate]);
 
   return (
     <div style={styles.container}>
@@ -617,22 +666,26 @@ export const AppShell: React.FC = () => {
         )}
       </div>
 
-      {/* Timeline */}
-      <Timeline
-        isPlaying={isPlaying}
-        currentFrame={currentFrame}
-        totalFrames={totalFrames}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onStep={handleStep}
-        onSeek={handleSeek}
-      />
+      {/* Timeline: only in replay mode — there is nothing to pause,
+          play or scrub in edit mode */}
+      {isReplayMode && (
+        <Timeline
+          isPlaying={isPlaying}
+          currentFrame={currentFrame}
+          totalFrames={totalFrames}
+          goalTicks={goalTicks}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStep={handleStep}
+          onSeek={handleSeek}
+        />
+      )}
     </div>
   );
 };
 
 const collapsedStripStyle: React.CSSProperties = {
-  width: '28px',
+  width: '36px',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column',
@@ -792,7 +845,7 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   collapsedStripArrow: {
-    fontSize: '10px',
+    fontSize: '14px',
     color: '#9d9d9d',
   },
 };

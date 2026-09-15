@@ -164,9 +164,10 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     color: '#9d9d9d',
     cursor: 'pointer',
-    fontSize: '12px',
+    fontSize: '18px',
     lineHeight: 1,
-    padding: '4px 1px',
+    padding: '12px 7px',
+    flexShrink: 0,
     fontFamily: 'inherit',
   },
 };

@@ -4,6 +4,7 @@ namespace Tests\Feature\Matches;
 
 use App\Models\Tactic;
 use App\Models\User;
+use App\Services\SystemTacticService;
 use Database\Seeders\SystemTacticSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -200,6 +201,76 @@ class EasyBotTest extends TestCase
         $created = Tactic::where('is_system', true)->sole();
         $goalkeeper = $created->players()->with('script')->orderBy('player_slot')->first();
         $this->assertSame($codes['goalkeeper'], $goalkeeper->script->code);
+    }
+
+    public function test_stale_bot_script_content_is_synced_in_place(): void
+    {
+        // A database seeded by an older iteration keeps empty stub scripts
+        // (verified in the wild: `function update(game) {}` with legacy
+        // names) — the next practice match must heal the rows in place.
+        $codes = $this->expectedScriptCodes();
+        $this->seed(SystemTacticSeeder::class);
+
+        $tactic = Tactic::where('is_system', true)->sole();
+        $scriptIds = $tactic->players()
+            ->with('script')
+            ->orderBy('player_slot')
+            ->get()
+            ->map(fn ($player) => $player->script->id);
+        foreach ($tactic->players()->with('script')->get() as $player) {
+            $player->script->update([
+                'name' => 'EasyBot-'.($player->player_slot),
+                'code' => 'function update(game) {}',
+            ]);
+        }
+
+        $user = User::factory()->create();
+        $userTactic = $this->createUserTactic($user);
+        $this->fakeEngineSuccess();
+
+        $this->startMatch($user, $userTactic)->assertStatus(201);
+
+        $players = Tactic::where('is_system', true)->sole()
+            ->players()
+            ->with('script')
+            ->orderBy('player_slot')
+            ->get();
+        $this->assertCount(5, $players);
+
+        // Content restored to canonical, rows kept (same script ids: the
+        // tactic was updated in place, never recreated).
+        $this->assertSame($scriptIds->all(), $players->map(fn ($player) => $player->script->id)->all());
+        foreach ($players as $index => $player) {
+            $role = self::SCRIPT_ROLES[$index];
+            $this->assertSame('EasyBot-'.ucfirst($role), $player->script->name);
+            $this->assertSame($codes[$role], $player->script->code);
+        }
+
+        // The engine received the healed goalkeeper script, not the stub.
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/simulate')
+            && $request->data()['opponent']['players'][0]['script'] === $codes['goalkeeper']);
+    }
+
+    public function test_script_content_sync_is_idempotent(): void
+    {
+        $codes = $this->expectedScriptCodes();
+        $this->seed(SystemTacticSeeder::class);
+
+        $tactic = Tactic::where('is_system', true)->sole();
+        foreach ($tactic->players()->with('script')->get() as $player) {
+            $player->script->update(['code' => 'function update(game) {}']);
+        }
+
+        $service = $this->app->make(SystemTacticService::class);
+        $service->ensureEasyBotTactic();
+        $service->ensureEasyBotTactic();
+
+        $systemUser = User::where('email', 'system-bot@lachatadede.local')->sole();
+        $this->assertSame(5, $systemUser->scripts()->count());
+        $players = Tactic::where('is_system', true)->sole()->players()->with('script')->orderBy('player_slot')->get();
+        foreach ($players as $index => $player) {
+            $this->assertSame($codes[self::SCRIPT_ROLES[$index]], $player->script->code);
+        }
     }
 
     public function test_the_seeder_script_copy_stays_in_sync_with_the_engine_fixtures(): void

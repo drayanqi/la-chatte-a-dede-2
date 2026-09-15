@@ -15,15 +15,11 @@
 import { useRef, useEffect } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
-// Side-effect import: configures the local Monaco bundle (workers + loader)
-// before any editor mounts, so loader.init() resolves the local instance
-// instead of the CDN default. Must stay a static import to avoid racing
-// @monaco-editor/react's own internal loader.init() call.
+// Side-effect import: configures the local Monaco bundle (workers + loader +
+// Game API ambient declarations) before any editor mounts, so loader.init()
+// resolves the local instance instead of the CDN default. Must stay a static
+// import to avoid racing @monaco-editor/react's own internal loader.init().
 import '@/lib/monacoSetup';
-import {
-  registerGameApiCompletionProvider,
-  type GameApiProviderDisposable,
-} from '@/lib';
 
 interface MonacoEditorProps {
   /** Current code content */
@@ -40,10 +36,7 @@ interface MonacoEditorProps {
  * Monaco editor wrapper with VSCode Dark theme and JavaScript configuration.
  * Handles lazy loading with a loading state indicator.
  */
-// Track if completion provider is registered globally (singleton pattern)
-let completionProviderDisposable: GameApiProviderDisposable | null = null;
-
-// Track if JavaScript validation has been configured (singleton pattern)
+// Track if TypeScript language service validation has been configured (singleton pattern)
 let validationConfigured = false;
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -60,24 +53,25 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     loader.init().then((monaco) => {
         monacoRef.current = monaco;
 
-        // Story 2.4: Register Game API completion provider (singleton)
-        if (!completionProviderDisposable) {
-          completionProviderDisposable = registerGameApiCompletionProvider(monaco);
-        }
-
         // Story 2.5: Configure JavaScript validation for syntax error detection (singleton)
         if (!validationConfigured) {
-          // Enable JavaScript syntax and semantic validation
-          monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-            noSemanticValidation: false, // Enable semantic validation
-            noSyntaxValidation: false, // Enable syntax validation (CRITICAL for error detection)
+          // Syntax validation stays ON (error squiggles + gutter icons).
+          // Semantic validation stays OFF for the quiet-trio delivery: the
+          // typed game API (monacoSetup extra lib + stored JSDoc line) already
+          // provides hover, signature help and completions; semantic squiggles
+          // come later once calibrated against a corpus of real scripts.
+          // (monaco >= 0.55: the TypeScript namespace is the top-level
+          // `monaco.typescript`; `monaco.languages.typescript` is deprecated.)
+          monaco.typescript.javascriptDefaults.setDiagnosticsOptions({
+            noSemanticValidation: true,
+            noSyntaxValidation: false, // Keep syntax validation (CRITICAL for error detection)
           });
 
           // Configure compiler options for better JavaScript analysis
-          monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-            target: monaco.languages.typescript.ScriptTarget.ES2020,
+          monaco.typescript.javascriptDefaults.setCompilerOptions({
+            target: monaco.typescript.ScriptTarget.ES2020,
             allowNonTsExtensions: true,
-            checkJs: true, // Enable type checking in JS files
+            checkJs: true, // Type-check data for IntelliSense (JSDoc-driven)
             allowJs: true,
           });
 

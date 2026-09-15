@@ -121,6 +121,36 @@ describe('Editor Store', () => {
       expect(state.scriptsError).toBeNull();
     });
 
+    it('should normalize fetched scripts with the Game API JSDoc line', async () => {
+      // GIVEN: Authenticated user with a legacy script missing the JSDoc line
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 'script-legacy',
+            name: 'Legacy.js',
+            code: 'function update(game) {\n  game.me.stop();\n}',
+            language: 'javascript',
+            updated_at: '2026-01-25T12:00:00Z',
+          },
+        ],
+      });
+
+      // WHEN: Fetching scripts
+      await useEditorStore.getState().fetchScripts();
+
+      // THEN: The script in store carries the JSDoc line (editor model gets
+      // IntelliSense); nothing is marked unsaved — storage converges on the
+      // next save.
+      const state = useEditorStore.getState();
+      const code = state.scripts.get('script-legacy')?.code ?? '';
+      expect(code).toContain('/** @param {Game} game');
+      expect(code.indexOf('/** @param {Game} game')).toBeLessThan(code.indexOf('function update('));
+      expect(state.hasUnsavedChanges).toBe(false);
+    });
+
     it('should set loading state during fetch', async () => {
       // GIVEN: Authenticated user with token
       (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
@@ -199,12 +229,12 @@ describe('Editor Store', () => {
   });
 
   describe('Script CRUD - Add', () => {
-    it('should add a new script', () => {
+    it('should add a new script with the Game API JSDoc line ensured', () => {
       // GIVEN: Empty store
       const store = useEditorStore.getState();
       expect(store.scripts.size).toBe(0);
 
-      // WHEN: Adding a new script
+      // WHEN: Adding a new script whose code lacks the JSDoc line
       const newScript: Script = {
         id: 'test-script-1',
         name: 'Test AI',
@@ -214,10 +244,13 @@ describe('Editor Store', () => {
       };
       store.addScript(newScript);
 
-      // THEN: Script should be added
+      // THEN: Script should be added, with the JSDoc line inserted above update()
       const state = useEditorStore.getState();
       expect(state.scripts.size).toBe(1);
-      expect(state.scripts.get('test-script-1')).toEqual(newScript);
+      const added = state.scripts.get('test-script-1');
+      expect(added?.name).toBe(newScript.name);
+      expect(added?.code).toContain('/** @param {Game} game');
+      expect(added?.code).toContain('function update() { return { move: { x: 0, y: 0 } }; }');
     });
 
     it('should overwrite script with same id', () => {

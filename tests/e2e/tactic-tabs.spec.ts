@@ -233,7 +233,8 @@ test.describe('Tactic Tabs', () => {
     const backupScript = await scriptFactory.create({
       token: user.token!,
       name: 'BackupAI.js',
-      code: 'code',
+      // story 3.4: stored scripts must define an `update` function
+      code: 'function update(game) {\n  game.me.stop();\n}',
     });
 
     await seedAuthToken(page, user.token ?? '');

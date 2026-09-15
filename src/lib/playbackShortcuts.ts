@@ -3,25 +3,11 @@
  *
  * Pure helpers so the Space play/pause toggle is testable without Monaco:
  * the editor captures Space in its hidden textarea, so a toggle must never
- * fire while an editable element has focus.
+ * fire while an editable element has focus. The editable-surface check is
+ * shared with arrow navigation (story 3.9) via isTypingContext.
  */
 
-/** Whether the event target swallows keystrokes (editor inputs, Monaco) */
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-
-  // Monaco edits through an in-editor input surface (a hidden textarea on
-  // some versions, a native-edit-context div on 0.55+): any keystroke that
-  // originates inside the editor belongs to the editor — never hijack it.
-  if (target.closest('.monaco-editor')) return true;
-
-  return (
-    target.tagName === 'TEXTAREA' ||
-    target.tagName === 'INPUT' ||
-    target.tagName === 'SELECT' ||
-    target.isContentEditable
-  );
-}
+import { isTypingContext } from './keyboard';
 
 /**
  * True when the keydown event should toggle replay play/pause: Space on a
@@ -43,5 +29,5 @@ export function shouldTogglePlayback(event: KeyboardEvent): boolean {
     target.getAttribute('role') === 'button';
   if (isActivatableControl) return false;
 
-  return !isEditableTarget(target);
+  return !isTypingContext(event);
 }

@@ -47,6 +47,21 @@ const GOALKEEPER_AI_CODE = `function update(game) {
   }
 }`;
 
+/**
+ * Turn a legacy test snippet into a storable script: the snippet is kept as
+ * a comment (content assertions still match the displayed text) and a
+ * minimal `update` function is appended, because story 3.4's engine
+ * validator compiles AND executes stored scripts — bare identifier
+ * statements like `original` would throw ReferenceError at eval time.
+ */
+export function withUpdate(code: string): string {
+  const commented = code
+    .split('\n')
+    .map((line) => `// ${line}`)
+    .join('\n');
+  return `${commented}\nfunction update(game) {\n  game.me.stop();\n}`;
+}
+
 export class ScriptFactory {
   private createdScriptIds: string[] = [];
   private apiContext: APIRequestContext;
@@ -78,7 +93,10 @@ export class ScriptFactory {
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to create script: ${response.status()}`);
+      // Include the body: Laravel 422s carry the field errors that explain
+      // the rejection (e.g. story 3.4 script validation).
+      const body = await response.text().catch(() => '<no body>');
+      throw new Error(`Failed to create script: ${response.status()} ${body}`);
     }
 
     const created = await response.json();

@@ -36,13 +36,39 @@ vi.mock('@monaco-editor/react', () => ({
   },
   loader: {
     config: vi.fn(),
-    init: vi.fn(() => Promise.resolve({})),
+    // Shape the instance the component's singleton effect consumes
+    // (monacoSetup registers the Game API lib on the same namespace).
+    init: vi.fn(() =>
+      Promise.resolve({
+        typescript: {
+          ScriptTarget: { ES2020: 7 },
+          javascriptDefaults: {
+            addExtraLib: vi.fn(),
+            setDiagnosticsOptions: vi.fn(),
+            setCompilerOptions: vi.fn(),
+          },
+        },
+      }),
+    ),
   },
 }));
 
 // Monaco is now bundled locally (see src/lib/monacoSetup.ts); keep unit tests
-// light by mocking the bundle and its web workers.
-vi.mock('monaco-editor', () => ({}));
+// light by mocking the bundle and its web workers. monacoSetup registers the
+// Game API extra lib on the TOP-LEVEL typescript namespace (monaco >= 0.55).
+vi.mock('monaco-editor', () => ({
+  typescript: {
+    javascriptDefaults: {
+      addExtraLib: vi.fn(),
+    },
+    getJavaScriptWorker: vi.fn(() => Promise.reject('not registered')),
+  },
+  // monacoSetup attaches a module-scope `onLanguage` listener for its
+  // javascriptModeReady promise; provide the minimum event API.
+  languages: {
+    onLanguage: vi.fn(() => ({ dispose: vi.fn() })),
+  },
+}));
 vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
   default: class MockWorker {},
 }));

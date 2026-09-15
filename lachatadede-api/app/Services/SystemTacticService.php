@@ -52,6 +52,13 @@ class SystemTacticService
             $existing = Tactic::where('is_system', true)->lockForUpdate()->first();
 
             if ($existing && $this->isComplete($existing)) {
+                // Self-heal stale content: a database seeded by an older
+                // iteration keeps outdated script code (in the wild: empty
+                // `function update(game) {}` stubs that freeze the bot for
+                // the whole match). Refresh the rows in place — never
+                // recreate the tactic, matches reference its id.
+                $this->syncScriptContent($existing);
+
                 return $existing;
             }
 
@@ -76,12 +83,7 @@ class SystemTacticService
                 'is_public' => true,
             ]);
 
-            $scripts = json_decode(
-                (string) file_get_contents(database_path('seeders/data/easy-bot-scripts.json')),
-                true,
-                512,
-                JSON_THROW_ON_ERROR,
-            );
+            $scripts = $this->canonicalScripts();
 
             foreach (self::SCRIPT_ROLES as $index => $role) {
                 $script = $systemUser->scripts()->create([
@@ -111,5 +113,50 @@ class SystemTacticService
     {
         return $tactic->players()->count() === 5
             && $tactic->players()->whereNull('script_id')->doesntExist();
+    }
+
+    /**
+     * The canonical bot scripts (seeder JSON copy of the engine fixtures,
+     * drift-guarded by the EasyBot feature tests).
+     *
+     * @return array<string, string>
+     */
+    private function canonicalScripts(): array
+    {
+        return json_decode(
+            (string) file_get_contents(database_path('seeders/data/easy-bot-scripts.json')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+    }
+
+    /**
+     * Refresh the bot scripts in place when they drifted from the canonical
+     * JSON (older seeds never rewrote existing rows). Slot order maps to
+     * SCRIPT_ROLES. Idempotent: fresh rows are left untouched.
+     */
+    private function syncScriptContent(Tactic $tactic): void
+    {
+        $canonical = $this->canonicalScripts();
+
+        $players = $tactic->players()->with('script')->orderBy('player_slot')->get();
+        foreach ($players as $player) {
+            $role = self::SCRIPT_ROLES[$player->player_slot - 1] ?? null;
+            if ($role === null || $player->script === null) {
+                continue;
+            }
+
+            $name = 'EasyBot-'.ucfirst($role);
+            if ($player->script->code !== $canonical[$role] || $player->script->name !== $name) {
+                $player->script->update([
+                    'name' => $name,
+                    'code' => $canonical[$role],
+                    // Bot scripts ship with the engine and pass its test
+                    // suite; they never go through /validate-script.
+                    'is_valid' => true,
+                ]);
+            }
+        }
     }
 }

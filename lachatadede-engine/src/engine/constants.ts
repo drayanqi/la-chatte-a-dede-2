@@ -1,5 +1,7 @@
 // Game constants - copied EXACTLY from game-rules.md (authoritative, validated by Pelo 2026-01-19).
-// Any change to these values must happen in game-rules.md first.
+// Any change to these values must happen in game-rules.md first. v1.3
+// (2026-09-15): PLAYER_SPEED divided by 1.5, MAX_BALL_SPEED by 1.75; v1.4
+// (2026-09-15): MAX_BALL_SPEED reduced by a further 20% (Pelo).
 
 // Duration
 export const MATCH_DURATION_SECONDS = 180; // 3 minutes
@@ -20,12 +22,12 @@ export const CENTER_X = 50;
 export const CENTER_Y = 25;
 
 // Players
-export const PLAYER_SPEED = 1.0;
+export const PLAYER_SPEED = 1 / 1.5; // 0.6667 units/tick (v1.3)
 export const CARRIER_SPEED_MULTIPLIER = 0.8; // dribble speed while carrying the ball
 export const PLAYERS_PER_TEAM = 5;
 
 // Ball
-export const MAX_BALL_SPEED = 5.0;
+export const MAX_BALL_SPEED = (5 / 1.75) * 0.8; // 2.2857 units/tick (v1.4)
 export const BALL_FRICTION = 0.95;
 export const MIN_BALL_SPEED = 0.1;
 export const COLLISION_RADIUS = 2.0;

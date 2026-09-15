@@ -322,7 +322,10 @@ export class Field {
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
     // Buts (cadre d'équipe, filet et halo — les barres pleines sont retirées)
-    const goalHeight = pitch.height * 0.3;
+    // Mouth = engine scoring zone GOAL_Y_MIN..GOAL_Y_MAX (20 of a 50-tall
+    // field = 40% of the pitch height, centered): the drawn net must exactly
+    // cover the hitbox so only balls visually entering the goal score.
+    const goalHeight = pitch.height * 0.4;
     const goalY = pitch.y + (pitch.height - goalHeight) / 2;
 
     this.drawGoal(g, pitch.x, goalY, goalDepth, goalHeight, this.GOAL_HOME_COLOR, -1);

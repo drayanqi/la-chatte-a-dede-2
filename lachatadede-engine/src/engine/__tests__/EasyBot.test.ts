@@ -13,8 +13,11 @@ const ROLES = ['goalkeeper', 'defender1', 'defender2', 'attacker1', 'attacker2']
 
 // Full-match sandboxed runs use a generous tick deadline (see the 3.4 suite):
 // a 10ms deadline can spuriously fire under CPU load and these tests assert
-// bot behavior, not the 10ms contract.
-const integrationRunnerOptions = { tickTimeoutMs: 1000 };
+// bot behavior, not the 10ms contract. The match budget is relaxed for the
+// same reason: a loaded machine can push a match past the 30s production
+// watchdog, whose mid-match player disabling would break the determinism
+// byte-comparison.
+const integrationRunnerOptions = { tickTimeoutMs: 1000, matchBudgetMs: 120_000 };
 
 // The StarterAI fixture doubles as the behavioral challenger: an idle
 // challenger would freeze the match after the first goal (sticky possession
@@ -110,6 +113,64 @@ describe('Easy Bot behavior (AC #1)', () => {
     }
   }, 30_000);
 
+  it('goalkeeper positions on the ball owner -> goal centre axis (owned ball)', () => {
+    // Owner parked at (60, 10): the owner->goal(100, 25) segment crosses the
+    // keeper line x=95 at y = 10 + ((95-60)/40) * (25-10) = 23.125. The rest
+    // of the bot team is frozen so the scenario isolates the GK projection.
+    const payload = botPayload(99, '');
+    payload.challenger.players[4]!.x = 60;
+    payload.challenger.players[4]!.y = 10;
+    for (const player of payload.opponent.players) {
+      if (player.slot !== 1) player.script = '';
+    }
+
+    const runner = new IsolatedScriptRunner(integrationRunnerOptions);
+    runner.prepare([
+      ...payload.challenger.players.map((p) => ({ slot: p.slot, team: 'challenger' as const, code: p.script })),
+      ...payload.opponent.players.map((p) => ({ slot: p.slot, team: 'opponent' as const, code: p.script })),
+    ]);
+    const sim = new Simulation(payload, runner);
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 60;
+    sim.ball.y = 10;
+
+    let frame = sim.stepTick();
+    for (let i = 1; i < 40; i++) frame = sim.stepTick();
+
+    const gk = opponentPlayer(frame, 1);
+    expect(Math.abs(gk.x - 95)).toBeLessThan(0.5);
+    expect(Math.abs(gk.y - 23.125)).toBeLessThan(0.5);
+  });
+
+  it('goalkeeper tracks the axis from a loose ball to the goal centre (free ball)', () => {
+    // Free ball parked at (45, 40) — outside the away own half so no frozen
+    // teammate matters: the ball->goal(100, 25) segment crosses the keeper
+    // line x=95 at y = 40 + ((95-45)/55) * (25-40) = 26.364.
+    const payload = botPayload(99, '');
+    for (const player of payload.opponent.players) {
+      if (player.slot !== 1) player.script = '';
+    }
+
+    const runner = new IsolatedScriptRunner(integrationRunnerOptions);
+    runner.prepare([
+      ...payload.challenger.players.map((p) => ({ slot: p.slot, team: 'challenger' as const, code: p.script })),
+      ...payload.opponent.players.map((p) => ({ slot: p.slot, team: 'opponent' as const, code: p.script })),
+    ]);
+    const sim = new Simulation(payload, runner);
+    // Release the constructor's kickoff possession: the scenario needs a
+    // loose ball for the free-ball branch of the projection.
+    sim.ball.release();
+    sim.ball.x = 45;
+    sim.ball.y = 40;
+
+    let frame = sim.stepTick();
+    for (let i = 1; i < 40; i++) frame = sim.stepTick();
+
+    const gk = opponentPlayer(frame, 1);
+    expect(Math.abs(gk.x - 95)).toBeLessThan(0.5);
+    expect(Math.abs(gk.y - 26.364)).toBeLessThan(0.5);
+  });
+
   it('defenders hold a position between the ball and their goal when the ball sits in their half', () => {
     // Idle challenger: only the parked ball matters for this scenario.
     const payload = botPayload(7, '');
@@ -170,9 +231,10 @@ describe('Easy Bot behavior (AC #1)', () => {
     const shotFrames = frames.filter((frame, index) => {
       if (index === 0) return false;
       const previous = frames[index - 1] as Frame;
-      // A 0.45-power shot moves the ball 2.25 in its first tick, clearly above
-      // the 1.0 running / 0.8 dribbling displacements.
-      const spike = Math.hypot(frame.ball.x - previous.ball.x, frame.ball.y - previous.ball.y) >= 2;
+      // A 0.45-power shot moves the ball ~1.03 in its first tick (v1.4
+      // speeds), clearly above the 0.8 gate — no run (0.667) or dribble
+      // (0.533) can reach it.
+      const spike = Math.hypot(frame.ball.x - previous.ball.x, frame.ball.y - previous.ball.y) >= 0.8;
       const attackerShot = frame.players.some(
         (p) => p.team === 'opponent' && (p.slot === 4 || p.slot === 5) && p.state === 'action',
       );

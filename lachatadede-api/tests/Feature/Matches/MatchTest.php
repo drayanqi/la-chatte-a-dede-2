@@ -53,8 +53,10 @@ class MatchTest extends TestCase
     }
 
     /**
-     * The seeded system tactic driving the Easy Bot: 5 idle placeholder
-     * scripts owned by a dedicated system user (scripts.user_id is NOT NULL).
+     * The system tactic driving the Easy Bot, seeded with the story 3.5
+     * idle placeholder scripts to simulate an outdated database — the
+     * controller's resolution heals the rows to the canonical scripts
+     * (SystemTacticService content sync, spec-match-preview-and-bot-fixes).
      */
     private function createSystemTactic(): Tactic
     {
@@ -170,7 +172,15 @@ class MatchTest extends TestCase
         // both teams with 5 players each carrying their script code. The user
         // is the challenger (left half as saved); the bot tactic is mirrored
         // across the halfway line (x -> 100 - x) so it defends the right goal.
-        Http::assertSent(function ($request) use ($matchId) {
+        // The bot's GK script is the canonical goalkeeper: the seeded stubs
+        // are healed by the resolution before the engine call.
+        $goalkeeper = json_decode(
+            (string) file_get_contents(database_path('seeders/data/easy-bot-scripts.json')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        )['goalkeeper'];
+        Http::assertSent(function ($request) use ($matchId, $goalkeeper) {
             $body = $request->data();
 
             return str_contains($request->url(), '/simulate')
@@ -184,7 +194,7 @@ class MatchTest extends TestCase
                 && $body['challenger']['players'][0]['script'] === 'function update(game) { me.moveToward(50, 25); }'
                 && abs($body['challenger']['players'][0]['x'] - 8.0) < 0.0001
                 && abs($body['opponent']['players'][0]['x'] - 92.0) < 0.0001
-                && $body['opponent']['players'][0]['script'] === 'function update(game) {}';
+                && $body['opponent']['players'][0]['script'] === $goalkeeper;
         });
     }
 

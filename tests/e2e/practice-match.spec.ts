@@ -293,6 +293,101 @@ test.describe('Practice Match', () => {
     await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
   });
 
+  // Story 3.9 (AC #1-#4): scrubber drag with instant frame feedback,
+  // keyboard stepping (±1 tick) and second jumps (±60 ticks), and the
+  // mm:ss position / duration display.
+  test('navigates the replay with the scrubber and keyboard (story 3.9 AC #1-#4)', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+  }) => {
+    // Full simulation + replay + navigation: over the 60s global default on
+    // a slow simulation run (the 3.8 replay test already peaks near it)
+    test.setTimeout(120_000);
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.createStarter(user.token!);
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [script.id, script.id, script.id, script.id, script.id],
+    });
+
+    await seedAuthToken(page, user.token!);
+    await page.goto('/workspace');
+
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+
+    const startButton = page.getByTestId('test-vs-bot-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
+    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
+    await page.getByTestId('watch-replay-button').click();
+    await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
+    await framesResponse;
+    await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+    await expect(canvas).toHaveAttribute('data-match-players', '10');
+
+    // AC #1: position and duration are shown in mm:ss (full match = 03:00)
+    const timeDisplay = page.getByTestId('timeline-time-display');
+    const counter = page.getByTestId('frame-counter');
+    await expect(timeDisplay).toBeVisible();
+    await expect(timeDisplay).toHaveText(/\d{2}:\d{2} \/ 03:00/);
+    await expect(page.getByTestId('timeline-handle')).toBeVisible();
+
+    // Pause and freeze on a stable frame (same stable-freeze poll as 3.8)
+    await page.getByTestId('play-pause-button').click();
+    await expect
+      .poll(
+        async () => {
+          const before = await currentFrameOf(counter);
+          await page.waitForTimeout(150);
+          return (await currentFrameOf(counter)) - before;
+        },
+        { timeout: 10000 }
+      )
+      .toBe(0);
+
+    // AC #3: ArrowRight steps +1 tick while paused, ArrowLeft steps back
+    const frameAtPause = await currentFrameOf(counter);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentFrameOf(counter)).toBe(frameAtPause + 1);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => currentFrameOf(counter)).toBe(frameAtPause);
+
+    // Deterministic reference: Home seeks the slider to tick 0
+    await page.getByTestId('timeline-track').focus();
+    await page.keyboard.press('Home');
+    await expect.poll(() => currentFrameOf(counter)).toBe(0);
+    await expect(timeDisplay).toHaveText(/^00:00 \/ 03:00$/);
+
+    // AC #4: Shift+ArrowRight jumps 60 ticks (1 second at the engine's
+    // 60 fps): 42 presses land exactly on tick 2520 -> 00:42 (AC #1)
+    for (let i = 0; i < 42; i++) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await expect.poll(() => currentFrameOf(counter)).toBe(2520);
+    await expect(timeDisplay).toHaveText(/^00:42 \/ 03:00$/);
+
+    // AC #2: dragging the scrubber seeks while dragging (not only on
+    // release) — the frame counter must jump mid-drag, then freeze there
+    const handle = page.getByTestId('timeline-handle');
+    const handleBox = await handle.boundingBox();
+    const centerY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(handleBox.x + handleBox.width / 2, centerY);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x + handleBox.width / 2 + 300, centerY, { steps: 10 });
+    await expect.poll(() => currentFrameOf(counter)).toBeGreaterThan(2520);
+    await page.mouse.up();
+    const frameAfterDrag = await currentFrameOf(counter);
+    await page.waitForTimeout(150);
+    // Released position sticks: paused playback stays on that tick
+    expect(await currentFrameOf(counter)).toBe(frameAfterDrag);
+  });
+
   test('shows the error banner with retry when the engine fails (AC #4)', async ({
     page,
     userFactory,

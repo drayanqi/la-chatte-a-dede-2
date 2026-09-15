@@ -18,6 +18,17 @@ describe('validateScriptCode', () => {
     expect(result).toEqual({ valid: true, errors: [] });
   });
 
+  it('accepts a script prefixed with the editor Game API JSDoc line', () => {
+    // The script editor stores this line above update() to type the game
+    // parameter for Monaco's TypeScript worker; comments are no-ops in the
+    // sandbox, so validation must accept exactly what the editor produces.
+    const result = validateScriptCode(
+      `/** @param {Game} game - Game state. */\n${VALID_SCRIPT}`,
+      'javascript',
+    );
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
   it('rejects a syntax error with the exact user line number', () => {
     const result = validateScriptCode(
       'function update(game) {\n  return function {;\n}',

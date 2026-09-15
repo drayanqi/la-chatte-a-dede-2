@@ -79,3 +79,7 @@
 ## Deferred from: code review of 3-8-replay-playback-system (2026-09-15)
 
 - **Generated `tsconfig.tsbuildinfo` tracked in git** — the incremental-build artifact churns on every typecheck, producing noisy diffs and merge conflicts. Pre-existing repo hygiene: add `*.tsbuildinfo` to .gitignore and `git rm --cached tsconfig.tsbuildinfo` (outside story 3.8 scope).
+
+## Deferred from: code review of 3-9-timeline-scrubber-and-navigation (2026-09-15)
+
+- **[parallel-stream] `normalizeMatchFrames` dereferences frames before `loadFramesInternal`'s malformed-payload guard** — normalization (`frame.ball.y * Y_TO_PERCENT`, `frame.players.map(...)`) runs in `loadFrames()` before the validation loop that exists to keep a malformed payload from tearing down the engine (warn+ignore). The API path is pre-validated by `isPlayableFramesFile`, but the `TEST_LOAD_FRAMES_EVENT` hook only checks `Array.isArray && length > 0`, so a frame missing `ball` (or a non-array `players`) now throws `TypeError` inside `loadFrames`. Belongs to the match-preview-and-bot-fixes stream (src/lib/matchFrames.ts:22, Game.ts:361) — fix there: move validation ahead of normalization or make `normalizeMatchFrames` null-safe.

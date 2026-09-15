@@ -1,10 +1,13 @@
 /**
- * Game API Type Definitions for AI Script Autocomplete
+ * Game API Type Definitions for AI Script IntelliSense
  * OWNER: Dev Team
  *
  * Canonical AI API contract (script-ia-api.md v2.0, validated by Pelo).
- * The engine calls `update(game)` every tick; JSDoc comments drive the
- * Monaco Editor tooltips and autocomplete (see monacoGameApiProvider.ts).
+ * The engine calls `update(game)` every tick. This single source is consumed
+ * two ways: as ambient declarations for Monaco's TypeScript worker
+ * (src/lib/gameApiDts.ts -> monacoSetup.ts), which provides hover docs,
+ * signature help and completions in the editor; and by tests asserting the
+ * engine shim stays aligned with it.
  */
 
 /**
@@ -19,8 +22,9 @@ export interface Vector2D {
 }
 
 /**
- * Represents a player on the pitch.
- * Action methods only exist on `me` — teammates and opponents are read-only.
+ * Represents a player on the pitch, as seen for teammates and opponents:
+ * read-only observation only. Action methods exist solely on `me`
+ * (see {@link SelfPlayer}), exactly as the engine shim attaches them.
  */
 export interface Player {
   /**
@@ -41,16 +45,38 @@ export interface Player {
   readonly hasBall: boolean;
 
   /**
-   * The player's slot number within their team (1 to 5).
+   * Slot of the player in their team, from 1 (goalkeeper) to 5 (attacker).
+   * @example
+   * if (me.slot === 1) {
+   *   // I am the goalkeeper: stay close to my goal
+   * }
    */
-  readonly slot: 1 | 2 | 3 | 4 | 5;
+  readonly slot: number;
 
   /**
-   * The player's team: 'home' (left side, attacks toward x=100) or
-   * 'away' (attacks toward x=0).
+   * Team of the player: 'home' (your team) or 'away' (opponents).
+   * @example
+   * const goalX = me.team === 'home' ? 100 : 0;
    */
   readonly team: 'home' | 'away';
 
+  /**
+   * Check if this player is the closest to the ball among teammates
+   * (engine-computed, ties resolved by the lower slot).
+   * @returns true if this player is closest to the ball
+   * @example
+   * if (me.isClosestToBall()) {
+   *   me.moveToward(ball.position.x, ball.position.y);
+   * }
+   */
+  isClosestToBall(): boolean;
+}
+
+/**
+ * The player your script controls (`game.me`): a {@link Player} that can
+ * also act. Only the FIRST action per tick applies.
+ */
+export interface SelfPlayer extends Player {
   /**
    * Move the player toward the specified coordinates WITHOUT the ball.
    * If the player had the ball, it is dropped at the current position.
@@ -92,15 +118,10 @@ export interface Player {
   shoot(x: number, y: number, power: number): void;
 
   /**
-   * Check if this player is the closest to the ball among teammates
-   * (engine-computed, ties resolved by the lower slot).
-   * @returns true if this player is closest to the ball
-   * @example
-   * if (me.isClosestToBall()) {
-   *   me.moveToward(ball.position.x, ball.position.y);
-   * }
+   * Legacy alias of {@link moveToward}, kept for old scripts only.
+   * @deprecated Use moveToward instead.
    */
-  isClosestToBall(): boolean;
+  moveTo(x: number, y: number): void;
 }
 
 /**
@@ -190,7 +211,7 @@ export interface Field {
  */
 export interface Game {
   /** The player this script controls (the only one with action methods) */
-  readonly me: Player;
+  readonly me: SelfPlayer;
   /** The ball */
   readonly ball: Ball;
   /** Your teammates, excluding yourself (read-only) */

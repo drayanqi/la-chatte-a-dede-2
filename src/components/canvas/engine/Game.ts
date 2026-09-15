@@ -9,6 +9,7 @@ import { PlayerSprite, PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from './Player';
 import { BallSprite } from './Ball';
 import { computePitchRect, screenToPercent } from './fieldGeometry';
 import { teamIdFromMatchTeam, matchPlayerKey } from '@/lib/teamMapping';
+import { normalizeMatchFrames } from '@/lib/matchFrames';
 import type {
   Player,
   TacticData,
@@ -354,14 +355,18 @@ export class Game {
    * the pendingFrames queue like loadTactic (deferred-work pattern).
    */
   loadFrames(frames: MatchFrame[]): void {
+    // Engine frames carry y in field units (0-50); the canvas renders
+    // percent coords. Normalize once here so every consumer (sprites,
+    // timeline callbacks, debug panel) sees pitch percents.
+    const normalized = normalizeMatchFrames(frames);
     if (!this.isInitialized) {
       // Queue the frames to load after initialization. Last-request-wins:
       // a tactic queued earlier is dropped in favor of the frames.
-      this.pendingFrames = frames;
+      this.pendingFrames = normalized;
       this.pendingTactic = null;
       return;
     }
-    this.loadFramesInternal(frames);
+    this.loadFramesInternal(normalized);
   }
 
   private loadFramesInternal(frames: MatchFrame[]): void {
@@ -677,6 +682,10 @@ export class Game {
   step(direction: 'forward' | 'backward'): void {
     this.isPlaying = false;
     if (this.matchFrames.length === 0) return;
+    // Time-based playback (story 3.8) leaves currentFrame fractional when
+    // paused (e.g. 149.6): floor FIRST, or the +/-1 lands on a fractional
+    // index that applyFrame cannot resolve (no sprite update, no emit)
+    this.currentFrame = Math.floor(this.currentFrame);
     if (direction === 'forward' && this.currentFrame < this.matchFrames.length - 1) {
       this.currentFrame++;
     } else if (direction === 'backward' && this.currentFrame > 0) {

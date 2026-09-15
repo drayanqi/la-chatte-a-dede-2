@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
+import { ensureGameApiJSDoc } from '@/lib/gameScript';
 import type { Script } from '@/types';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -121,13 +122,16 @@ const generateDuplicateName = (
 };
 
 /**
- * Generate default code template for new AI scripts
+ * Generate default code template for new AI scripts.
+ * The Game API JSDoc line is part of the template: it is what types the
+ * `game` parameter for the editor's TypeScript worker (see gameScript.ts).
  */
 const generateDefaultCode = (name: string): string => {
   const date = new Date().toISOString().split('T')[0];
   return `// AI Script: ${name}
 // Created: ${date}
 
+/** @param {Game} game - Game state: me, ball, teammates, opponents, field. */
 function update(game) {
   // Your AI logic here
 
@@ -162,7 +166,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         scriptsMap.set(script.id, {
           id: script.id,
           name: script.name,
-          code: script.code,
+          // Scripts created before the typed game API (or stripped by hand)
+          // get the JSDoc line here: the editor needs it for IntelliSense.
+          // Storage converges on the next save; nothing is marked unsaved.
+          code: ensureGameApiJSDoc(script.code),
           language: script.language,
           lastModified: new Date(script.updated_at),
         });
@@ -205,7 +212,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ isCreatingScript: true, scriptsError: null });
 
     try {
-      const scriptCode = code ?? generateDefaultCode(name);
+      const scriptCode = ensureGameApiJSDoc(code ?? generateDefaultCode(name));
 
       const response = await apiFetch('/scripts', {
         method: 'POST',
@@ -432,7 +439,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         method: 'POST',
         body: JSON.stringify({
           name: newName,
-          code: script.code,
+          code: ensureGameApiJSDoc(script.code),
           language: script.language,
         }),
       });
@@ -486,7 +493,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   addScript: (script) =>
     set((state) => {
       const newScripts = new Map(state.scripts);
-      newScripts.set(script.id, script);
+      newScripts.set(script.id, {
+        ...script,
+        code: ensureGameApiJSDoc(script.code),
+      });
       return { scripts: newScripts };
     }),
 

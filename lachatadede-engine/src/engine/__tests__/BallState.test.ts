@@ -127,8 +127,8 @@ describe('BallState - possession and velocity API', () => {
     const ball = new BallState(50, 25);
     ball.shoot(53, 29); // distance 5 -> direction (3/5, 4/5)
     expect(Math.hypot(ball.vx, ball.vy)).toBeCloseTo(MAX_BALL_SPEED, 12);
-    expect(ball.vx).toBeCloseTo(3, 12);
-    expect(ball.vy).toBeCloseTo(4, 12);
+    expect(ball.vx).toBeCloseTo(MAX_BALL_SPEED * 0.6, 12);
+    expect(ball.vy).toBeCloseTo(MAX_BALL_SPEED * 0.8, 12);
   });
 
   it('shoot normalizes direction when the target is farther than max range', () => {
