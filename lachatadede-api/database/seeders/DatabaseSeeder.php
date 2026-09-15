@@ -21,5 +21,7 @@ class DatabaseSeeder extends Seeder
             'username' => 'TestUser',
             'email' => 'test@example.com',
         ]);
+
+        $this->call(SystemTacticSeeder::class);
     }
 }

@@ -123,11 +123,13 @@ class ContextCaptureRunner implements ScriptRunner {
 }
 
 describe('Simulation - frames (NoopScriptRunner)', () => {
-  it('records frame 0 with ball at center and all players at initial positions', async () => {
-    const file = await new Simulation(makePayload()).run();
+  it('records frame 0 with the ball at the kickoff goalkeeper and all players at initial positions', async () => {
+    const seed = 12345;
+    const file = await new Simulation(makePayload(seed)).run();
     const f0 = file.frames[0] as NonNullable<(typeof file.frames)[number]>;
     expect(f0.index).toBe(0);
-    expect(f0.ball).toEqual({ x: 50, y: 25 });
+    const gk = kickoffTeamFor(seed) === 'challenger' ? { x: 5, y: 25 } : { x: 95, y: 25 };
+    expect(f0.ball).toEqual(gk);
     expect(f0.players).toHaveLength(10);
     expect(f0.players[0]).toEqual({ slot: 1, team: 'challenger', x: 5, y: 25, state: 'idle' });
     expect(f0.players[5]).toEqual({ slot: 1, team: 'opponent', x: 95, y: 25, state: 'idle' });
@@ -159,21 +161,13 @@ describe('Simulation - kickoff', () => {
     expect(outcomes).toEqual(new Set<Team>(['challenger', 'opponent']));
   });
 
-  it('initial kickoff grants possession to the closest player of the designated team', () => {
+  it('initial kickoff grants the ball to the designated team goalkeeper at their tactic position', () => {
     const sim = new Simulation(makePayload(999));
-    const team = sim.ball.owner?.team;
-    expect(team).toBeDefined();
-    const candidates = team === 'challenger'
-      ? makePayload(999).challenger.players
-      : makePayload(999).opponent.players;
-    let closest = candidates[0] as NonNullable<(typeof candidates)[number]>;
-    for (const p of candidates) {
-      const d = (x: { x: number; y: number }) => Math.hypot(x.x - 50, x.y - 25);
-      if (d(p) < d(closest)) closest = p;
-    }
-    expect(sim.ball.owner?.slot).toBe(closest.slot);
-    expect(sim.ball.x).toBe(50);
-    expect(sim.ball.y).toBe(25);
+    const kickoff = kickoffTeamFor(999);
+    expect(sim.ball.owner).toEqual({ slot: 1, team: kickoff });
+    const gk = kickoff === 'challenger' ? { x: 5, y: 25 } : { x: 95, y: 25 };
+    expect(sim.ball.x).toBe(gk.x);
+    expect(sim.ball.y).toBe(gk.y);
   });
 });
 
@@ -190,9 +184,9 @@ describe('Simulation - goals and kickoff reset', () => {
     expect(frame.events).toEqual([{ type: 'goal', team: 'challenger', scorerSlot: 3 }]);
     expect(sim.scoreChallenger).toBe(1);
     expect(sim.scoreOpponent).toBe(0);
-    // kickoff reset recorded in the same frame
-    expect(frame.ball).toEqual({ x: 50, y: 25 });
-    expect(sim.ball.owner?.team).toBe('opponent'); // conceding team kicks off
+    // kickoff reset recorded in the same frame: ball to the conceding team's GK
+    expect(frame.ball).toEqual({ x: 95, y: 45 });
+    expect(sim.ball.owner).toEqual({ slot: 1, team: 'opponent' }); // conceding team kicks off
     expect(frame.players[0]).toEqual({ slot: 1, team: 'challenger', x: 5, y: 5, state: 'idle' });
     expect(frame.players[5]).toEqual({ slot: 1, team: 'opponent', x: 95, y: 45, state: 'idle' });
   });
@@ -226,7 +220,8 @@ describe('Simulation - goals and kickoff reset', () => {
     expect(sim.scoreOpponent).toBe(0);
     expect(frame.events).toEqual([{ type: 'goal', team: 'challenger', scorerSlot: expectedScorer }]);
     // no rebound happened: the ball flew past the line before the kickoff reset
-    expect(sim.ball.x).toBe(50); // kickoff reset put the ball back at center
+    expect(sim.ball.x).toBe(95); // kickoff reset put the ball at the conceding team's goalkeeper
+    expect(sim.ball.y).toBe(45);
   });
 
   it('does not score when the trajectory crosses the goal line outside the mouth even if the tick ends inside it', () => {
@@ -263,12 +258,10 @@ describe('Simulation - goals and kickoff reset', () => {
     expect(sim.ball.vx).toBeLessThan(0);
   });
 
-  it('kickoff pushes the non-kickoff team out of the center circle', () => {
-    const payload = makeGoalTestPayload();
-    payload.challenger.players[0] = { slot: 1, x: 55, y: 20, script: '' }; // inside the circle, off the flight line
-    const sim = new Simulation(payload);
+  it('kickoff reset grants the ball to the conceding team goalkeeper at their tactic position', () => {
+    const sim = new Simulation(makeGoalTestPayload());
 
-    // challenger scores -> conceding team (opponent) kicks off -> challengers pushed out
+    // challenger scores -> conceding team (opponent) kicks off
     sim.ball.giveTo({ slot: 5, team: 'challenger' });
     sim.ball.x = 30;
     sim.ball.y = 25;
@@ -279,13 +272,11 @@ describe('Simulation - goals and kickoff reset', () => {
     }
     expect(frame.events.length).toBeGreaterThan(0);
 
-    // challenger slot 1 was at (55,20) (distance 7.07 from center), pushed to the circle edge
+    expect(sim.ball.owner).toEqual({ slot: 1, team: 'opponent' });
+    expect(frame.ball).toEqual({ x: 95, y: 45 }); // opponent GK tactic position
+    // everyone is back at their initial positions
     const slot1 = frame.players.find((p) => p.team === 'challenger' && p.slot === 1);
-    expect(slot1?.x).toBeCloseTo(50 + (5 / Math.hypot(5, 5)) * 10, 9);
-    expect(slot1?.y).toBeCloseTo(25 - (5 / Math.hypot(5, 5)) * 10, 9);
-    // conceding team (opponent) has possession
-    expect(sim.ball.owner?.team).toBe('opponent');
-    expect(frame.ball).toEqual({ x: 50, y: 25 });
+    expect(slot1).toEqual({ slot: 1, team: 'challenger', x: 5, y: 5, state: 'idle' });
   });
 });
 
@@ -392,6 +383,142 @@ describe('Simulation - possession', () => {
   });
 });
 
+describe('Simulation - tackles (game-rules.md v1.1)', () => {
+  it('an opponent within COLLISION_RADIUS tackles the ball from the carrier', () => {
+    const payload = makePayload();
+    payload.opponent.players[4] = { slot: 5, x: 31, y: 25, script: '' }; // tackler glued to the carrier
+    const sim = new Simulation(payload);
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 30;
+    sim.ball.y = 25; // ball on the carrier
+
+    sim.stepTick();
+
+    expect(sim.ball.owner).toEqual({ slot: 5, team: 'opponent' }); // tackled
+    expect(sim.ball.x).toBe(30); // ball stays at the ex-carrier's spot
+    expect(sim.ball.y).toBe(25);
+  });
+
+  it('a teammate never tackles the ball from the carrier', () => {
+    const payload = makePayload();
+    payload.challenger.players[1] = { slot: 2, x: 21, y: 25, script: '' }; // teammate glued to the carrier
+    const sim = new Simulation(payload);
+    sim.ball.giveTo({ slot: 3, team: 'challenger' });
+    sim.ball.x = 20;
+    sim.ball.y = 25; // ball on the carrier (challenger slot 3 at (20,25))
+
+    sim.stepTick();
+
+    expect(sim.ball.owner).toEqual({ slot: 3, team: 'challenger' }); // teammate did not take it
+  });
+
+  it('the tackled player cannot take any ball until the lockout expires', () => {
+    class StealThenWalkAwayRunner implements ScriptRunner {
+      prepare(): void {}
+      runTick(tick: number): TickOutcome {
+        if (tick === 0) return { actions: [], logs: [] }; // the tackle happens by proximity
+        // the tackler drops the ball and walks away from it
+        return { actions: [{ team: 'opponent', slot: 5, action: { type: 'moveToward', x: 60, y: 25 } }], logs: [] };
+      }
+    }
+    const payload = makePayload();
+    payload.opponent.players[4] = { slot: 5, x: 31, y: 25, script: '' };
+    const sim = new Simulation(payload, new StealThenWalkAwayRunner());
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 30;
+    sim.ball.y = 25;
+
+    sim.stepTick(); // tick 0: tackle -> opponent slot 5 owns it, challenger slot 5 locked
+    expect(sim.ball.owner).toEqual({ slot: 5, team: 'opponent' });
+
+    sim.stepTick(); // tick 1: the tackler drops the ball at (30,25) and walks off
+    expect(sim.ball.owner).toBeNull(); // the tackled player stands on the ball but is locked out
+
+    for (let t = 2; t <= 179; t++) sim.stepTick();
+    expect(sim.ball.owner).toBeNull(); // still locked out at tick 179
+
+    sim.stepTick(); // tick 180: lockout lifted (3s after the tackle)
+    expect(sim.ball.owner).toEqual({ slot: 5, team: 'challenger' }); // picks the ball up automatically
+  });
+
+  it('kickoff clears all possession lockouts', () => {
+    class TackleThenShootRunner implements ScriptRunner {
+      prepare(): void {}
+      runTick(tick: number): TickOutcome {
+        if (tick === 0) {
+          // the defender closes in on the carrier (from 3.0 to 2.0: tackle)
+          return { actions: [{ team: 'opponent', slot: 5, action: { type: 'moveToward', x: 30, y: 25 } }], logs: [] };
+        }
+        if (tick === 1) {
+          // the tackler clears the ball down the (empty) corridor; the
+          // tackled player is locked out, so nobody re-collects it
+          return { actions: [{ team: 'opponent', slot: 5, action: { type: 'shoot', x: -20, y: 25, power: 1 } }], logs: [] };
+        }
+        return { actions: [], logs: [] };
+      }
+    }
+    // The tackler starts out of tackle range (3.0) and resets to (33,25)
+    // after the goal, so the post-kickoff pickup below has a single candidate.
+    const payload = makeGoalTestPayload();
+    payload.opponent.players[4] = { slot: 5, x: 33, y: 25, script: '' };
+    const sim = new Simulation(payload, new TackleThenShootRunner());
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 30;
+    sim.ball.y = 25;
+
+    sim.stepTick(); // tick 0: tackle -> opponent slot 5 owns it, challenger slot 5 locked
+    expect(sim.ball.owner).toEqual({ slot: 5, team: 'opponent' });
+
+    let frame = sim.stepTick(); // tick 1: the tackler shoots toward the challenger goal
+    for (let i = 0; i < 100 && frame.events.length === 0; i++) {
+      frame = sim.stepTick();
+    }
+    expect(frame.events.length).toBeGreaterThan(0); // goal for the opponent
+    expect(sim.ball.owner).toEqual({ slot: 1, team: 'challenger' }); // conceding team's GK kicks off
+
+    // the kickoff cleared the lockout: the previously tackled player takes a free ball again
+    sim.ball.owner = null;
+    sim.ball.releasedBy = null;
+    sim.ball.x = 30;
+    sim.ball.y = 25; // on challenger slot 5 (back at (30,25) after the reset)
+    sim.ball.vx = 0;
+    sim.ball.vy = 0;
+    sim.stepTick();
+    expect(sim.ball.owner).toEqual({ slot: 5, team: 'challenger' });
+  });
+
+  it('a released ball travels before it can be collected (no same-tick block)', () => {
+    class ShootRunner implements ScriptRunner {
+      prepare(): void {}
+      runTick(tick: number): TickOutcome {
+        if (tick !== 0) return { actions: [], logs: [] };
+        return {
+          actions: [
+            { team: 'challenger', slot: 5, action: { type: 'shoot', x: 200, y: 25, power: 1 } },
+            { team: 'opponent', slot: 5, action: { type: 'moveToward', x: 30, y: 25 } },
+          ],
+          logs: [],
+        };
+      }
+    }
+    const payload = makeGoalTestPayload();
+    payload.opponent.players[4] = { slot: 5, x: 33, y: 25, script: '' }; // 3.0 from the ball: out of tackle range
+    const sim = new Simulation(payload, new ShootRunner());
+    sim.ball.giveTo({ slot: 5, team: 'challenger' });
+    sim.ball.x = 30;
+    sim.ball.y = 25;
+
+    const frame = sim.stepTick();
+
+    // v1.2: physics runs before the possession check, so the just-struck ball
+    // flies out of reach on the shoot tick; the defender closing to 2.0 of the
+    // release point cannot block, only intercept at the ball's landing spot.
+    expect(sim.ball.owner).toBeNull();
+    expect(sim.ball.x).toBe(35); // 30 + MAX_BALL_SPEED (full power), toward (200,25)
+    expect(frame.events.length).toBe(0);
+  });
+});
+
 describe('Simulation - action application', () => {
   it('applies moveToward and stop actions and maps them to player states', () => {
     const sim = new Simulation(makePayload(), new ScriptedOnceRunner());
@@ -416,14 +543,16 @@ describe('Simulation - action application', () => {
 
   it('moveToward with possession releases the ball in place', () => {
     const sim = new Simulation(makePayload(), new ScriptedOnceRunner());
-    sim.ball.giveTo({ slot: 1, team: 'challenger' }); // ball stays at center (50,25)
+    sim.ball.giveTo({ slot: 1, team: 'challenger' });
+    sim.ball.x = 5;
+    sim.ball.y = 25; // ball sits on challenger slot 1
     sim.stepTick();
     sim.stepTick();
     sim.stepTick();
     sim.stepTick(); // tick 3: moveToward(10,10) fires for challenger slot 1
 
     expect(sim.ball.owner).toBeNull(); // releaser exempt from the same-tick check
-    expect(sim.ball.x).toBe(50); // dropped in place
+    expect(sim.ball.x).toBe(5); // dropped in place
     expect(sim.ball.y).toBe(25);
   });
 
@@ -445,7 +574,7 @@ describe('Simulation - action application', () => {
     const frame = sim.stepTick();
 
     expect(sim.ball.owner).toEqual({ slot: 3, team: 'challenger' });
-    expect(sim.ball.x).toBeCloseTo(21, 9); // moved 1.0 toward (30,25)
+    expect(sim.ball.x).toBeCloseTo(20.8, 9); // moved 0.8 (carrier speed) toward (30,25)
     const slot3 = frame.players[2] as NonNullable<(typeof frame.players)[number]>;
     expect(slot3.state).toBe('moving');
     expect(frame.ball.x).toBe(sim.ball.x);
@@ -511,11 +640,13 @@ describe('Simulation - ScriptRunner integration', () => {
 
   it('runTick() receives a snapshot context per tick', () => {
     const runner = new ContextCaptureRunner();
-    const sim = new Simulation(makePayload(), runner);
+    const seed = 12345;
+    const sim = new Simulation(makePayload(seed), runner);
     const ownerBefore = sim.ball.owner;
+    const gk = kickoffTeamFor(seed) === 'challenger' ? { x: 5, y: 25 } : { x: 95, y: 25 };
     sim.stepTick();
     expect(runner.firstContext?.tick).toBe(0);
-    expect(runner.firstContext?.ball).toEqual({ x: 50, y: 25, vx: 0, vy: 0, owner: ownerBefore });
+    expect(runner.firstContext?.ball).toEqual({ x: gk.x, y: gk.y, vx: 0, vy: 0, owner: ownerBefore });
     expect(runner.firstContext?.players).toHaveLength(10);
   });
 });

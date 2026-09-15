@@ -1,6 +1,6 @@
 import { BallState, type BallOwner } from './BallState.js';
 import {
-  CENTER_CIRCLE_RADIUS,
+  CARRIER_SPEED_MULTIPLIER,
   CENTER_X,
   CENTER_Y,
   COLLISION_RADIUS,
@@ -9,6 +9,7 @@ import {
   GOAL_Y_MAX,
   GOAL_Y_MIN,
   PLAYER_SPEED,
+  POSSESSION_LOCKOUT_TICKS,
   TOTAL_TICKS,
 } from './constants.js';
 import {
@@ -39,6 +40,8 @@ interface PlayerEntity {
   initialX: number;
   initialY: number;
   state: PlayerActionState;
+  /** Tick until which the player cannot take (or tackle) any ball. -1 = never locked. */
+  lockedUntilTick: number;
 }
 
 function otherTeam(team: Team): Team {
@@ -48,15 +51,25 @@ function otherTeam(team: Team): Team {
 /**
  * Deterministic match simulation.
  *
- * Per game-rules.md "Sequence de Jeu", every tick:
+ * Per game-rules.md v1.1 "Sequence de Jeu", every tick:
  *  1. seeded shuffle of the player execution order
  *  2. collect actions from the ScriptRunner
  *  3. apply actions
  *  4. update positions
- *  5. ball possession check (COLLISION_RADIUS)
- *  6. ball physics (friction, edge rebounds)
+ *  5. ball physics (friction, edge rebounds) - a released ball travels
+ *     before it can be collected (game-rules.md v1.2)
+ *  6. possession check (free-ball pickup or tackle), every tick
  *  7. goal check -> kickoff reset after a goal
  *  8. record frame
+ *
+ * Possession (game-rules.md v1.2): a free ball is collected by any player
+ * within COLLISION_RADIUS of its post-physics position (seeded RNG if
+ * contested; the shooter/releaser is exempt while within reach, so a shot
+ * cannot be re-collected by its shooter at the release point and same-tick
+ * blocks become interceptions at the ball's landing spot). An owned ball can
+ * be tackled by any opponent within COLLISION_RADIUS; the tackled player then
+ * cannot take any ball for POSSESSION_LOCKOUT_TICKS. Kickoffs grant the ball
+ * to the kickoff team's goalkeeper and clear all lockouts.
  *
  * Determinism rules: the seeded PRNG is the only randomness source, no
  * Date.now()/Math.random() inside the loop, arrays only (no iteration-order
@@ -107,10 +120,10 @@ export class Simulation {
     this.currentLogs.push(...outcome.logs);
     // 3-4. Apply actions and update positions.
     this.applyActions(outcome, order);
-    // 5. Ball possession check (free ball only).
-    if (this.ball.isFree) this.checkPossession();
-    // 6. Ball physics.
+    // 5. Ball physics.
     this.ball.step();
+    // 6. Possession check (free-ball pickup or tackle) - every tick.
+    this.checkPossession();
     // 7. Goal check (may trigger kickoff reset).
     this.checkGoal();
     // 8. Record frame.
@@ -137,7 +150,16 @@ export class Simulation {
   }
 
   private toEntity(p: { slot: number; x: number; y: number }, team: Team): PlayerEntity {
-    return { slot: p.slot, team, x: p.x, y: p.y, initialX: p.x, initialY: p.y, state: 'idle' };
+    return {
+      slot: p.slot,
+      team,
+      x: p.x,
+      y: p.y,
+      initialX: p.x,
+      initialY: p.y,
+      state: 'idle',
+      lockedUntilTick: -1,
+    };
   }
 
   private collectScripts(): PlayerScript[] {
@@ -186,7 +208,15 @@ export class Simulation {
       }
       case 'dribble': {
         if (!this.isValidTarget(action.x, action.y)) break;
-        this.movePlayer(player, action.x, action.y);
+        // Carrying the ball costs speed (game-rules.md v1.1): the owner
+        // dribbles at CARRIER_SPEED_MULTIPLIER x PLAYER_SPEED, everyone else
+        // (degenerate dribble without the ball) moves at full speed.
+        this.movePlayer(
+          player,
+          action.x,
+          action.y,
+          this.isOwner(player) ? PLAYER_SPEED * CARRIER_SPEED_MULTIPLIER : PLAYER_SPEED,
+        );
         player.state = 'moving';
         // Dribbling drags the ball along; possession is kept.
         if (this.isOwner(player)) {
@@ -218,16 +248,16 @@ export class Simulation {
     return owner !== null && owner.slot === player.slot && owner.team === player.team;
   }
 
-  private movePlayer(player: PlayerEntity, tx: number, ty: number): void {
+  private movePlayer(player: PlayerEntity, tx: number, ty: number, speed = PLAYER_SPEED): void {
     const dx = tx - player.x;
     const dy = ty - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= PLAYER_SPEED) {
+    if (dist <= speed) {
       player.x = tx;
       player.y = ty;
     } else {
-      player.x += (dx / dist) * PLAYER_SPEED;
-      player.y += (dy / dist) * PLAYER_SPEED;
+      player.x += (dx / dist) * speed;
+      player.y += (dy / dist) * speed;
     }
     // Players never leave the field; clamping also keeps a dribbled ball inside.
     player.x = Math.min(FIELD_WIDTH, Math.max(0, player.x));
@@ -235,19 +265,11 @@ export class Simulation {
   }
 
   private checkPossession(): void {
-    // Players within COLLISION_RADIUS of the free ball can take possession.
+    const owner = this.ball.owner;
     const releaser = this.ball.releasedBy;
-    const candidates = this.players.filter((p) => {
-      // While the release exemption is active, the releaser cannot re-collect
-      // the ball they dropped or shot (game-rules.md: moveToward loses
-      // possession). Once they are out of reach the exemption expires (below)
-      // and normal possession rules apply again.
-      if (releaser !== null && p.slot === releaser.slot && p.team === releaser.team) {
-        return false;
-      }
-      return this.distanceToBall(p) <= COLLISION_RADIUS;
-    });
-    // The exemption expires once the releaser is out of reach.
+    // The release exemption expires once the releaser is out of reach, so a
+    // shooter or dropper can collect the ball again later (tackles use the
+    // timed lockout instead, game-rules.md v1.1).
     if (releaser !== null) {
       const releaserPlayer = this.players.find(
         (p) => p.slot === releaser.slot && p.team === releaser.team,
@@ -256,6 +278,23 @@ export class Simulation {
         this.ball.releasedBy = null;
       }
     }
+    const currentTick = this.tick;
+    // Players within COLLISION_RADIUS of the ball can take possession.
+    const candidates = this.players.filter((p) => {
+      // A recently tackled player cannot take any ball yet.
+      if (p.lockedUntilTick > currentTick) return false;
+      if (owner !== null) {
+        // Tackle: only opponents of the carrier contest an owned ball;
+        // teammates never take it from each other.
+        return p.team !== owner.team && this.distanceToBall(p) <= COLLISION_RADIUS;
+      }
+      // Free ball: while the release exemption is active, the releaser cannot
+      // re-collect the ball they dropped or shot.
+      if (releaser !== null && p.slot === releaser.slot && p.team === releaser.team) {
+        return false;
+      }
+      return this.distanceToBall(p) <= COLLISION_RADIUS;
+    });
     if (candidates.length === 0) return;
     let winner: PlayerEntity;
     if (candidates.length === 1) {
@@ -264,8 +303,16 @@ export class Simulation {
       // Contested possession: the seeded RNG decides (game-rules.md).
       winner = this.rng.shuffle(candidates)[0] as PlayerEntity;
     }
-    const owner: BallOwner = { slot: winner.slot, team: winner.team };
-    this.ball.giveTo(owner);
+    if (owner !== null) {
+      // The tackled player cannot take (or tackle) any ball for
+      // POSSESSION_LOCKOUT_TICKS.
+      const tackled = this.players.find((p) => p.slot === owner.slot && p.team === owner.team);
+      if (tackled !== undefined) {
+        tackled.lockedUntilTick = currentTick + POSSESSION_LOCKOUT_TICKS;
+      }
+    }
+    const winnerOwner: BallOwner = { slot: winner.slot, team: winner.team };
+    this.ball.giveTo(winnerOwner);
   }
 
   private checkGoal(): void {
@@ -297,50 +344,26 @@ export class Simulation {
     this.kickoffTeam(otherTeam(scoringTeam));
   }
 
-  /** Kickoff: reset positions, ball to center, designated team gets possession. */
+  /**
+   * Kickoff (game-rules.md v1.1): reset positions, ball granted to the
+   * kickoff team's goalkeeper at their tactic position, all possession
+   * lockouts cleared.
+   */
   private kickoffTeam(team: Team): void {
     for (const p of this.players) {
       p.x = p.initialX;
       p.y = p.initialY;
       p.state = 'idle';
+      p.lockedUntilTick = -1;
     }
-    // Opponents pushed out of the center circle (game-rules.md).
-    for (const p of this.players) {
-      if (p.team === team) continue;
-      const dx = p.x - CENTER_X;
-      const dy = p.y - CENTER_Y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < CENTER_CIRCLE_RADIUS) {
-        if (dist === 0) {
-          // Deterministic fallback for a player exactly on the center spot.
-          p.x = CENTER_X - CENTER_CIRCLE_RADIUS;
-          p.y = CENTER_Y;
-        } else {
-          p.x = CENTER_X + (dx / dist) * CENTER_CIRCLE_RADIUS;
-          p.y = CENTER_Y + (dy / dist) * CENTER_CIRCLE_RADIUS;
-        }
-      }
+    const gk = this.players.find((p) => p.team === team && p.slot === 1);
+    if (gk === undefined) {
+      // Defensive fallback for a malformed payload without a slot-1 player.
+      this.ball.reset(CENTER_X, CENTER_Y);
+      return;
     }
-    this.ball.reset(CENTER_X, CENTER_Y);
-    // Designated team receives possession: closest player to the ball.
-    const candidates = this.players.filter((p) => p.team === team);
-    if (candidates.length === 0) return;
-    let closest = candidates[0] as PlayerEntity;
-    let closestDist = this.distanceToBall(closest);
-    for (const p of candidates) {
-      const d = this.distanceToBall(p);
-      if (d < closestDist) {
-        closest = p;
-        closestDist = d;
-      } else if (d === closestDist && candidates.length > 1) {
-        // Exact tie: the seeded RNG decides (game-rules.md contested rule).
-        if (this.rng.next() < 0.5) {
-          closest = p;
-          closestDist = d;
-        }
-      }
-    }
-    this.ball.giveTo({ slot: closest.slot, team: closest.team });
+    this.ball.reset(gk.initialX, gk.initialY);
+    this.ball.giveTo({ slot: gk.slot, team: gk.team });
   }
 
   private distanceToBall(p: PlayerEntity): number {

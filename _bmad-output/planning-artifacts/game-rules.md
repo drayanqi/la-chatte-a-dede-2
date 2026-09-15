@@ -1,8 +1,8 @@
 # Regles du Jeu - Lachatadede
 
 > **Statut** : VALIDE par Pelo
-> **Date** : 2026-01-19
-> **Version** : 1.0
+> **Date** : 2026-09-15
+> **Version** : 1.2 (physique avant verification de possession : le ballon voyage avant d'etre recuperable, decision Pelo 2026-09-15)
 
 ---
 
@@ -43,14 +43,14 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 |-------|-------------|
 | Qui engage | **Aleatoire** (determine par le seed) |
 | Position joueurs | Positions initiales definies dans la tactique |
-| Position ballon | Centre du terrain (50, 25) |
-| Restriction | Adversaires hors du rond central |
+| Position ballon | **Au gardien (slot 1)** de l'equipe qui engage, a sa position de tactique |
+| Possession | Le gardien de l'equipe qui engage recoit le ballon |
 
 ### Deroulement
 
 1. Joueurs places a leurs positions initiales
-2. Ballon au centre
-3. Equipe designee (aleatoire) a le ballon
+2. Ballon donne au gardien de l'equipe designee (aleatoire)
+3. Tous les blocages de possession remis a zero
 4. Simulation demarre
 
 ---
@@ -63,8 +63,8 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 | 2 | Score mis a jour |
 | 3 | **Tous les joueurs** reviennent a leur position initiale |
 | 4 | **Equipe qui a encaisse** engage |
-| 5 | Ballon au centre |
-| 6 | Adversaires hors du rond central |
+| 5 | Ballon donne a son gardien (slot 1), a sa position de tactique |
+| 6 | Blocages de possession remis a zero |
 | 7 | Reprise du jeu |
 
 ---
@@ -104,6 +104,7 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 | Parametre | Valeur |
 |-----------|--------|
 | Vitesse | Constante (PLAYER_SPEED = 1.0) |
+| Vitesse du porteur (dribble) | **0.80 x PLAYER_SPEED** (CARRIER_SPEED_MULTIPLIER) |
 | Collisions entre joueurs | **Non** (se traversent) |
 | Acceleration | Non (vitesse immediate) |
 
@@ -125,6 +126,21 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 | 2 joueurs touchent en meme temps | Seed aleatoire decide |
 | Joueur fait moveToward() avec ballon | Perd le ballon |
 | Joueur fait shoot() | Ballon part, perd possession |
+| **Ballon libere (tir ou degagement)** | **Voyage d'abord** : la physique s'applique avant la verification de possession, donc personne ne peut le recuperer au meme tick ; un adversaire ne l'intercepte que s'il est a ≤ COLLISION_RADIUS du point d'arrivee du ballon |
+| **Tacle** : adversaire a ≤ COLLISION_RADIUS du ballon (porteur) | **Il prend le ballon** (le ballon reste a sa place, possession change de main) |
+| Plusieurs adversaires taclent au meme tick | Seed aleatoire decide |
+| Coequipier pres du porteur | **Ne prend jamais** le ballon (seuls les adversaires taclent) |
+| Joueur tacle (perd le ballon sur un tacle) | **Ne peut pas prendre de ballon pendant 180 ticks (3s)** — POSSESSION_LOCKOUT_TICKS (ni recuperer, ni tacler) |
+| Fin du blocage | Le joueur peut a nouveau recuperer et tacler |
+| Engagement | Tous les blocages remis a zero |
+
+Notes :
+- Le blocage ne s'applique qu'aux tacles : un tireur ou un joueur qui perd le
+  ballon avec moveToward() n'est pas bloque (exemption de recuperation
+  inchangee pour le tireur/relacheur, evaluee apres la physique du ballon :
+  le tireur est typiquement hors de portee apres son tir et peut re-recuperer
+  plus tard s'il court au ballon).
+- L'etat de blocage n'est PAS expose aux scripts : une IA doit l'inferer du jeu.
 
 ---
 
@@ -185,13 +201,13 @@ const GAME_RULES = {
   GOAL_Y_MAX: 35,
   GOAL_WIDTH: 20,                   // 35 - 15
 
-  // Rond central (pour engagement)
-  CENTER_CIRCLE_RADIUS: 10,
+  // Centre du terrain (position par defaut du ballon)
   CENTER_X: 50,
   CENTER_Y: 25,
 
   // Joueurs
   PLAYER_SPEED: 1.0,
+  CARRIER_SPEED_MULTIPLIER: 0.80,   // vitesse du porteur (dribble)
   PLAYERS_PER_TEAM: 5,
 
   // Ballon
@@ -199,6 +215,7 @@ const GAME_RULES = {
   BALL_FRICTION: 0.95,
   MIN_BALL_SPEED: 0.1,
   COLLISION_RADIUS: 2.0,
+  POSSESSION_LOCKOUT_TICKS: 180,    // 3s apres un tacle (180 x 1/60 s)
 
   // Points
   POINTS_WIN: 3,
@@ -216,7 +233,7 @@ const GAME_RULES = {
 │            INITIALISATION                   │
 │  - Charger tactiques (home + away)          │
 │  - Placer joueurs aux positions initiales   │
-│  - Ballon au centre                         │
+│  - Ballon au gardien de l'equipe designee   │
 │  - Tirer au sort qui engage (seed)          │
 └─────────────────────┬───────────────────────┘
                       ▼
@@ -230,8 +247,11 @@ const GAME_RULES = {
 │     - Collecter son action                  │
 │  3. Appliquer les actions                   │
 │  4. Mettre a jour positions                 │
-│  5. Verifier collisions ballon              │
-│  6. Verifier rebonds sur bords              │
+│  5. Physique du ballon (integration,        │
+│     rebonds) - un ballon libre voyage       │
+│     avant de pouvoir etre recupere          │
+│  6. Verifier possession (recuperation ou    │
+│     tacle) - a chaque tick                  │
 │  7. Verifier si but                         │
 │     - Si but: reset positions, engagement   │
 │  8. Sauvegarder frame                       │
@@ -258,15 +278,9 @@ const GAME_RULES = {
 ┌─────────────────────────────────────────────┐
 │  RESET                                      │
 │  - Tous joueurs → positions initiales       │
-│  - Ballon → centre (50, 25)                 │
-│  - Equipe B recoit le ballon                │
-└─────────────────────┬───────────────────────┘
-                      ▼
-┌─────────────────────────────────────────────┐
-│  VERIFICATION ROND CENTRAL                  │
-│  - Joueurs Equipe A hors du cercle          │
-│  - (rayon 10 autour du centre)              │
-│  - Si dedans: repousses au bord du cercle   │
+│  - Ballon → gardien Equipe B (slot 1)       │
+│    a sa position de tactique                │
+│  - Blocages de possession remis a zero      │
 └─────────────────────┬───────────────────────┘
                       ▼
 ┌─────────────────────────────────────────────┐
@@ -310,7 +324,12 @@ Apres:  ball.velocity = { vx: -4, vy: 1 }  // vx inverse
 | Egalite | Possible |
 | Qui engage au debut | Aleatoire (seed) |
 | Apres but | Equipe qui encaisse engage |
+| Ou commence l'engagement | **Ballon au gardien** de l'equipe qui engage |
 | Reset apres but | Oui, tous aux positions initiales |
+| Tacle | Oui, un adversaire a ≤ 2.0 du porteur prend le ballon |
+| Blocage apres tacle | Oui, 3s (180 ticks), remis a zero a chaque engagement |
+| Vitesse du porteur | 0.80 x PLAYER_SPEED |
+| Recuperation d'un tir | La physique s'applique avant la verification de possession (v1.2) : pas de blocage same-tick, interception au point d'arrivee seulement |
 | Touches | Non, rebond |
 | Corners | Non, rebond |
 | Collisions joueurs | Non, se traversent |

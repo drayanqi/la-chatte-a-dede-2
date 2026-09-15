@@ -15,13 +15,13 @@ export const GOAL_Y_MIN = 15;
 export const GOAL_Y_MAX = 35;
 export const GOAL_WIDTH = 20; // 35 - 15
 
-// Center circle (kickoff)
+// Center spot (default ball position)
 export const CENTER_X = 50;
 export const CENTER_Y = 25;
-export const CENTER_CIRCLE_RADIUS = 10;
 
 // Players
 export const PLAYER_SPEED = 1.0;
+export const CARRIER_SPEED_MULTIPLIER = 0.8; // dribble speed while carrying the ball
 export const PLAYERS_PER_TEAM = 5;
 
 // Ball
@@ -29,6 +29,8 @@ export const MAX_BALL_SPEED = 5.0;
 export const BALL_FRICTION = 0.95;
 export const MIN_BALL_SPEED = 0.1;
 export const COLLISION_RADIUS = 2.0;
+// A tackled player cannot take (or tackle) any ball for 3 s (180 ticks).
+export const POSSESSION_LOCKOUT_TICKS = 180;
 
 // Sandboxing (script-ia-api.md + backend-architecture.md "Limites Sandboxing")
 export const TICK_TIMEOUT_MS = 10; // per-tick script deadline

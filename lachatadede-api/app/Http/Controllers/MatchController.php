@@ -4,14 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\GameEngineException;
 use App\Models\GameMatch;
-use App\Models\Tactic;
-use App\Models\User;
 use App\Services\GameEngineService;
-use Illuminate\Database\UniqueConstraintViolationException;
+use App\Services\SystemTacticService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class MatchController extends Controller
@@ -44,7 +41,7 @@ class MatchController extends Controller
             return response()->json(['message' => 'Tactic lineup is incomplete'], 422);
         }
 
-        $botTactic = $this->resolveEasyBotTactic();
+        $botTactic = app(SystemTacticService::class)->ensureEasyBotTactic();
 
         $match = GameMatch::create([
             'challenger_id' => $user->id,
@@ -163,81 +160,6 @@ class MatchController extends Controller
             $scoreChallenger < $scoreOpponent => 'opponent_win',
             default => 'draw',
         };
-    }
-
-    /**
-     * Resolve the system tactic driving the Easy Bot.
-     *
-     * Story 3.5 stub — replaced by the real Easy Bot seeding in story 3.6.
-     * The tactic's 5 slots run idle placeholder scripts, owned by a dedicated
-     * system user (scripts.user_id is NOT NULL). Created on demand so the
-     * endpoint also works on a freshly migrated database (e.g. E2E runs,
-     * which migrate without seeding).
-     */
-    private function resolveEasyBotTactic(): Tactic
-    {
-        try {
-            return $this->resolveEasyBotTacticOnce();
-        } catch (UniqueConstraintViolationException) {
-            // Lost the system-user create race against a concurrent first
-            // match (e.g. parallel E2E workers): everything exists now —
-            // resolve again from the committed state.
-            return $this->resolveEasyBotTacticOnce();
-        }
-    }
-
-    private function resolveEasyBotTacticOnce(): Tactic
-    {
-        return DB::transaction(function () {
-            // lockForUpdate serializes concurrent first calls: the second
-            // transaction waits here, then sees what the first committed.
-            $existing = Tactic::where('is_system', true)->lockForUpdate()->first();
-
-            if ($existing && $this->systemTacticIsComplete($existing)) {
-                return $existing;
-            }
-
-            if ($existing) {
-                // A crash mid-creation left a partial tactic; rebuild it so
-                // one bad row cannot 502 every future practice match.
-                $existing->delete();
-            }
-
-            $systemUser = User::firstWhere('email', 'system-bot@lachatadede.local')
-                ?? User::create([
-                    'email' => 'system-bot@lachatadede.local',
-                    'username' => 'EasyBot',
-                    'password' => bin2hex(random_bytes(16)),
-                ]);
-
-            $tactic = Tactic::create(['name' => 'Easy Bot', 'is_system' => true]);
-
-            $formation = [[8.0, 25.0], [25.0, 15.0], [25.0, 35.0], [40.0, 15.0], [40.0, 35.0]];
-            foreach ($formation as $index => [$x, $y]) {
-                $script = $systemUser->scripts()->create([
-                    'name' => 'EasyBot-'.($index + 1),
-                    'code' => 'function update(game) {}',
-                    'language' => 'javascript',
-                ]);
-                $tactic->players()->create([
-                    'player_slot' => $index + 1,
-                    'position_x' => $x,
-                    'position_y' => $y,
-                    'script_id' => $script->id,
-                ]);
-            }
-
-            return $tactic;
-        });
-    }
-
-    /**
-     * The system tactic is usable only with all 5 slots scripted.
-     */
-    private function systemTacticIsComplete(Tactic $tactic): bool
-    {
-        return $tactic->players()->count() === 5
-            && $tactic->players()->whereNull('script_id')->doesntExist();
     }
 
     /**

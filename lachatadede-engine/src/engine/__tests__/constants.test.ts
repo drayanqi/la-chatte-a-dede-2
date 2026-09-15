@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BALL_FRICTION,
-  CENTER_CIRCLE_RADIUS,
+  CARRIER_SPEED_MULTIPLIER,
   CENTER_X,
   CENTER_Y,
   COLLISION_RADIUS,
@@ -20,14 +20,16 @@ import {
   POINTS_DRAW,
   POINTS_LOSS,
   POINTS_WIN,
+  POSSESSION_LOCKOUT_TICKS,
   TICK_TIMEOUT_MS,
   TICKS_PER_SECOND,
   TOTAL_TICKS,
 } from '../constants.js';
 
 /**
- * Exact values copied from game-rules.md (authoritative, validated by Pelo 2026-01-19).
- * Any change to these numbers must be reflected in game-rules.md first.
+ * Exact values copied from game-rules.md (authoritative, validated by Pelo,
+ * v1.1 2026-09-14). Any change to these numbers must be reflected in
+ * game-rules.md first.
  */
 describe('game constants', () => {
   it('match duration and ticks (60 fps, 3 minutes = 10800 ticks)', () => {
@@ -45,19 +47,21 @@ describe('game constants', () => {
     expect(GOAL_WIDTH).toBe(20);
   });
 
-  it('center circle', () => {
+  it('center spot (default ball position)', () => {
     expect(CENTER_X).toBe(50);
     expect(CENTER_Y).toBe(25);
-    expect(CENTER_CIRCLE_RADIUS).toBe(10);
   });
 
   it('players and ball physics', () => {
     expect(PLAYER_SPEED).toBe(1.0);
+    expect(CARRIER_SPEED_MULTIPLIER).toBe(0.8);
     expect(PLAYERS_PER_TEAM).toBe(5);
     expect(MAX_BALL_SPEED).toBe(5.0);
     expect(BALL_FRICTION).toBe(0.95);
     expect(MIN_BALL_SPEED).toBe(0.1);
     expect(COLLISION_RADIUS).toBe(2.0);
+    expect(POSSESSION_LOCKOUT_TICKS).toBe(180);
+    expect(POSSESSION_LOCKOUT_TICKS).toBe(3 * 60);
   });
 
   it('ranking points', () => {
