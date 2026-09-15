@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import type { Position, PlayerFrameState } from '@/types';
+import type { MatchFrame, Position, PlayerFrameState } from '@/types';
 
 interface CanvasState {
   // État de lecture
@@ -22,6 +22,9 @@ interface CanvasState {
 
   // États des joueurs (dernière frame)
   playerStates: PlayerFrameState[];
+
+  // Match replay (story 3.7): frames driving the score display
+  matchFrames: MatchFrame[];
 }
 
 interface CanvasActions {
@@ -32,6 +35,7 @@ interface CanvasActions {
   setHoveredPlayer: (id: string | null) => void;
   updatePlaybackState: (playing: boolean, frame: number, total: number) => void;
   updatePlayerStates: (states: PlayerFrameState[]) => void;
+  setMatchFrames: (frames: MatchFrame[]) => void;
 
   // Mise à jour du state
   setTacticLoaded: (loaded: boolean) => void;
@@ -50,6 +54,7 @@ const initialState: CanvasState = {
   tacticLoaded: false,
   simulationReady: false,
   playerStates: [],
+  matchFrames: [],
 };
 
 export const useCanvasStore = create<CanvasState & CanvasActions>((set) => ({
@@ -70,6 +75,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>((set) => ({
     }),
 
   updatePlayerStates: (states) => set({ playerStates: states }),
+
+  setMatchFrames: (frames) => set({ matchFrames: frames }),
 
   setTacticLoaded: (loaded) => set({ tacticLoaded: loaded }),
 

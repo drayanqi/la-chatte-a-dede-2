@@ -14,6 +14,7 @@
  */
 import { test, expect } from '../support/fixtures';
 import { seedAuthToken } from '../support/helpers/auth';
+import { TEST_LOAD_FRAMES_EVENT } from '../../src/lib/testHooks';
 
 test.describe('Practice Match', () => {
   // Serial per project: the practice-match tests hold the single PHP worker
@@ -102,6 +103,68 @@ test.describe('Practice Match', () => {
     await expect(page.getByTestId('lineup-incomplete-message')).toBeVisible();
     await expect(page.getByTestId('test-vs-bot-button')).toBeDisabled();
     await expect(page.getByTestId('test-vs-bot-button')).toHaveText('▶ Test vs Bot');
+  });
+
+  // Story 3.7 (AC #1, #2, #3): the canvas rendering pipeline. Replay LOAD is
+  // wired in 3.8; until then the frames are injected through the test-only
+  // hook (TEST_LOAD_FRAMES_EVENT), driving the real pipeline end to end:
+  // loadFrames -> 10 player sprites + ball -> score display -> celebration.
+  test('renders the match canvas with players, ball, score and celebration', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    await seedAuthToken(page, user.token!);
+    await page.goto('/workspace');
+
+    // Deferred-work guard: the canvas mounts on /workspace
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toBeVisible();
+
+    // The workspace auto-loads the default tactic (5 players) before any
+    // replay can start — wait for the engine to settle (5 tactic sprites,
+    // ball hidden) so the frame injection below cannot race the tactic load
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+
+    // Inject one demo frame carrying a challenger goal (celebration + score
+    // visible immediately: the engine renders frame 0 on load)
+    await page.evaluate(([eventName]) => {
+      const players: { team: string; slot: number; x: number; y: number; state: string }[] = [];
+      for (const team of ['challenger', 'opponent']) {
+        for (let slot = 1; slot <= 5; slot++) {
+          players.push({
+            team,
+            slot,
+            x: team === 'challenger' ? 25 : 75,
+            y: slot * 16,
+            state: 'moving',
+          });
+        }
+      }
+      const frames = [
+        {
+          index: 0,
+          ball: { x: 50, y: 50 },
+          players,
+          events: [{ type: 'goal', team: 'challenger', scorerSlot: 1 }],
+          logs: [],
+        },
+      ];
+      window.dispatchEvent(new CustomEvent(eventName, { detail: { frames } }));
+    }, [TEST_LOAD_FRAMES_EVENT]);
+
+    // AC #2: 10 player sprites + the ball, as built by the engine
+    await expect(canvas).toHaveAttribute('data-match-players', '10');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'true');
+
+    // AC #3: goal on the loaded frame -> celebration + score update
+    await expect(page.getByTestId('goal-celebration-layer')).toBeVisible();
+    await expect(page.getByTestId('score-display')).toHaveText('1 — 0');
+
+    // The celebration layer clears after ~1.5s; the score stays on screen
+    await expect(page.getByTestId('goal-celebration-layer')).toBeHidden({ timeout: 3000 });
+    await expect(page.getByTestId('score-display')).toHaveText('1 — 0');
   });
 
   test('shows the error banner with retry when the engine fails (AC #4)', async ({

@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-14
+last_updated: 2026-09-15
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -67,7 +67,7 @@ development_status:
   3-4-script-sandboxing-and-execution: done
   3-5-practice-match-trigger: done
   3-6-easy-bot-ai: done
-  3-7-match-canvas-renderer: ready-for-dev
+  3-7-match-canvas-renderer: done
   3-8-replay-playback-system: ready-for-dev
   3-9-timeline-scrubber-and-navigation: ready-for-dev
   3-10-debug-panel-log-display: ready-for-dev

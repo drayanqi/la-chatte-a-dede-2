@@ -3,7 +3,7 @@
  * OWNER: Dev Team
  */
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { TacticsCanvas, TacticsCanvasHandle } from '../canvas';
 import { ScriptsPanel } from '../editor/ScriptsPanel';
 import { DebuggerPanel } from '../debugger/DebuggerPanel';
@@ -16,10 +16,22 @@ import { useCanvasStore, useEditorStore, useMatchStore, useTacticsStore } from '
 import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
-import type { PlayerFrameState } from '@/types';
+import { computeScore } from '@/lib/score';
+import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
+import type { MatchFrame, PlayerFrameState, TeamId } from '@/types';
+
+/** How long the goal celebration layer stays mounted (ms) */
+const CELEBRATION_DURATION_MS = 1500;
 
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
+
+  // Loaded match frames (score derivation, from the canvas store) + goal
+  // celebration state
+  const matchFrames = useCanvasStore((state) => state.matchFrames);
+  const setMatchFrames = useCanvasStore((state) => state.setMatchFrames);
+  const [celebratingTeam, setCelebratingTeam] = useState<TeamId | null>(null);
+  const celebrationTimerRef = useRef<number | null>(null);
 
   // Collapsible/resizable workspace panels (persisted in localStorage)
   const {
@@ -122,8 +134,11 @@ export const AppShell: React.FC = () => {
     loadedTacticIdRef.current = activeTacticId;
     setSelectedPlayer(null);
     canvasRef.current?.loadTactic(tacticConfigToTacticData(target));
+    // A tactic load ends any replay (the engine just dropped its frames):
+    // clear the match state so the score display and playback follow
+    setMatchFrames([]);
     setTacticLoaded(true);
-  }, [activeTacticId, setTacticLoaded, setSelectedPlayer]);
+  }, [activeTacticId, setMatchFrames, setTacticLoaded, setSelectedPlayer]);
 
   // Mirror the persistent selection into the engine so exactly the selected
   // player keeps its ring (single source of truth: the store)
@@ -151,11 +166,53 @@ export const AppShell: React.FC = () => {
   );
 
   const handleFrameChanged = useCallback(
-    (frame: number, total: number, states: PlayerFrameState[]) => {
+    (frame: number, total: number, states: PlayerFrameState[], _ball: { x: number; y: number }) => {
       updatePlaybackState(isPlaying, frame, total);
       updatePlayerStates(states);
     },
     [updatePlaybackState, updatePlayerStates, isPlaying]
+  );
+
+  // Goal scored (story 3.7): flash/confetti live in the engine (Pixi); the
+  // shell mounts the celebration layer + lets the score display update.
+  const handleGoalScored = useCallback((team: TeamId) => {
+    if (celebrationTimerRef.current !== null) {
+      window.clearTimeout(celebrationTimerRef.current);
+    }
+    setCelebratingTeam(team);
+    celebrationTimerRef.current = window.setTimeout(() => {
+      setCelebratingTeam(null);
+      celebrationTimerRef.current = null;
+    }, CELEBRATION_DURATION_MS);
+  }, []);
+
+  // Clear a pending celebration timer on unmount
+  useEffect(() => {
+    return () => {
+      if (celebrationTimerRef.current !== null) {
+        window.clearTimeout(celebrationTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Test-only frame injection (story 3.7): lets E2E drive the full
+  // frame -> sprites -> ball -> score pipeline before 3.8 wires replays.
+  useEffect(() => {
+    const handleTestLoadFrames = (event: Event) => {
+      const detail = (event as CustomEvent<{ frames?: MatchFrame[] }>).detail;
+      const frames = detail?.frames;
+      if (!Array.isArray(frames) || frames.length === 0) return;
+      setMatchFrames(frames);
+      canvasRef.current?.loadFrames(frames);
+    };
+    window.addEventListener(TEST_LOAD_FRAMES_EVENT, handleTestLoadFrames);
+    return () => window.removeEventListener(TEST_LOAD_FRAMES_EVENT, handleTestLoadFrames);
+  }, [setMatchFrames]);
+
+  // Live score: replayed from the goal events up to the current frame
+  const score = useMemo(
+    () => computeScore(matchFrames, currentFrame),
+    [matchFrames, currentFrame]
   );
 
   const handleSimulationComplete = useCallback(() => {
@@ -301,12 +358,25 @@ export const AppShell: React.FC = () => {
             onPlayerSelected={handlePlayerSelected}
             onPlayerHovered={handlePlayerHovered}
             onFrameChanged={handleFrameChanged}
+            onGoalScored={handleGoalScored}
             onSimulationComplete={handleSimulationComplete}
             onScriptDropped={handleScriptDropped}
             onScriptAssigned={handleScriptAssigned}
             onPlayerMoved={handlePlayerMoved}
             onPlayerDeselected={handlePlayerDeselected}
           />
+
+          {/* Score display (story 3.7, AC #3): only while a match is loaded */}
+          {matchFrames.length > 0 && (
+            <div data-testid="score-display" style={styles.scoreDisplay}>
+              {score.challenger} — {score.opponent}
+            </div>
+          )}
+
+          {/* Goal celebration layer (presence marker; visuals live in Pixi) */}
+          {celebratingTeam && (
+            <div data-testid="goal-celebration-layer" style={styles.celebrationLayer} />
+          )}
         </div>
 
         {/* Debugger Panel (droite): resizable, collapsible to a thin strip */}
@@ -402,6 +472,27 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: '320px',
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
+    position: 'relative',
+  },
+  scoreDisplay: {
+    position: 'absolute',
+    top: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: '24px',
+    lineHeight: 1.2,
+    fontWeight: 600,
+    color: '#ffffff',
+    textShadow: '0 2px 6px rgba(0, 0, 0, 0.6)',
+    pointerEvents: 'none',
+    zIndex: 10,
+    userSelect: 'none',
+  },
+  celebrationLayer: {
+    position: 'absolute',
+    inset: 0,
+    pointerEvents: 'none',
+    zIndex: 20,
   },
   rightPanel: {
     flexShrink: 0,

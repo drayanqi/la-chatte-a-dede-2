@@ -7,6 +7,21 @@ import { Assets, Container, FillGradient, Graphics, Sprite, Text, TextStyle, Tex
 import * as fieldGeometry from './fieldGeometry';
 import watermarkUrl from '@/assets/watermark.png';
 
+/**
+ * Pitch palette (UX spec, "Wild Card" arena — values locked by Epic 5.1).
+ * Hard law: team/player colors are reserved for players and accents —
+ * they never paint the floor beneath them (only half-wash gradients).
+ */
+export const FIELD_PALETTE = {
+  letterbox: 0x111a24,
+  pitchBase: 0x1a2634,
+  homeHalf: 0xff6b1a,
+  awayHalf: 0x1a8cff,
+  lines: 0xffffff,
+  goalHome: 0xff6b1a,
+  goalAway: 0x1a8cff,
+} as const;
+
 export class Field {
   public container: Container;
   private background: Graphics;
@@ -17,17 +32,17 @@ export class Field {
   private watermarkLoaded = false;
 
   // Palette "Deep Court" (Epic 5.1) — hardcoded v1, un seul bloc, un seul fichier
-  private readonly LETTERBOX_COLOR = 0x111a24;
-  private readonly PITCH_BASE_COLOR = 0x1a2634;
-  private readonly HALF_HOME_COLOR = 0xff6b1a;
-  private readonly HALF_AWAY_COLOR = 0x1a8cff;
+  private readonly LETTERBOX_COLOR = FIELD_PALETTE.letterbox;
+  private readonly PITCH_BASE_COLOR = FIELD_PALETTE.pitchBase;
+  private readonly HALF_HOME_COLOR = FIELD_PALETTE.homeHalf;
+  private readonly HALF_AWAY_COLOR = FIELD_PALETTE.awayHalf;
   private readonly HALF_TINT_MAX_ALPHA = 0.32;
   private readonly HALF_TINT_MID_ALPHA = 0.1;
   private readonly BOARD_ALPHA = 0.15;
-  private readonly LINE_COLOR = 0xffffff;
+  private readonly LINE_COLOR = FIELD_PALETTE.lines;
   private readonly LINE_WIDTH = 2;
-  private readonly GOAL_HOME_COLOR = 0xff6b1a;
-  private readonly GOAL_AWAY_COLOR = 0x1a8cff;
+  private readonly GOAL_HOME_COLOR = FIELD_PALETTE.goalHome;
+  private readonly GOAL_AWAY_COLOR = FIELD_PALETTE.goalAway;
   private readonly GOAL_FILL_ALPHA = 0.12;
   private readonly GOAL_HALO_ALPHA = 0.18;
   private readonly NET_ALPHA = 0.22;

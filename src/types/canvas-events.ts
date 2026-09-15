@@ -44,6 +44,8 @@ export interface FrameChangedEvent {
     totalFrames: number;
     timestamp: number;
     playerStates: PlayerFrameState[];
+    /** Ball position in pitch percent coordinates (0-100) */
+    ball: Position;
   };
 }
 

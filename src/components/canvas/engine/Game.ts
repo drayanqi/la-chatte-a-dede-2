@@ -3,11 +3,22 @@
  * PROPRIÉTAIRE: Cloud Dragonborn (Game Architect)
  */
 
-import { Application, Container, FederatedPointerEvent } from 'pixi.js';
+import { Application, Container, FederatedPointerEvent, Graphics } from 'pixi.js';
 import { Field } from './Field';
-import { PlayerSprite } from './Player';
+import { PlayerSprite, PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from './Player';
+import { BallSprite } from './Ball';
 import { computePitchRect, screenToPercent } from './fieldGeometry';
-import type { Player, TacticData, Position, PlayerFrameState, SimulationResult } from '@/types';
+import { teamIdFromMatchTeam, matchPlayerKey } from '@/lib/teamMapping';
+import type {
+  Player,
+  TacticData,
+  Position,
+  PlayerFrameState,
+  SimulationResult,
+  MatchFrame,
+  MatchFrameEvent,
+  TeamId,
+} from '@/types';
 
 export interface GameConfig {
   width: number;
@@ -18,8 +29,10 @@ export interface GameConfig {
 export interface GameCallbacks {
   onPlayerSelected: (playerId: string, teamId: 'home' | 'away', position: Position, scriptId: string | null) => void;
   onPlayerHovered: (playerId: string | null, position: Position | null) => void;
-  onFrameChanged: (frame: number, total: number, states: PlayerFrameState[]) => void;
+  onFrameChanged: (frame: number, total: number, states: PlayerFrameState[], ball: Position) => void;
   onSimulationComplete: (result: SimulationResult) => void;
+  /** Fired when a frame carries a goal event (celebration + score update) */
+  onGoalScored?: (team: TeamId, scorerSlot: number) => void;
   /** Fired after a script assignment completes (drag & drop onto a player) */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
   /** Fired when a player drag-move completes (pointerup ends the move) */
@@ -38,18 +51,38 @@ export class Game {
   private app: Application;
   private field: Field | null = null;
   private players: Map<string, PlayerSprite> = new Map();
+  private ballSprite: BallSprite | null = null;
   private gameContainer: Container;
+  private celebrationLayer: Container;
+  private flashOverlay: Graphics;
+  private confettiContainer: Container;
   private callbacks: GameCallbacks;
   private isInitialized: boolean = false;
 
-  // État de simulation
-  private simulationFrames: PlayerFrameState[][] = [];
+  // État de lecture — driven by the loaded match frames (story 3.7)
+  private matchFrames: MatchFrame[] = [];
   private currentFrame: number = 0;
   private isPlaying: boolean = false;
   private playbackSpeed: number = 1;
 
-  // Pending tactic to load after initialization
+  // Frames queued before initialization completes
   private pendingTactic: TacticData | null = null;
+  private pendingFrames: MatchFrame[] | null = null;
+
+  // Goal celebration — last frame whose goal already fired (dedup)
+  private lastCelebratedFrame: number = -1;
+  private celebrationElapsed: number = 0;
+  private celebrationActive: boolean = false;
+  private confettiParticles: { graphic: Graphics; vx: number; vy: number; spin: number }[] = [];
+
+  // Goal celebration tuning
+  private readonly GOAL_FLASH_TICKS = 18; // ~300ms at 60fps
+  private readonly GOAL_FLASH_MAX_ALPHA = 0.85;
+  private readonly CONFETTI_PARTICLES = 40; // UX spec: 30-50
+  private readonly CONFETTI_GOLD = 0xffd700;
+  private readonly CONFETTI_LIFETIME_TICKS = 90; // ~1.5s
+  private readonly CONFETTI_FADE_TICKS = 27; // last 30% of life
+  private readonly CONFETTI_GRAVITY = 0.12;
 
   // Identity of the currently loaded tactic (for getTactic read-back)
   private currentTacticId: string = '';
@@ -69,6 +102,14 @@ export class Game {
     this.callbacks = callbacks;
     this.app = new Application();
     this.gameContainer = new Container();
+    this.celebrationLayer = new Container();
+    this.celebrationLayer.eventMode = 'none';
+    this.flashOverlay = new Graphics();
+    this.flashOverlay.eventMode = 'none';
+    this.confettiContainer = new Container();
+    this.confettiContainer.eventMode = 'none';
+    this.celebrationLayer.addChild(this.flashOverlay);
+    this.celebrationLayer.addChild(this.confettiContainer);
   }
 
   async init(container: HTMLElement): Promise<void> {
@@ -102,20 +143,31 @@ export class Game {
     // Mark as initialized
     this.isInitialized = true;
 
-    // Load any pending tactic
+    // Celebration layer sits on top of everything (re-asserted on restack)
+    this.gameContainer.addChild(this.celebrationLayer);
+
+    // Load the pending data (last-request-wins: only one queue can be set)
     if (this.pendingTactic) {
       this.loadTacticInternal(this.pendingTactic);
       this.pendingTactic = null;
     }
+    if (this.pendingFrames) {
+      this.loadFramesInternal(this.pendingFrames);
+      this.pendingFrames = null;
+    }
   }
 
   private gameLoop(ticker: { deltaTime: number }): void {
-    if (this.isPlaying && this.simulationFrames.length > 0) {
+    if (this.celebrationActive) {
+      this.updateCelebration(ticker.deltaTime);
+    }
+
+    if (this.isPlaying && this.matchFrames.length > 0) {
       // Avancer les frames selon la vitesse de lecture
       this.currentFrame += this.playbackSpeed * (ticker.deltaTime / 60);
 
-      if (this.currentFrame >= this.simulationFrames.length) {
-        this.currentFrame = this.simulationFrames.length - 1;
+      if (this.currentFrame >= this.matchFrames.length) {
+        this.currentFrame = this.matchFrames.length - 1;
         this.isPlaying = false;
       }
 
@@ -123,35 +175,250 @@ export class Game {
     }
   }
 
+  /**
+   * Push one loaded match frame onto the sprites: O(10) player updates plus
+   * the ball for the < 16ms seek budget (interface-contract.md). Emits the
+   * onFrameChanged contract (with ball) — the states are fresh snapshots so
+   * consumers (React stores) may retain them safely.
+   */
   private applyFrame(frameIndex: number): void {
-    const frame = this.simulationFrames[frameIndex];
+    const frame = this.matchFrames[frameIndex];
     if (!frame) return;
 
-    for (const state of frame) {
-      const player = this.players.get(state.playerId);
-      if (player) {
-        player.updateFromState(state);
+    const states: PlayerFrameState[] = [];
+    for (const framePlayer of frame.players) {
+      const key = matchPlayerKey(framePlayer.team, framePlayer.slot);
+      const sprite = this.players.get(key);
+      if (sprite) {
+        const state: PlayerFrameState = {
+          playerId: key,
+          position: { x: framePlayer.x, y: framePlayer.y },
+          velocity: { vx: 0, vy: 0 },
+          state: framePlayer.state,
+        };
+        sprite.updateFromState(state);
+        states.push(state);
       }
     }
 
-    this.callbacks.onFrameChanged(
-      frameIndex,
-      this.simulationFrames.length,
-      frame
+    this.ballSprite?.updateFromFrame(frame.ball);
+
+    this.handleFrameEvents(frameIndex, frame.events);
+
+    this.callbacks.onFrameChanged(frameIndex, this.matchFrames.length, states, frame.ball);
+  }
+
+  /**
+   * Fire the goal events of one frame: onGoalScored for EVERY goal event
+   * (the score counts them all), celebration visuals once per frame —
+   * deduped across re-applies (playback loop, step, seek).
+   */
+  private handleFrameEvents(frameIndex: number, events: MatchFrameEvent[]): void {
+    const isFirstApply = frameIndex !== this.lastCelebratedFrame;
+    for (const event of events) {
+      if (event.type !== 'goal') continue;
+      const teamId = teamIdFromMatchTeam(event.team);
+      if (isFirstApply) {
+        this.triggerCelebration(teamId);
+      }
+      this.callbacks.onGoalScored?.(teamId, event.scorerSlot);
+    }
+    if (isFirstApply) {
+      this.lastCelebratedFrame = frameIndex;
+    }
+  }
+
+  // ==========================================================================
+  // Goal celebration (story 3.7, Task 5): white flash + team-colored confetti
+  // Runs on its own ticker lifecycle — nothing is allocated per frame.
+  // ==========================================================================
+
+  private prefersReducedMotion(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
     );
+  }
+
+  private triggerCelebration(teamId: TeamId): void {
+    // prefers-reduced-motion: visuals skipped entirely, score still updates
+    if (this.prefersReducedMotion()) return;
+
+    this.celebrationActive = true;
+    this.celebrationElapsed = 0;
+
+    // White flash overlay (pulses over ~300ms in updateCelebration).
+    // The fill alpha stays 1 — the pulse rides on the container alpha
+    // (updateCelebration); a 0 fill alpha would bake transparency into the
+    // geometry and the pulse would multiply it into invisibility.
+    const screen = this.app.screen;
+    this.flashOverlay.clear();
+    this.flashOverlay.rect(0, 0, screen.width, screen.height);
+    this.flashOverlay.fill({ color: 0xffffff, alpha: 1 });
+
+    // Confetti burst: team color of the scorer + gold (UX Celebration Colors)
+    const teamColor = teamId === 'home' ? PLAYER_HOME_COLOR : PLAYER_AWAY_COLOR;
+    const centerX = screen.width / 2;
+    const centerY = screen.height / 3;
+
+    for (let i = 0; i < this.CONFETTI_PARTICLES; i++) {
+      const graphic = new Graphics();
+      const size = 3 + Math.random() * 3;
+      graphic.rect(-size / 2, -size / 2, size, size);
+      const color = Math.random() < 0.6 ? teamColor : this.CONFETTI_GOLD;
+      graphic.fill({ color });
+
+      // Upward fan burst around the top-center of the pitch
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 0.9);
+      const speed = 3 + Math.random() * 5;
+
+      graphic.x = centerX + (Math.random() - 0.5) * screen.width * 0.3;
+      graphic.y = centerY;
+      this.confettiParticles.push({
+        graphic,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        spin: (Math.random() - 0.5) * 0.3,
+      });
+      this.confettiContainer.addChild(graphic);
+    }
+  }
+
+  private updateCelebration(deltaTime: number): void {
+    this.celebrationElapsed += deltaTime;
+
+    // Flash pulse: quick rise, quick fall over ~300ms
+    const flashT = Math.min(1, this.celebrationElapsed / this.GOAL_FLASH_TICKS);
+    this.flashOverlay.alpha = Math.sin(flashT * Math.PI) * this.GOAL_FLASH_MAX_ALPHA;
+
+    // Confetti physics: gravity + fade over ~1.5s
+    const fadeStart = this.CONFETTI_LIFETIME_TICKS - this.CONFETTI_FADE_TICKS;
+    const fadeT = Math.max(
+      0,
+      Math.min(1, (this.celebrationElapsed - fadeStart) / this.CONFETTI_FADE_TICKS)
+    );
+    this.confettiContainer.alpha = 1 - fadeT;
+
+    for (const particle of this.confettiParticles) {
+      particle.vy += this.CONFETTI_GRAVITY;
+      particle.graphic.x += particle.vx;
+      particle.graphic.y += particle.vy;
+      particle.graphic.rotation += particle.spin;
+    }
+
+    if (this.celebrationElapsed >= this.CONFETTI_LIFETIME_TICKS) {
+      this.resetCelebration();
+    }
+  }
+
+  private resetCelebration(): void {
+    this.celebrationActive = false;
+    this.celebrationElapsed = 0;
+    this.flashOverlay.clear();
+    this.flashOverlay.alpha = 1;
+    this.confettiContainer.alpha = 1;
+    this.confettiContainer.removeChildren().forEach((child) => child.destroy());
+    this.confettiParticles = [];
   }
 
   loadTactic(tactic: TacticData): void {
     if (!this.isInitialized) {
-      // Queue the tactic to load after initialization
+      // Queue the tactic to load after initialization. Last-request-wins:
+      // frames queued earlier are dropped in favor of the tactic.
       this.pendingTactic = tactic;
+      this.pendingFrames = null;
       return;
     }
     this.loadTacticInternal(tactic);
   }
 
-  private loadTacticInternal(tactic: TacticData): void {
-    // Remove the old players
+  /**
+   * Load match replay frames (story 3.7). Creates the 10 match player
+   * sprites + the ball, resets playback, and renders frame 0. Guarded by
+   * the pendingFrames queue like loadTactic (deferred-work pattern).
+   */
+  loadFrames(frames: MatchFrame[]): void {
+    if (!this.isInitialized) {
+      // Queue the frames to load after initialization. Last-request-wins:
+      // a tactic queued earlier is dropped in favor of the frames.
+      this.pendingFrames = frames;
+      this.pendingTactic = null;
+      return;
+    }
+    this.loadFramesInternal(frames);
+  }
+
+  private loadFramesInternal(frames: MatchFrame[]): void {
+    const firstFrame: MatchFrame | undefined = frames[0];
+    if (!firstFrame) return;
+
+    // Validate the payload shape once at load — frames arrive from the API
+    // or the test hook. A malformed payload must not tear the engine down
+    // mid-load nor crash the score derivation during a React render.
+    for (const frame of frames) {
+      if (
+        !Array.isArray(frame.players) ||
+        frame.players.length === 0 ||
+        !frame.ball ||
+        !Array.isArray(frame.events)
+      ) {
+        console.warn('Game.loadFrames: malformed frame payload ignored');
+        return;
+      }
+    }
+
+    // Drop the editing tactic sprites: the replay owns the pitch now
+    this.destroyAllPlayerSprites();
+    this.createMatchPlayers(firstFrame);
+    this.ensureBallSprite();
+    this.ballSprite?.setVisible(true);
+    this.restackLayers();
+
+    this.matchFrames = frames;
+    this.lastCelebratedFrame = -1;
+    this.resetCelebration();
+    this.currentFrame = 0;
+    this.isPlaying = false;
+
+    this.applyFrame(0);
+  }
+
+  /** Create the 10 replay sprites (5 challenger + 5 opponent) + scratch states */
+  private createMatchPlayers(firstFrame: MatchFrame): void {
+    const screenWidth = this.app.screen.width;
+    const screenHeight = this.app.screen.height;
+
+    for (const framePlayer of firstFrame.players) {
+      const key = matchPlayerKey(framePlayer.team, framePlayer.slot);
+      const sprite = new PlayerSprite(
+        {
+          id: key,
+          name: `Slot ${framePlayer.slot}`,
+          teamId: teamIdFromMatchTeam(framePlayer.team),
+          number: framePlayer.slot,
+          position: { x: framePlayer.x, y: framePlayer.y },
+          assignedScriptId: null,
+        },
+        screenWidth,
+        screenHeight,
+        // Replay sprites are non-editable: no selection, no hover, no drag
+        { onSelect: () => {}, onHover: () => {} },
+        { interactive: false }
+      );
+      this.players.set(key, sprite);
+      this.gameContainer.addChild(sprite.container);
+    }
+  }
+
+  private ensureBallSprite(): void {
+    if (!this.ballSprite) {
+      this.ballSprite = new BallSprite(this.app.screen.width, this.app.screen.height);
+      this.ballSprite.setVisible(false);
+    }
+  }
+
+  /** Destroy every player sprite (tactic or match) */
+  private destroyAllPlayerSprites(): void {
     for (const player of this.players.values()) {
       player.destroy();
     }
@@ -164,6 +431,34 @@ export class Game {
 
     // A destroyed selection must not leave a stale ring behind
     this.selectedPlayerId = null;
+  }
+
+  /**
+   * Re-assert z-order: field at the bottom, players above it, ball above the
+   * players (clearly distinguishable), celebration layer on top.
+   */
+  private restackLayers(): void {
+    if (this.field) {
+      this.gameContainer.addChild(this.field.container);
+    }
+    for (const sprite of this.players.values()) {
+      this.gameContainer.addChild(sprite.container);
+    }
+    if (this.ballSprite) {
+      this.gameContainer.addChild(this.ballSprite.container);
+    }
+    this.gameContainer.addChild(this.celebrationLayer);
+  }
+
+  private loadTacticInternal(tactic: TacticData): void {
+    // Remove the old players (tactic OR match sprites)
+    this.destroyAllPlayerSprites();
+
+    // The replay is over: hide the ball and drop the loaded frames
+    this.ballSprite?.setVisible(false);
+    this.matchFrames = [];
+    this.lastCelebratedFrame = -1;
+    this.resetCelebration();
 
     // Remember the tactic identity for read-back
     this.currentTacticId = tactic.id;
@@ -197,10 +492,10 @@ export class Game {
       this.gameContainer.addChild(sprite.container);
     }
 
-    // Reset simulation
-    this.simulationFrames = [];
+    // Reset playback
     this.currentFrame = 0;
     this.isPlaying = false;
+    this.restackLayers();
   }
 
   /**
@@ -263,6 +558,10 @@ export class Game {
   };
 
   assignScript(playerId: string, scriptId: string): void {
+    // Replay mode: the pitch is read-only. A script drop here must not
+    // mutate the replay sprites — onScriptAssigned would auto-save replay
+    // positions onto the active tactic.
+    if (this.matchFrames.length > 0) return;
     const player = this.players.get(playerId);
     if (player) {
       player.setScript(scriptId);
@@ -354,7 +653,8 @@ export class Game {
 
   step(direction: 'forward' | 'backward'): void {
     this.isPlaying = false;
-    if (direction === 'forward' && this.currentFrame < this.simulationFrames.length - 1) {
+    if (this.matchFrames.length === 0) return;
+    if (direction === 'forward' && this.currentFrame < this.matchFrames.length - 1) {
       this.currentFrame++;
     } else if (direction === 'backward' && this.currentFrame > 0) {
       this.currentFrame--;
@@ -363,10 +663,16 @@ export class Game {
   }
 
   seekFrame(frameIndex: number): void {
-    this.currentFrame = Math.max(0, Math.min(frameIndex, this.simulationFrames.length - 1));
+    if (this.matchFrames.length === 0) return;
+    this.currentFrame = Math.max(0, Math.min(frameIndex, this.matchFrames.length - 1));
     this.applyFrame(this.currentFrame);
   }
 
+  /**
+   * Canned simulation generator (legacy, story ≤ 3.6). Playback is
+   * frame-driven since story 3.7 (loadFrames); story 3.8 swaps this data
+   * source for real match frames. Kept intact until then.
+   */
   async runSimulation(): Promise<SimulationResult> {
     // TODO: Implémenter la vraie simulation avec les scripts IA
     // Pour l'instant, génère une simulation factice
@@ -394,9 +700,6 @@ export class Game {
       frames.push(frameStates);
     }
 
-    this.simulationFrames = frames;
-    this.currentFrame = 0;
-
     const result: SimulationResult = {
       frames,
       duration: totalFrames / 60,
@@ -417,10 +720,32 @@ export class Game {
     for (const player of this.players.values()) {
       player.updateScreenSize(width, height);
     }
+
+    this.ballSprite?.updateScreenSize(width, height);
+
+    // Mid-celebration: re-fit the flash to the resized screen. The pulse
+    // rides on the container alpha — only the geometry needs a refresh.
+    if (this.celebrationActive) {
+      this.flashOverlay.clear();
+      this.flashOverlay.rect(0, 0, width, height);
+      this.flashOverlay.fill({ color: 0xffffff, alpha: 1 });
+    }
+  }
+
+  /**
+   * Sprite census for test hooks: how many match players exist and whether
+   * the ball sprite is visible. Cheap introspection, no rendering cost.
+   */
+  getMatchSpriteInfo(): { players: number; ballVisible: boolean } {
+    return {
+      players: this.players.size,
+      ballVisible: this.ballSprite?.container.visible ?? false,
+    };
   }
 
   destroy(): void {
     try {
+      this.resetCelebration();
       this.field?.dispose();
       // Check if app was properly initialized before destroying
       if (this.app && this.app.renderer) {

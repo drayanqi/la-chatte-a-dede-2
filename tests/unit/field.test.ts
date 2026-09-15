@@ -17,6 +17,7 @@ import {
   percentToScreen,
   screenToPercent,
 } from '@/components/canvas/engine/fieldGeometry';
+import { FIELD_PALETTE } from '@/components/canvas/engine/Field';
 
 describe('Field Geometry', () => {
   describe('computePitchRect', () => {
@@ -385,6 +386,25 @@ describe('Field Geometry', () => {
       expect(pitch.height / 27).toBeLessThan(8);
       expect(radius).toBe(8);
     });
+  });
+});
+
+describe('Field Palette (story 3.7, Task 3/6)', () => {
+  it('should use the locked Epic 5.1 pitch palette from the UX spec', () => {
+    // THEN: pitch-base #1a2634, lines #ffffff, letterbox #111a24
+    expect(FIELD_PALETTE.pitchBase).toBe(0x1a2634);
+    expect(FIELD_PALETTE.lines).toBe(0xffffff);
+    expect(FIELD_PALETTE.letterbox).toBe(0x111a24);
+  });
+
+  it('should reserve team colors for accents, never as the floor paint', () => {
+    // Hard law (ux-design-specification.md): team/player colors never paint
+    // the floor beneath players — they only appear as half-wash gradients
+    // and goal frames.
+    expect(FIELD_PALETTE.homeHalf).toBe(0xff6b1a);
+    expect(FIELD_PALETTE.awayHalf).toBe(0x1a8cff);
+    expect(FIELD_PALETTE.pitchBase).not.toBe(FIELD_PALETTE.homeHalf);
+    expect(FIELD_PALETTE.pitchBase).not.toBe(FIELD_PALETTE.awayHalf);
   });
 });
 

@@ -19,6 +19,8 @@ import type {
   Position,
   PlayerFrameState,
   SimulationResult,
+  MatchFrame,
+  TeamId,
 } from '@/types';
 
 // ============================================================================
@@ -41,8 +43,12 @@ export interface TacticsCanvasProps {
   onFrameChanged?: (
     currentFrame: number,
     totalFrames: number,
-    states: PlayerFrameState[]
+    states: PlayerFrameState[],
+    ball: Position
   ) => void;
+
+  /** Callback quand un but est marqué dans les frames chargées */
+  onGoalScored?: (team: TeamId, scorerSlot: number) => void;
 
   /** Callback quand la simulation est terminée */
   onSimulationComplete?: (result: SimulationResult) => void;
@@ -63,6 +69,9 @@ export interface TacticsCanvasProps {
 export interface TacticsCanvasHandle {
   /** Charger une tactique */
   loadTactic: (tactic: TacticData) => void;
+
+  /** Charger des frames de replay (story 3.7) */
+  loadFrames: (frames: MatchFrame[]) => void;
 
   /** Assigner un script à un joueur */
   assignScript: (playerId: string, scriptId: string) => void;
@@ -101,20 +110,32 @@ export interface TacticsCanvasHandle {
 
 export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>(
   (
-    {
-      onPlayerSelected,
-      onPlayerHovered,
-      onFrameChanged,
-      onSimulationComplete,
-      onScriptDropped,
-      onScriptAssigned,
-      onPlayerMoved,
-      onPlayerDeselected,
-    },
+      {
+        onPlayerSelected,
+        onPlayerHovered,
+        onFrameChanged,
+        onGoalScored,
+        onSimulationComplete,
+        onScriptDropped,
+        onScriptAssigned,
+        onPlayerMoved,
+        onPlayerDeselected,
+      },
     ref
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const gameRef = useRef<Game | null>(null);
+
+    // Sprite census for E2E tests: the canvas DOM carries what the engine
+    // actually built (10 players + visible ball). Republished after init so
+    // a loadFrames call that queued behind initialization stays accurate.
+    const publishMatchCensus = useCallback(() => {
+      const info = gameRef.current?.getMatchSpriteInfo();
+      if (containerRef.current && info) {
+        containerRef.current.setAttribute('data-match-players', String(info.players));
+        containerRef.current.setAttribute('data-match-ball', String(info.ballVisible));
+      }
+    }, []);
 
     // Initialisation du moteur
     useEffect(() => {
@@ -130,8 +151,11 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         onPlayerHovered: (id, pos) => {
           onPlayerHovered?.(id, pos);
         },
-        onFrameChanged: (frame, total, states) => {
-          onFrameChanged?.(frame, total, states);
+        onFrameChanged: (frame, total, states, ball) => {
+          onFrameChanged?.(frame, total, states, ball);
+        },
+        onGoalScored: (team, scorerSlot) => {
+          onGoalScored?.(team, scorerSlot);
         },
         onSimulationComplete: (result) => {
           onSimulationComplete?.(result);
@@ -157,6 +181,10 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
           return;
         }
 
+        // Frames queued before init completed were flushed inside init —
+        // republish the census so the DOM reflects what was actually built
+        publishMatchCensus();
+
         // Setup resize observer after successful init
         resizeObserver = new ResizeObserver((entries) => {
           for (const entry of entries) {
@@ -178,12 +206,17 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         game.destroy();
         gameRef.current = null;
       };
-    }, []);
+    }, [publishMatchCensus]);
 
     // Exposer l'API impérative
     useImperativeHandle(ref, () => ({
       loadTactic: (tactic: TacticData) => {
         gameRef.current?.loadTactic(tactic);
+        publishMatchCensus();
+      },
+      loadFrames: (frames: MatchFrame[]) => {
+        gameRef.current?.loadFrames(frames);
+        publishMatchCensus();
       },
       assignScript: (playerId: string, scriptId: string) => {
         gameRef.current?.assignScript(playerId, scriptId);

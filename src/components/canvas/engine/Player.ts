@@ -12,6 +12,20 @@ interface PlayerCallbacks {
   onHover: (playerId: string | null, position: Position | null) => void;
 }
 
+/**
+ * Team colors (UX spec, Rocket League-inspired): home = orange,
+ * away = blue. Exported as the single source of truth for the engine,
+ * celebrations and tests.
+ */
+export const PLAYER_HOME_COLOR = 0xff6b1a; // Orange
+export const PLAYER_AWAY_COLOR = 0x1a8cff; // Bleu
+
+/** Options for replay (non-editable) sprites */
+interface PlayerSpriteOptions {
+  /** When false the sprite ignores pointer events (replay rendering) */
+  interactive?: boolean;
+}
+
 export class PlayerSprite {
   public container: Container;
   private circle: Graphics;
@@ -28,15 +42,16 @@ export class PlayerSprite {
   private radius: number;
 
   // Colors (Epic 5.1 — Rocket League-style, never the ground tint underneath)
-  private readonly HOME_COLOR = 0xff6b1a; // Orange
-  private readonly AWAY_COLOR = 0x1a8cff; // Bleu
+  private readonly HOME_COLOR = PLAYER_HOME_COLOR;
+  private readonly AWAY_COLOR = PLAYER_AWAY_COLOR;
   private readonly SELECTED_COLOR = 0xfbbf24; // Jaune
 
   constructor(
     player: Player,
     screenWidth: number,
     screenHeight: number,
-    callbacks: PlayerCallbacks
+    callbacks: PlayerCallbacks,
+    options: PlayerSpriteOptions = {}
   ) {
     this.player = player;
     this.screenWidth = screenWidth;
@@ -45,8 +60,8 @@ export class PlayerSprite {
     this.radius = computePlayerRadius(computePitchRect(screenWidth, screenHeight));
 
     this.container = new Container();
-    this.container.eventMode = 'static';
-    this.container.cursor = 'pointer';
+    this.container.eventMode = options.interactive === false ? 'none' : 'static';
+    this.container.cursor = options.interactive === false ? 'default' : 'pointer';
 
     // Cercle du joueur
     this.circle = new Graphics();

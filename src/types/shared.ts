@@ -118,11 +118,59 @@ export interface SimulationResult {
 // ============================================================================
 
 export type MatchMode = 'practice' | 'ranked';
-
 export type MatchStatus = 'pending' | 'completed' | 'failed';
 
 /** Final outcome, derived from the score by the API (null while pending/failed) */
 export type MatchOutcome = 'challenger_win' | 'opponent_win' | 'draw' | null;
+
+// ----------------------------------------------------------------------------
+// Match replay frames (mirror of the engine's Frame format, percent coords)
+// ----------------------------------------------------------------------------
+
+/** Team as written in match frame files: challenger = the user, opponent = the bot/rival */
+export type MatchTeam = 'challenger' | 'opponent';
+
+export interface MatchFrameBall {
+  x: number;
+  y: number;
+}
+
+export interface MatchFramePlayer {
+  slot: number;
+  team: MatchTeam;
+  x: number;
+  y: number;
+  state: 'idle' | 'moving' | 'action';
+}
+
+export interface MatchGoalEvent {
+  type: 'goal';
+  team: MatchTeam;
+  scorerSlot: number;
+}
+
+export type MatchFrameEvent = MatchGoalEvent;
+
+/** Structured log entry attached to a frame (debug panel, story 3.10) */
+export interface MatchFrameLog {
+  team: MatchTeam;
+  slot: number;
+  level: 'log' | 'warn' | 'error';
+  type: string;
+  message: string;
+}
+
+/**
+ * One replay frame as produced by the simulation engine. Coordinates are
+ * percent of the pitch (0-100). `events` carries per-tick events (goals).
+ */
+export interface MatchFrame {
+  index: number;
+  ball: MatchFrameBall;
+  players: MatchFramePlayer[];
+  events: MatchFrameEvent[];
+  logs: MatchFrameLog[];
+}
 
 /**
  * A match as exposed by the API (camelCase shape). The challenger is the
