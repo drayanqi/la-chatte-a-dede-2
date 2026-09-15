@@ -6,7 +6,8 @@
  *   Deliberately minimal (no animated spinner — deferred-work.md anti-pattern)
  *   and NOT dismissible: the server-side work continues regardless, so
  *   Escape/click-away must not pretend to cancel it.
- * - Result: score banner with a Watch Replay button (frame loading is story 3.8).
+ * - Result: score banner with a Watch Replay button that loads and plays
+ *   the match frames (story 3.8, AC #1).
  * - Error: message with a Retry button; the overlay is dismissed.
  */
 
@@ -18,6 +19,8 @@ interface MatchStatusOverlayProps {
   error: string | null;
   /** Restart the simulation after a failure */
   onRetry: () => void;
+  /** Load and play the finished match's replay (story 3.8, AC #1) */
+  onWatchReplay?: () => void;
 }
 
 export const MatchStatusOverlay: React.FC<MatchStatusOverlayProps> = ({
@@ -25,6 +28,7 @@ export const MatchStatusOverlay: React.FC<MatchStatusOverlayProps> = ({
   match,
   error,
   onRetry,
+  onWatchReplay,
 }) => {
   if (isSimulating) {
     return (
@@ -56,7 +60,12 @@ export const MatchStatusOverlay: React.FC<MatchStatusOverlayProps> = ({
         <span style={styles.score} data-testid="match-result-score">
           You {match.scoreChallenger} — {match.scoreOpponent} Easy Bot
         </span>
-        <button type="button" style={styles.button} data-testid="watch-replay-button">
+        <button
+          type="button"
+          style={styles.button}
+          data-testid="watch-replay-button"
+          onClick={onWatchReplay}
+        >
           Watch Replay
         </button>
       </div>

@@ -44,7 +44,8 @@ export interface TacticsCanvasProps {
     currentFrame: number,
     totalFrames: number,
     states: PlayerFrameState[],
-    ball: Position
+    ball: Position,
+    playing: boolean
   ) => void;
 
   /** Callback quand un but est marqué dans les frames chargées */
@@ -151,8 +152,8 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         onPlayerHovered: (id, pos) => {
           onPlayerHovered?.(id, pos);
         },
-        onFrameChanged: (frame, total, states, ball) => {
-          onFrameChanged?.(frame, total, states, ball);
+        onFrameChanged: (frame, total, states, ball, playing) => {
+          onFrameChanged?.(frame, total, states, ball, playing);
         },
         onGoalScored: (team, scorerSlot) => {
           onGoalScored?.(team, scorerSlot);

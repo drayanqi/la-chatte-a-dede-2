@@ -1,5 +1,5 @@
 /**
- * Practice Match E2E Tests (story 3.5)
+ * Practice Match E2E Tests (stories 3.5, 3.7 and 3.8)
  *
  * The core value proposition: Code -> Test -> Watch. A user with a complete
  * lineup clicks "Test vs Bot" and sees the simulation run synchronously —
@@ -7,14 +7,28 @@
  * button (AC #1, #2). A failed engine run surfaces an error message with a
  * retry affordance instead of a broken match (AC #4).
  *
+ * The replay section (story 3.8) drives the full Watch loop against the
+ * real stack: the finished match's frames load from the API, playback
+ * autoplays at 60fps, pause/Space control it (AC #2, #3) and the most
+ * recent match is one click away after a reload (AC #4).
+ *
  * Runs against the real stack: Laravel API + Node game engine (third
  * webServer in playwright.config.ts).
  *
- * @see FR20, FR21, NFR2 in PRD
+ * @see FR20, FR21, NFR2, NFR3 in PRD
  */
 import { test, expect } from '../support/fixtures';
 import { seedAuthToken } from '../support/helpers/auth';
 import { TEST_LOAD_FRAMES_EVENT } from '../../src/lib/testHooks';
+import type { Locator } from '@playwright/test';
+
+/** Extract the current frame from the Timeline counter ("Frame: 42 / 10800") */
+const currentFrameOf = async (counter: Locator): Promise<number> => {
+  const text = (await counter.textContent()) ?? '';
+  const match = text.match(/Frame: (\d+)/);
+  if (!match) throw new Error(`Unexpected frame counter text: "${text}"`);
+  return Number(match[1]);
+};
 
 test.describe('Practice Match', () => {
   // Serial per project: the practice-match tests hold the single PHP worker
@@ -165,6 +179,118 @@ test.describe('Practice Match', () => {
     // The celebration layer clears after ~1.5s; the score stays on screen
     await expect(page.getByTestId('goal-celebration-layer')).toBeHidden({ timeout: 3000 });
     await expect(page.getByTestId('score-display')).toHaveText('1 — 0');
+  });
+
+  // Story 3.8 (AC #1-#4): the full Watch loop over the real stack — the
+  // finished match's frames load from the API, playback autoplays, pause
+  // and Space control it, and the most recent match is one click away.
+  test('watches the replay of the most recent completed match (AC #1-#4)', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.createStarter(user.token!);
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [script.id, script.id, script.id, script.id, script.id],
+    });
+
+    await seedAuthToken(page, user.token!);
+    await page.goto('/workspace');
+
+    // The workspace auto-loads the default tactic (5 edit sprites) first
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+
+    // Complete a real match: the replay needs real engine frames
+    const startButton = page.getByTestId('test-vs-bot-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
+    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    // AC #1: Watch Replay -> loading overlay while the ~5-8MB frame file
+    // fetches, then the match loads and playback begins. The response
+    // listener makes the overlay window deterministic: the fetch has
+    // started but not settled while we assert visibility.
+    const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
+    await page.getByTestId('watch-replay-button').click();
+    await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
+    await framesResponse;
+    await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+
+    await expect(canvas).toHaveAttribute('data-match-players', '10');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'true');
+    await expect(page.getByTestId('score-display')).toBeVisible();
+
+    // AC #1 / NFR3: autoplay advances the frames (time-based 60fps ticker)
+    const counter = page.getByTestId('frame-counter');
+    const frameAtStart = await currentFrameOf(counter);
+    await expect
+      .poll(() => currentFrameOf(counter), { timeout: 10000 })
+      .toBeGreaterThan(frameAtStart);
+
+    // AC #2: pause freezes the playback — poll until the counter stops
+    // moving (gives the click time to reach the engine, no fixed sleep),
+    // then the frozen frame is the resume reference
+    await page.getByTestId('play-pause-button').click();
+    await expect
+      .poll(
+        async () => {
+          const before = await currentFrameOf(counter);
+          await page.waitForTimeout(150);
+          return (await currentFrameOf(counter)) - before;
+        },
+        { timeout: 10000 }
+      )
+      .toBe(0);
+    const framePaused = await currentFrameOf(counter);
+
+    // ...and play resumes from that exact frame
+    await page.getByTestId('play-pause-button').click();
+    await expect
+      .poll(() => currentFrameOf(counter), { timeout: 10000 })
+      .toBeGreaterThan(framePaused);
+
+    // AC #3: Space toggles pause, then play again (same stable-freeze poll)
+    await page.keyboard.press('Space');
+    await expect
+      .poll(
+        async () => {
+          const before = await currentFrameOf(counter);
+          await page.waitForTimeout(150);
+          return (await currentFrameOf(counter)) - before;
+        },
+        { timeout: 10000 }
+      )
+      .toBe(0);
+    const frameSpacePause = await currentFrameOf(counter);
+
+    await page.keyboard.press('Space');
+    await expect
+      .poll(() => currentFrameOf(counter), { timeout: 10000 })
+      .toBeGreaterThan(frameSpacePause);
+
+    // AC #4: after a reload, the most recent match is one click away
+    await page.reload();
+    const watchLastMatch = page.getByTestId('watch-last-match-button');
+    await expect(watchLastMatch).toBeVisible();
+    const reloadFramesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
+    await watchLastMatch.click();
+    await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
+    await reloadFramesResponse;
+    await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+    await expect(canvas).toHaveAttribute('data-match-players', '10');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'true');
+
+    // Back to editor: the tactic canvas is restored, replay UI is gone
+    await page.getByTestId('back-to-editor-button').click();
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+    await expect(page.getByTestId('score-display')).toBeHidden();
+    await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
   });
 
   test('shows the error banner with retry when the engine fails (AC #4)', async ({

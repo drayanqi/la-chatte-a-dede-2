@@ -31,7 +31,6 @@ describe('Canvas Store', () => {
       expect(state.selectedPlayerId).toBeNull();
       expect(state.hoveredPlayerId).toBeNull();
       expect(state.tacticLoaded).toBe(false);
-      expect(state.simulationReady).toBe(false);
       expect(state.playerStates).toEqual([]);
     });
   });
@@ -277,18 +276,6 @@ describe('Canvas Store', () => {
       expect(useCanvasStore.getState().tacticLoaded).toBe(true);
     });
 
-    it('should set simulation ready state', () => {
-      // GIVEN: Simulation not ready
-      const store = useCanvasStore.getState();
-      expect(store.simulationReady).toBe(false);
-
-      // WHEN: Simulation becomes ready
-      store.setSimulationReady(true);
-
-      // THEN: Simulation should be ready
-      expect(useCanvasStore.getState().simulationReady).toBe(true);
-    });
-
     it('should allow clearing tactic loaded state', () => {
       // GIVEN: Tactic loaded
       const store = useCanvasStore.getState();
@@ -310,7 +297,6 @@ describe('Canvas Store', () => {
       store.setHoveredPlayer('player-2');
       store.updatePlaybackState(true, 50, 100);
       store.setTacticLoaded(true);
-      store.setSimulationReady(true);
       store.updatePlayerStates([
         { playerId: 'player-1', position: { x: 0, y: 0 }, velocity: { vx: 0, vy: 0 }, state: 'idle' },
       ]);
@@ -326,7 +312,6 @@ describe('Canvas Store', () => {
       expect(state.selectedPlayerId).toBeNull();
       expect(state.hoveredPlayerId).toBeNull();
       expect(state.tacticLoaded).toBe(false);
-      expect(state.simulationReady).toBe(false);
       expect(state.playerStates).toEqual([]);
     });
   });

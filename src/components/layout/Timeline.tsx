@@ -54,6 +54,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 
         <button
           style={styles.playButton}
+          data-testid="play-pause-button"
           onClick={isPlaying ? onPause : onPlay}
           disabled={totalFrames === 0}
         >
@@ -95,7 +96,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       {/* Frame counter */}
-      <div style={styles.frameCounter}>
+      <div style={styles.frameCounter} data-testid="frame-counter">
         Frame: {currentFrame} / {totalFrames}
       </div>
     </div>

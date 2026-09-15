@@ -188,6 +188,15 @@ export interface MatchResult {
   createdAt: string;
 }
 
+/**
+ * The simulation frame file as written by the engine and served raw by
+ * GET /api/matches/{id}/frames (story 3.8). Only the consumed key is
+ * declared; the engine owns the full shape (SimulationFrameFile).
+ */
+export interface MatchFramesFile {
+  frames: MatchFrame[];
+}
+
 // ============================================================================
 // DEBUGGER
 // ============================================================================

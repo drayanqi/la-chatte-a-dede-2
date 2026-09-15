@@ -29,7 +29,14 @@ export interface GameConfig {
 export interface GameCallbacks {
   onPlayerSelected: (playerId: string, teamId: 'home' | 'away', position: Position, scriptId: string | null) => void;
   onPlayerHovered: (playerId: string | null, position: Position | null) => void;
-  onFrameChanged: (frame: number, total: number, states: PlayerFrameState[], ball: Position) => void;
+  /** Fired for every applied frame; `playing` mirrors the engine playback state */
+  onFrameChanged: (
+    frame: number,
+    total: number,
+    states: PlayerFrameState[],
+    ball: Position,
+    playing: boolean
+  ) => void;
   onSimulationComplete: (result: SimulationResult) => void;
   /** Fired when a frame carries a goal event (celebration + score update) */
   onGoalScored?: (team: TeamId, scorerSlot: number) => void;
@@ -157,16 +164,19 @@ export class Game {
     }
   }
 
-  private gameLoop(ticker: { deltaTime: number }): void {
+  private gameLoop(ticker: { deltaTime: number; deltaMS: number }): void {
     if (this.celebrationActive) {
       this.updateCelebration(ticker.deltaTime);
     }
 
     if (this.isPlaying && this.matchFrames.length > 0) {
-      // Avancer les frames selon la vitesse de lecture
-      this.currentFrame += this.playbackSpeed * (ticker.deltaTime / 60);
+      // Time-based advance (story 3.8): deltaMS/1000 seconds × 60 fps.
+      // Never assume the ticker runs at exactly 60fps — a slower or faster
+      // render rate must not change the playback speed.
+      this.currentFrame += this.playbackSpeed * ((ticker.deltaMS / 1000) * 60);
 
       if (this.currentFrame >= this.matchFrames.length) {
+        // Loop off: stop at the last frame; the final score stays on screen
         this.currentFrame = this.matchFrames.length - 1;
         this.isPlaying = false;
       }
@@ -205,7 +215,13 @@ export class Game {
 
     this.handleFrameEvents(frameIndex, frame.events);
 
-    this.callbacks.onFrameChanged(frameIndex, this.matchFrames.length, states, frame.ball);
+    this.callbacks.onFrameChanged(
+      frameIndex,
+      this.matchFrames.length,
+      states,
+      frame.ball,
+      this.isPlaying
+    );
   }
 
   /**
@@ -378,7 +394,9 @@ export class Game {
     this.lastCelebratedFrame = -1;
     this.resetCelebration();
     this.currentFrame = 0;
-    this.isPlaying = false;
+    // Autoplay (story 3.8, AC #1): playback starts from frame 0 immediately.
+    // Loop off — gameLoop clamps at the last frame and stops there.
+    this.isPlaying = true;
 
     this.applyFrame(0);
   }
@@ -644,6 +662,11 @@ export class Game {
 
   // Contrôles de lecture
   play(): void {
+    // Play at the end of playback restarts from frame 0 (rewatch without
+    // reload) — loop-off leaves currentFrame clamped at the last frame
+    if (this.matchFrames.length > 0 && this.currentFrame >= this.matchFrames.length - 1) {
+      this.currentFrame = 0;
+    }
     this.isPlaying = true;
   }
 
@@ -669,45 +692,16 @@ export class Game {
   }
 
   /**
-   * Canned simulation generator (legacy, story ≤ 3.6). Playback is
-   * frame-driven since story 3.7 (loadFrames); story 3.8 swaps this data
-   * source for real match frames. Kept intact until then.
+   * Deprecated canned simulation (story ≤ 3.6, retired in 3.8): playback is
+   * frame-driven via loadFrames(). Kept as a no-op so the public
+   * TacticsCanvasHandle API stays stable — returns an empty result without
+   * touching sprites or playback, and never fires onSimulationComplete.
+   *
+   * @deprecated Feed match frames via loadFrames() instead.
    */
   async runSimulation(): Promise<SimulationResult> {
-    // TODO: Implémenter la vraie simulation avec les scripts IA
-    // Pour l'instant, génère une simulation factice
-
-    const frames: PlayerFrameState[][] = [];
-    const totalFrames = 300; // 5 secondes à 60fps
-
-    for (let f = 0; f < totalFrames; f++) {
-      const frameStates: PlayerFrameState[] = [];
-
-      for (const [id, player] of this.players) {
-        const basePos = player.getPosition();
-        // Simple demo movement
-        frameStates.push({
-          playerId: id,
-          position: {
-            x: basePos.x + Math.sin(f / 30) * 2,
-            y: basePos.y + Math.cos(f / 30) * 2,
-          },
-          velocity: { vx: 0, vy: 0 },
-          state: 'moving',
-        });
-      }
-
-      frames.push(frameStates);
-    }
-
-    const result: SimulationResult = {
-      frames,
-      duration: totalFrames / 60,
-      errors: [],
-    };
-
-    this.callbacks.onSimulationComplete(result);
-    return result;
+    console.warn('Game.runSimulation is deprecated: feed match frames via loadFrames() instead.');
+    return { frames: [], duration: 0, errors: [] };
   }
 
   resize(width: number, height: number): void {

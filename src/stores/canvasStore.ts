@@ -18,7 +18,6 @@ interface CanvasState {
 
   // État de la tactique
   tacticLoaded: boolean;
-  simulationReady: boolean;
 
   // États des joueurs (dernière frame)
   playerStates: PlayerFrameState[];
@@ -39,7 +38,6 @@ interface CanvasActions {
 
   // Mise à jour du state
   setTacticLoaded: (loaded: boolean) => void;
-  setSimulationReady: (ready: boolean) => void;
 
   // Reset
   reset: () => void;
@@ -52,7 +50,6 @@ const initialState: CanvasState = {
   selectedPlayerId: null,
   hoveredPlayerId: null,
   tacticLoaded: false,
-  simulationReady: false,
   playerStates: [],
   matchFrames: [],
 };
@@ -79,8 +76,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>((set) => ({
   setMatchFrames: (frames) => set({ matchFrames: frames }),
 
   setTacticLoaded: (loaded) => set({ tacticLoaded: loaded }),
-
-  setSimulationReady: (ready) => set({ simulationReady: ready }),
 
   reset: () => set(initialState),
 }));

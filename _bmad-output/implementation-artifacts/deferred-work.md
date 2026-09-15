@@ -75,3 +75,7 @@
 ## Deferred from: code review of 3-7-match-canvas-renderer (2026-09-15)
 
 - **runSimulation() no longer feeds playback** — the engine playback primitives (play/pause/step/seekFrame) now operate exclusively on `matchFrames` loaded via `loadFrames`; `runSimulation()` remains exposed on the TacticsCanvas imperative handle as the legacy canned generator but has zero callers, so its old `runSimulation() → play()` contract silently no-ops. Intentional transitional state: story 3.8 (replay playback system) swaps the data source and should either rewire `runSimulation` output into `loadFrames` or delete the method and its TacticsCanvas wrapper.
+
+## Deferred from: code review of 3-8-replay-playback-system (2026-09-15)
+
+- **Generated `tsconfig.tsbuildinfo` tracked in git** — the incremental-build artifact churns on every typecheck, producing noisy diffs and merge conflicts. Pre-existing repo hygiene: add `*.tsbuildinfo` to .gitignore and `git rm --cached tsconfig.tsbuildinfo` (outside story 3.8 scope).

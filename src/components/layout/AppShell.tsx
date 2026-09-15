@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
 import { computeScore } from '@/lib/score';
+import { shouldTogglePlayback } from '@/lib/playbackShortcuts';
 import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
 import type { MatchFrame, PlayerFrameState, TeamId } from '@/types';
 
@@ -52,7 +53,6 @@ export const AppShell: React.FC = () => {
     updatePlaybackState,
     updatePlayerStates,
     setTacticLoaded,
-    setSimulationReady,
     isPlaying,
     currentFrame,
     totalFrames,
@@ -60,6 +60,24 @@ export const AppShell: React.FC = () => {
 
   const { isAuthenticated } = useAuthStore();
   const { fetchScripts } = useEditorStore();
+
+  // Match + replay playback state (story 3.8): the loaded frames, the owning
+  // match, loading/error surfaces and the newest completed match (AC #4)
+  const {
+    isSimulating,
+    lastMatch,
+    matchError,
+    startPracticeMatch,
+    replayFrames,
+    replayMatch,
+    isReplayLoading,
+    replayError,
+    latestMatch,
+    loadReplay,
+    cancelReplayLoad,
+    fetchLatestMatch,
+    clearReplay,
+  } = useMatchStore();
 
   const fetchTactics = useTacticsStore((state) => state.fetchTactics);
   const activeTacticId = useTacticsStore((state) => state.activeTacticId);
@@ -137,8 +155,30 @@ export const AppShell: React.FC = () => {
     // A tactic load ends any replay (the engine just dropped its frames):
     // clear the match state so the score display and playback follow
     setMatchFrames([]);
+    clearReplay();
+    // The engine reset its playback silently (loadTacticInternal emits
+    // nothing): sync the store or the Timeline keeps showing a stale
+    // playing/frame-N state from the dropped replay
+    updatePlaybackState(false, 0, 0);
+    updatePlayerStates([]);
     setTacticLoaded(true);
-  }, [activeTacticId, setMatchFrames, setTacticLoaded, setSelectedPlayer]);
+  }, [
+    activeTacticId,
+    setMatchFrames,
+    setTacticLoaded,
+    setSelectedPlayer,
+    clearReplay,
+    updatePlaybackState,
+    updatePlayerStates,
+  ]);
+
+  // "Watch last match" (story 3.8, AC #4): resolve the newest completed
+  // match once when authenticated so the subtle entry can appear
+  useEffect(() => {
+    if (isAuthenticated) {
+      void fetchLatestMatch();
+    }
+  }, [isAuthenticated, fetchLatestMatch]);
 
   // Mirror the persistent selection into the engine so exactly the selected
   // player keeps its ring (single source of truth: the store)
@@ -166,11 +206,17 @@ export const AppShell: React.FC = () => {
   );
 
   const handleFrameChanged = useCallback(
-    (frame: number, total: number, states: PlayerFrameState[], _ball: { x: number; y: number }) => {
-      updatePlaybackState(isPlaying, frame, total);
+    (
+      frame: number,
+      total: number,
+      states: PlayerFrameState[],
+      _ball: { x: number; y: number },
+      playing: boolean
+    ) => {
+      updatePlaybackState(playing, frame, total);
       updatePlayerStates(states);
     },
-    [updatePlaybackState, updatePlayerStates, isPlaying]
+    [updatePlaybackState, updatePlayerStates]
   );
 
   // Goal scored (story 3.7): flash/confetti live in the engine (Pixi); the
@@ -215,9 +261,64 @@ export const AppShell: React.FC = () => {
     [matchFrames, currentFrame]
   );
 
-  const handleSimulationComplete = useCallback(() => {
-    setSimulationReady(true);
-  }, [setSimulationReady]);
+  // Replay mode: a loaded replay owns the canvas (edit mode shows the tactic)
+  const isReplayMode = replayFrames.length > 0;
+
+  // Hand a freshly loaded replay to the engine (autoplay starts inside
+  // loadFrames) and mirror the same array reference into the score slice —
+  // one parse, one array, no duplicated frames across slices
+  useEffect(() => {
+    if (replayFrames.length === 0) return;
+    setSelectedPlayer(null);
+    setMatchFrames(replayFrames);
+    canvasRef.current?.loadFrames(replayFrames);
+  }, [replayFrames, setMatchFrames, setSelectedPlayer]);
+
+  // Watch Replay (story 3.8, AC #1): load the finished match's frames
+  const handleWatchReplay = useCallback(() => {
+    if (!lastMatch || isReplayLoading) return;
+    void loadReplay(lastMatch.id, lastMatch);
+  }, [lastMatch, isReplayLoading, loadReplay]);
+
+  // Watch last match (story 3.8, AC #4): one click to the most recent replay
+  const handleWatchLastMatch = useCallback(() => {
+    if (!latestMatch || isReplayLoading) return;
+    void loadReplay(latestMatch.id, latestMatch);
+  }, [latestMatch, isReplayLoading, loadReplay]);
+
+  // Retry after a replay load failure (AC: 3.5 #4 philosophy)
+  const handleReplayRetry = useCallback(() => {
+    if (!replayMatch || isReplayLoading) return;
+    void loadReplay(replayMatch.id, replayMatch);
+  }, [replayMatch, isReplayLoading, loadReplay]);
+
+  // Back to editor (story 3.8): exit replay mode and restore the active
+  // tactic — the engine dropped its replay sprites on tactic load
+  const handleBackToEditor = useCallback(() => {
+    clearReplay();
+    setMatchFrames([]);
+    updatePlaybackState(false, 0, 0);
+    updatePlayerStates([]);
+
+    const { tactics, activeTacticId: currentActiveId } = useTacticsStore.getState();
+    const target = currentActiveId ? tactics.find((tactic) => tactic.id === currentActiveId) : null;
+    if (target) {
+      canvasRef.current?.loadTactic(tacticConfigToTacticData(target));
+      setTacticLoaded(true);
+    } else {
+      // No tactic to restore: at least stop the engine — otherwise the
+      // replay keeps rendering (playing or frozen) behind the edit-mode
+      // UI with no exit control to escape it
+      canvasRef.current?.pause();
+      canvasRef.current?.seekFrame(0);
+      setTacticLoaded(false);
+    }
+  }, [clearReplay, setMatchFrames, updatePlaybackState, updatePlayerStates, setTacticLoaded]);
+
+  // Cancel a replay load in flight (review decision 3c): unblock the UI
+  const handleCancelReplayLoad = useCallback(() => {
+    cancelReplayLoad();
+  }, [cancelReplayLoad]);
 
   // Auto-save (story 3.2): a discrete action completion — script assignment
   // or player move-end — reads the engine state back and persists it
@@ -256,10 +357,8 @@ export const AppShell: React.FC = () => {
     canvasRef.current?.detachScript(scriptId);
   }, []);
 
-  // Start Match (story 3.5): launch the practice simulation against the Easy
-  // Bot with the active tactic. The request is synchronous; the overlay and
-  // the disabled button block any double-start.
-  const { isSimulating, lastMatch, matchError, startPracticeMatch } = useMatchStore();
+  // Practice match start/retry (story 3.5): the replay bindings above share
+  // the same store subscription
 
   const handleStartPractice = useCallback(() => {
     if (!activeTactic || !lineupComplete || isSimulating) return;
@@ -295,6 +394,40 @@ export const AppShell: React.FC = () => {
     canvasRef.current?.seekFrame(frame);
   }, []);
 
+  // Space play/pause (story 3.8, AC #3): toggle only when the keystroke does
+  // not belong to an editor surface (Monaco textarea, inputs)
+  const togglePlayback = useCallback(() => {
+    const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
+      useCanvasStore.getState();
+
+    // Nothing loaded: the Timeline button is disabled for the same reason —
+    // toggling would set a phantom "playing" state with zero frames
+    if (total === 0) return;
+
+    if (playing) {
+      canvasRef.current?.pause();
+      updatePlaybackState(false, frame, total);
+    } else {
+      canvasRef.current?.play();
+      updatePlaybackState(true, frame, total);
+    }
+  }, [updatePlaybackState]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore auto-repeat: a held Space would machine-gun the toggle
+      if (event.repeat) return;
+      if (!shouldTogglePlayback(event)) return;
+      // Swallow the default: page scroll (buttons and links keep their
+      // native Space activation — shouldTogglePlayback excludes them)
+      event.preventDefault();
+      togglePlayback();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlayback]);
+
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -313,6 +446,7 @@ export const AppShell: React.FC = () => {
         match={lastMatch}
         error={matchError}
         onRetry={handleRetryMatch}
+        onWatchReplay={handleWatchReplay}
       />
 
       {/* Main content */}
@@ -359,7 +493,6 @@ export const AppShell: React.FC = () => {
             onPlayerHovered={handlePlayerHovered}
             onFrameChanged={handleFrameChanged}
             onGoalScored={handleGoalScored}
-            onSimulationComplete={handleSimulationComplete}
             onScriptDropped={handleScriptDropped}
             onScriptAssigned={handleScriptAssigned}
             onPlayerMoved={handlePlayerMoved}
@@ -370,6 +503,76 @@ export const AppShell: React.FC = () => {
           {matchFrames.length > 0 && (
             <div data-testid="score-display" style={styles.scoreDisplay}>
               {score.challenger} — {score.opponent}
+            </div>
+          )}
+
+          {/* Back to editor (story 3.8): exit replay mode to the workspace */}
+          {isReplayMode && (
+            <button
+              type="button"
+              data-testid="back-to-editor-button"
+              onClick={handleBackToEditor}
+              aria-label="Exit replay, back to tactic editor"
+              style={styles.replayCornerButton}
+            >
+              ← Back to editor
+            </button>
+          )}
+
+          {/* Watch last match (story 3.8, AC #4): subtle one-click entry to
+              the most recent completed match; never auto-opens the viewer */}
+          {latestMatch && !isReplayMode && !isReplayLoading && !replayError && (
+            <button
+              type="button"
+              data-testid="watch-last-match-button"
+              onClick={handleWatchLastMatch}
+              aria-label="Watch the replay of the most recent completed match"
+              style={styles.replayCornerButton}
+            >
+              ▶ Watch last match
+            </button>
+          )}
+
+          {/* Replay load failure (story 3.8): friendly state + retry (same
+              philosophy as 3.5 AC #4) */}
+          {replayError && (
+            <div data-testid="replay-error-banner" role="alert" style={styles.replayErrorBanner}>
+              <span data-testid="replay-error-message" style={styles.replayErrorText}>
+                {replayError}
+              </span>
+              <button
+                type="button"
+                data-testid="replay-retry-button"
+                onClick={handleReplayRetry}
+                style={styles.replayErrorRetryButton}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Replay loading (story 3.8, AC #1): blocks the UI while the
+              ~5-8MB frame file downloads, with a cancel affordance (review
+              decision 3c) so a hung request cannot brick the workspace */}
+          {isReplayLoading && (
+            <div
+              data-testid="replay-loading-overlay"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
+              style={styles.replayLoadingOverlay}
+            >
+              <div style={styles.replayLoadingContent}>
+                <span style={styles.replayLoadingText}>Loading replay...</span>
+                <button
+                  type="button"
+                  data-testid="replay-cancel-button"
+                  onClick={handleCancelReplayLoad}
+                  style={styles.replayCancelButton}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
 
@@ -493,6 +696,78 @@ const styles: Record<string, React.CSSProperties> = {
     inset: 0,
     pointerEvents: 'none',
     zIndex: 20,
+  },
+  replayCornerButton: {
+    position: 'absolute',
+    top: '12px',
+    left: '12px',
+    padding: '6px 12px',
+    backgroundColor: 'rgba(37, 37, 38, 0.85)',
+    color: '#cccccc',
+    border: '1px solid #3c3c3c',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    zIndex: 10,
+    userSelect: 'none',
+  },
+  replayErrorBanner: {
+    position: 'absolute',
+    top: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '8px 16px',
+    backgroundColor: '#252526',
+    border: '1px solid #3c3c3c',
+    borderRadius: '8px',
+    zIndex: 10,
+  },
+  replayErrorText: {
+    fontSize: '13px',
+    color: '#f48771',
+  },
+  replayErrorRetryButton: {
+    padding: '4px 12px',
+    backgroundColor: '#0e639c',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
+  },
+  replayLoadingOverlay: {
+    position: 'fixed',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 30, 30, 0.75)',
+    zIndex: 1600,
+  },
+  replayLoadingContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '14px',
+  },
+  replayLoadingText: {
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#ffffff',
+  },
+  replayCancelButton: {
+    padding: '6px 18px',
+    backgroundColor: '#0e639c',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
   },
   rightPanel: {
     flexShrink: 0,
