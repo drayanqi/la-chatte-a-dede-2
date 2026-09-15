@@ -1706,7 +1706,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'Original.js',
-      code: 'original code',
+      code: withUpdate('original code'),
     });
 
     await page.goto('/');
@@ -1739,7 +1739,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'AutoOpenDup.js',
-      code: 'test code',
+      code: withUpdate('test code'),
     });
 
     await page.goto('/');
@@ -2113,7 +2113,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'ActiveDeleteTest.js',
-      code: 'test code',
+      code: withUpdate('test code'),
     });
 
     await page.goto('/');
@@ -2161,12 +2161,12 @@ test.describe('Story 2.8 - Delete AI File', () => {
     const script1 = await scriptFactory.create({
       token: user.token!,
       name: 'DeleteMe.js',
-      code: 'delete me',
+      code: withUpdate('delete me'),
     });
     const script2 = await scriptFactory.create({
       token: user.token!,
       name: 'KeepMe.js',
-      code: 'keep me',
+      code: withUpdate('keep me'),
     });
 
     await page.goto('/');

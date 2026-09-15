@@ -63,8 +63,6 @@ class ScriptController extends Controller
         $code = $validated['code'] ?? '';
         $language = $validated['language'] ?? 'javascript';
 
-        Log::warning('PROBE-CODE-RECEIVED', ['code' => $code]);
-
         $validation = $this->validateWithEngine($code, $language);
         if ($validation['engine_reachable'] && !$validation['valid']) {
             return response()->json([
