@@ -2,7 +2,7 @@
 
 > **Statut** : VALIDE par Pelo
 > **Date** : 2026-09-15
-> **Version** : 1.4 (vitesse Ballon encore reduite de 20% : MAX_BALL_SPEED = 5/1.75 x 0.8 = 2.2857, decision Pelo 2026-09-15 ; v1.3 PLAYER_SPEED = 1/1.5 et MAX_BALL_SPEED = 5/1.75)
+> **Version** : 1.6 (v1.6 : joueurs encore 10% plus lents PLAYER_SPEED = 1/1.8/1.1 = 0.5051 ; v1.5 : joueurs 20% plus lents PLAYER_SPEED = 1/1.8, ballon 10% plus rapide MAX_BALL_SPEED = 5/1.75 x 0.8 x 1.1 = 2.5143 ; v1.4 vitesse Ballon encore reduite de 20% : MAX_BALL_SPEED = 5/1.75 x 0.8 = 2.2857 ; v1.3 PLAYER_SPEED = 1/1.5 et MAX_BALL_SPEED = 5/1.75)
 
 ---
 
@@ -103,7 +103,7 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 
 | Parametre | Valeur |
 |-----------|--------|
-| Vitesse | Constante (PLAYER_SPEED = 0.6667 = 1 / 1.5) |
+| Vitesse | Constante (PLAYER_SPEED = 0.5051 = 1 / 1.8 / 1.1) |
 | Vitesse du porteur (dribble) | **0.80 x PLAYER_SPEED** (CARRIER_SPEED_MULTIPLIER) |
 | Collisions entre joueurs | **Non** (se traversent) |
 | Acceleration | Non (vitesse immediate) |
@@ -112,7 +112,7 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 
 | Parametre | Valeur |
 |-----------|--------|
-| Vitesse max | MAX_BALL_SPEED = 2.2857 = 5.0 / 1.75 x 0.8 |
+| Vitesse max | MAX_BALL_SPEED = 2.5143 = 5.0 / 1.75 x 0.8 x 1.1 |
 | Friction | 0.95 par tick |
 | Vitesse min | 0.1 (en dessous = arret) |
 | Rebonds | Oui (bords et lignes de but) |
@@ -206,12 +206,12 @@ const GAME_RULES = {
   CENTER_Y: 25,
 
   // Joueurs
-  PLAYER_SPEED: 0.6667,             // 1 / 1.5 (v1.3, Pelo 2026-09-15)
+  PLAYER_SPEED: 0.5051,             // 1 / 1.8 / 1.1 (v1.6, signature en attente — voir deferred-work.md)
   CARRIER_SPEED_MULTIPLIER: 0.80,   // vitesse du porteur (dribble)
   PLAYERS_PER_TEAM: 5,
 
   // Ballon
-  MAX_BALL_SPEED: 2.2857,           // 5.0 / 1.75 x 0.8 (v1.4, Pelo 2026-09-15)
+  MAX_BALL_SPEED: 2.5143,           // 5.0 / 1.75 x 0.8 x 1.1 (v1.6, signature en attente — voir deferred-work.md)
   BALL_FRICTION: 0.95,
   MIN_BALL_SPEED: 0.1,
   COLLISION_RADIUS: 2.0,

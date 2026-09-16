@@ -35,28 +35,28 @@ function matchPayload(seed: number): SimulatePayload {
   };
 }
 
-describe('Easy Bot balance (AC #2, v1.4 baseline)', () => {
-  it('pins the StarterAI vs Easy Bot outcomes accepted by Pelo at v1.4 speeds', async () => {
+describe('Easy Bot balance (AC #2, v1.6 baseline)', () => {
+  it('pins the StarterAI vs Easy Bot outcomes accepted at v1.6 speeds', async () => {
     const results = [];
     for (const seed of SEEDS) {
       const file = await new Simulation(matchPayload(seed), new IsolatedScriptRunner(integrationRunnerOptions)).run();
       results.push({ seed, ...file.result });
     }
 
-    // Baseline accepted by Pelo ("it is ok"), 2026-09-15, at game-rules.md
-    // v1.4 speeds (PLAYER_SPEED 1/1.5, MAX_BALL_SPEED 5/1.75 x 0.8). Known
-    // and accepted at these speeds: the full-speed ball out-runs
-    // COLLISION_RADIUS so shots can tunnel past the keeper, and the outcome
-    // landscape is bistable — a challenger walk-in metronome on seeds 11/227
-    // and sterile midfields on the other seeds. These pins are a conscious
-    // baseline: any physics, bot-script, or starter-fixture change that
-    // shifts a score must re-pin them deliberately.
+    // Baseline re-pinned at game-rules.md v1.6 speeds (PLAYER_SPEED
+    // 1/1.8/1.1, MAX_BALL_SPEED 5/1.75 x 0.8 x 1.1), 2026-09-15. The v1.4
+    // baseline (Pelo, "it is ok": 98-0 walk-in metronomes on seeds 11/227,
+    // sterile draws elsewhere) collapsed at v1.5 and stays at v1.6: the
+    // slower players can no longer outrun the coverage, so every seed ends
+    // 0-0. These pins are a conscious baseline: any physics, bot-script, or
+    // starter-fixture change that shifts a score must re-pin them
+    // deliberately.
     const summary = results
       .map((r) => `seed ${r.seed}: ${r.score_challenger}-${r.score_opponent} (${r.winner})`)
       .join(', ');
-    expect(results, `v1.4 baseline drifted [${summary}]`).toEqual([
-      { seed: 11, score_challenger: 98, score_opponent: 0, winner: 'challenger' },
-      { seed: 227, score_challenger: 98, score_opponent: 0, winner: 'challenger' },
+    expect(results, `v1.6 baseline drifted [${summary}]`).toEqual([
+      { seed: 11, score_challenger: 0, score_opponent: 0, winner: 'draw' },
+      { seed: 227, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 3457, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 60221, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 987654, score_challenger: 0, score_opponent: 0, winner: 'draw' },
