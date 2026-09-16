@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-15
+last_updated: 2026-09-16
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -70,7 +70,7 @@ development_status:
   3-7-match-canvas-renderer: done
   3-8-replay-playback-system: done
   3-9-timeline-scrubber-and-navigation: done
-  3-10-debug-panel-log-display: ready-for-dev
+  3-10-debug-panel-log-display: done
   3-11-debug-panel-player-filtering: ready-for-dev
   epic-3-retrospective: optional
 

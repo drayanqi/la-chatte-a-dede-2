@@ -388,6 +388,154 @@ test.describe('Practice Match', () => {
     expect(await currentFrameOf(counter)).toBe(frameAfterDrag);
   });
 
+  // Story 3.10 (AC #1-#3): the debug panel shows the replay's frame logs —
+  // tick + player tag + message — windowed around the playhead, with
+  // warn-level engine entries (MULTIPLE_ACTIONS) visually distinct.
+  //
+  // The script logs every 60 ticks (engine cap: MAX_LOGS_PER_MATCH = 10 000
+  // entries — an every-tick script would exhaust it early and leave the
+  // late-match windows legitimately empty). Every ±60-tick window therefore
+  // always contains at least one logged tick, keeping the assertions
+  // position-independent; the double action on logged ticks produces real
+  // MULTIPLE_ACTIONS warnings for the warn-styling assertions.
+  test('displays replay logs in the debug panel (story 3.10 AC #1-#3)', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+  }) => {
+    // Simulation + replay + navigation: same budget as the 3.9 navigation test
+    test.setTimeout(120_000);
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.create({
+      token: user.token!,
+      name: 'LoggingAI',
+      code: `var ticks = 0;
+function update(game) {
+  const { me, ball } = game;
+  ticks = ticks + 1;
+  if (ticks % 60 === 1) {
+    console.log('pos', me.position.x);
+    me.moveToward(ball.position.x, ball.position.y);
+    me.dribble(50, 25);
+  } else {
+    me.moveToward(ball.position.x, ball.position.y);
+  }
+}`,
+    });
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [script.id, script.id, script.id, script.id, script.id],
+    });
+
+    await seedAuthToken(page, user.token!);
+    await page.goto('/workspace');
+
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+
+    const startButton = page.getByTestId('test-vs-bot-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
+    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
+    await page.getByTestId('watch-replay-button').click();
+    await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
+    await framesResponse;
+    await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+
+    // Task 3: the panel is up with the replay, with no manual
+    // "start debugging" step
+    await expect(page.getByTestId('debug-log-panel')).toBeVisible();
+
+    // Deterministic window: pause, then seek to tick 0 (the first update
+    // call logs on frame 0, and every 60th tick after)
+    const counter = page.getByTestId('frame-counter');
+    await page.getByTestId('play-pause-button').click();
+    await expect
+      .poll(
+        async () => {
+          const before = await currentFrameOf(counter);
+          await page.waitForTimeout(150);
+          return (await currentFrameOf(counter)) - before;
+        },
+        { timeout: 10000 }
+      )
+      .toBe(0);
+    await page.getByTestId('timeline-track').focus();
+    await page.keyboard.press('Home');
+    await expect.poll(() => currentFrameOf(counter)).toBe(0);
+
+    // AC #1: entries show tick number, player tag and message
+    const entries = page.locator('[data-testid^="debug-log-entry-"]');
+    const firstEntry = entries.first();
+    await expect(firstEntry).toBeVisible();
+    await expect(firstEntry).toContainText(/#\d+/);
+    await expect(firstEntry).toContainText(/P\d/);
+    await expect(firstEntry).toContainText('pos');
+
+    // AC #3: the tick-0 entries made it into the window after the seek —
+    // matched via the entry's data-tick, not a "#0" substring any log
+    // message could fake
+    const tickZeroEntries = entries.filter({ has: page.locator('[data-tick="0"]') });
+    const tickZeroEntry = tickZeroEntries.first();
+    await expect(tickZeroEntry).toBeVisible();
+
+    // AC #2: color-coded by player — the loggers are all challenger players,
+    // so a chip must carry the challenger orange (same as the pitch)
+    const chipColor = await firstEntry
+      .locator('span')
+      .filter({ hasText: /^P\d$/ })
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(chipColor).toBe('rgb(255, 107, 26)');
+
+    // Engine warnings arrive with warn styling and a type badge (Task 3)
+    const badge = entries
+      .filter({ hasText: 'MULTIPLE_ACTIONS' })
+      .first()
+      .locator('span')
+      .filter({ hasText: 'MULTIPLE_ACTIONS' });
+    await expect(badge).toBeVisible();
+    const badgeColor = await badge.evaluate((el) => getComputedStyle(el).color);
+    expect(badgeColor).toBe('rgb(220, 220, 170)');
+
+    // AC #3: scrubbing moves the window — 42 second-jumps (Shift+ArrowRight,
+    // same gesture as 3.9) seek to tick 2520; the tick-1 entries leave the
+    // DOM (windowed around the new playhead) and the auto-follow scrolled
+    // down with the playhead
+    const list = page.getByTestId('debug-log-list');
+    const scrollTopAtTick0 = await list.evaluate((el) => el.scrollTop);
+    for (let i = 0; i < 42; i++) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await expect.poll(() => currentFrameOf(counter)).toBe(2520);
+
+    await expect(tickZeroEntries).toHaveCount(0);
+    await expect(entries.first()).toBeVisible(); // logs exist around tick 2520
+    const scrollTopAfterSeek = await list.evaluate((el) => el.scrollTop);
+    // The follow-scroll assertion only holds when the windowed list actually
+    // overflows the container (tall viewports keep both readings at 0); the
+    // pill assertions below carry the follow behavior regardless
+    const scrollable = await list.evaluate((el) => el.scrollHeight > el.clientHeight);
+    if (scrollable) {
+      expect(scrollTopAfterSeek).toBeGreaterThan(scrollTopAtTick0);
+    }
+    // The spurious follow-disable fix: programmatic seeks must never pop the
+    // "Follow replay" pill
+    await expect(page.getByTestId('debug-follow-pill')).toBeHidden();
+
+    // ...and seeking back to tick 0 restores the tick-0 window (follow
+    // stayed enabled throughout: the scrolling was programmatic)
+    await page.getByTestId('timeline-track').focus();
+    await page.keyboard.press('Home');
+    await expect.poll(() => currentFrameOf(counter)).toBe(0);
+    await expect(tickZeroEntry).toBeVisible();
+    await expect(page.getByTestId('debug-follow-pill')).toBeHidden();
+  });
+
   test('shows the error banner with retry when the engine fails (AC #4)', async ({
     page,
     userFactory,

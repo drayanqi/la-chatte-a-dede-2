@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError, getApiError } from '@/lib/apiClient';
+import { extractLogs, type ReplayLogEntry } from '@/lib/replayLogs';
 import type { MatchFrame, MatchFramesFile, MatchResult } from '@/types';
 
 interface MatchState {
@@ -36,6 +37,14 @@ interface MatchState {
 
   // The newest completed match (AC #4: "Watch last match" entry)
   latestMatch: MatchResult | null;
+
+  // ------------------------------------------------------------------
+  // Debug panel logs (story 3.10)
+  // ------------------------------------------------------------------
+
+  // Flat log extraction of the loaded replay, computed ONCE per load
+  // (the frame scan must not rerun per render/per playhead move)
+  replayLogs: ReplayLogEntry[];
 }
 
 interface MatchActions {
@@ -90,6 +99,7 @@ const initialState: MatchState = {
   isReplayLoading: false,
   replayError: null,
   latestMatch: null,
+  replayLogs: [],
 };
 
 const REPLAY_404_MESSAGE = 'Replay unavailable. This match cannot be watched.';
@@ -205,8 +215,15 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
         return;
       }
 
-      // Atomic swap — the previous array's store reference dies here.
-      set({ isReplayLoading: false, replayFrames: payload.frames, replayError: null });
+      // Atomic swap — the previous array's store reference dies here. The
+      // log extraction runs once on the freshly validated frames (story 3.10:
+      // memoized per load, never per render).
+      set({
+        isReplayLoading: false,
+        replayFrames: payload.frames,
+        replayLogs: extractLogs(payload.frames),
+        replayError: null,
+      });
     } catch (error) {
       // Cancelled or superseded: stay silent, the newer state owns the store.
       if (signal.aborted || seq !== replayLoadSeq) return;
@@ -265,7 +282,13 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     replayLoadSeq++;
     replayAbort?.abort();
     replayAbort = null;
-    set({ replayFrames: [], replayMatch: null, replayError: null, isReplayLoading: false });
+    set({
+      replayFrames: [],
+      replayMatch: null,
+      replayError: null,
+      isReplayLoading: false,
+      replayLogs: [],
+    });
   },
 
   reset: () => {

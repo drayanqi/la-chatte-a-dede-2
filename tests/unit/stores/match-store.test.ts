@@ -499,6 +499,60 @@ describe('Match Store', () => {
     });
   });
 
+  describe('Replay Logs (story 3.10)', () => {
+    /** A frame carrying per-tick logs (3.4 contract consumed by the panel) */
+    const frameWithLogs = (index: number): MatchFrame => ({
+      ...frameAt(index),
+      logs: [
+        { team: 'challenger', slot: 1, level: 'log', type: 'CONSOLE', message: 'pos 42.5' },
+        {
+          team: 'challenger',
+          slot: 1,
+          level: 'warn',
+          type: 'MULTIPLE_ACTIONS',
+          message: 'only the first action per tick is applied',
+        },
+      ],
+    });
+
+    it('should extract the frame logs once per replay load', async () => {
+      const frames = [frameWithLogs(0), frameWithLogs(1)];
+      mockFetch.mockResolvedValueOnce(framesFileResponse(frames));
+
+      await useMatchStore.getState().loadReplay('match-1', completedMatch);
+
+      const logs = useMatchStore.getState().replayLogs;
+      expect(logs).toHaveLength(4);
+      expect(logs[0]).toMatchObject({
+        index: 0,
+        tick: 0,
+        level: 'log',
+        type: 'CONSOLE',
+        message: 'pos 42.5',
+      });
+      expect(logs[2]).toMatchObject({ index: 2, tick: 1, level: 'log' });
+      expect(logs[3]).toMatchObject({ index: 3, tick: 1, level: 'warn' });
+    });
+
+    it('should keep an empty log set for replays without frame logs', async () => {
+      mockFetch.mockResolvedValueOnce(framesFileResponse([frameAt(0)]));
+
+      await useMatchStore.getState().loadReplay('match-1', completedMatch);
+
+      expect(useMatchStore.getState().replayLogs).toEqual([]);
+    });
+
+    it('should clear the extracted logs with the replay', async () => {
+      mockFetch.mockResolvedValueOnce(framesFileResponse([frameWithLogs(0)]));
+      await useMatchStore.getState().loadReplay('match-1', completedMatch);
+      expect(useMatchStore.getState().replayLogs).toHaveLength(2);
+
+      useMatchStore.getState().clearReplay();
+
+      expect(useMatchStore.getState().replayLogs).toEqual([]);
+    });
+  });
+
   describe('Reset', () => {
     it('should clear every match state field', async () => {
       mockFetch.mockResolvedValueOnce(okResponse({ data: [completedMatch] }));
