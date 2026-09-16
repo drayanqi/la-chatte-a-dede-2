@@ -251,6 +251,10 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       },
       setSelectedPlayer: (playerId: string | null) => {
         gameRef.current?.setSelectedPlayer(playerId);
+        // Census seam (E2E): the engine's selection drives the Pixi ring,
+        // which has no DOM — republish it as an attribute alongside
+        // data-match-players
+        containerRef.current?.setAttribute('data-selected-player', playerId ?? '');
       },
     }));
 

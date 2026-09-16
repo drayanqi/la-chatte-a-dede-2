@@ -71,39 +71,6 @@ describe('Canvas Store', () => {
       // THEN: New player should be selected
       expect(useCanvasStore.getState().selectedPlayerId).toBe('player-2');
     });
-
-    it('should select a player with toggle when none selected', () => {
-      // GIVEN: No selection
-      expect(useCanvasStore.getState().selectedPlayerId).toBeNull();
-
-      // WHEN: Toggling a player
-      useCanvasStore.getState().toggleSelectedPlayer('player-1');
-
-      // THEN: Player should be selected
-      expect(useCanvasStore.getState().selectedPlayerId).toBe('player-1');
-    });
-
-    it('should deselect with toggle when clicking the same player', () => {
-      // GIVEN: A selected player
-      useCanvasStore.getState().toggleSelectedPlayer('player-1');
-
-      // WHEN: Toggling the same player again
-      useCanvasStore.getState().toggleSelectedPlayer('player-1');
-
-      // THEN: Selection should be cleared
-      expect(useCanvasStore.getState().selectedPlayerId).toBeNull();
-    });
-
-    it('should switch selection with toggle to a different player', () => {
-      // GIVEN: A selected player
-      useCanvasStore.getState().toggleSelectedPlayer('player-1');
-
-      // WHEN: Toggling another player
-      useCanvasStore.getState().toggleSelectedPlayer('player-2');
-
-      // THEN: New player should be selected
-      expect(useCanvasStore.getState().selectedPlayerId).toBe('player-2');
-    });
   });
 
   describe('Player Hover', () => {
@@ -313,6 +280,109 @@ describe('Canvas Store', () => {
       expect(state.hoveredPlayerId).toBeNull();
       expect(state.tacticLoaded).toBe(false);
       expect(state.playerStates).toEqual([]);
+    });
+  });
+
+  describe('Log Filter (story 3.11)', () => {
+    it('should have no log filter initially', () => {
+      // GIVEN: Fresh store
+      // THEN: The log filter is null (all players' logs shown)
+      expect(useCanvasStore.getState().logFilterPlayerId).toBeNull();
+    });
+
+    it('should set the log filter to a match player key', () => {
+      // GIVEN: No filter
+      // WHEN: Filtering logs to challenger slot 2 (canonical composite)
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // THEN: The filter holds the match player key
+      expect(useCanvasStore.getState().logFilterPlayerId).toBe('challenger-2');
+    });
+
+    it('should clear the log filter with null (Show All)', () => {
+      // GIVEN: An active filter
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: Show All clears the filter
+      useCanvasStore.getState().setLogFilter(null);
+
+      // THEN: The filter is gone
+      expect(useCanvasStore.getState().logFilterPlayerId).toBeNull();
+    });
+
+    it('should switch the filter to another player', () => {
+      // GIVEN: Filtered to P2
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: Selecting P5 on the pitch (both states driven by AppShell)
+      useCanvasStore.getState().setSelectedPlayer('challenger-5');
+      useCanvasStore.getState().setLogFilter('challenger-5');
+
+      // THEN: Selection and filter point at the new player
+      const state = useCanvasStore.getState();
+      expect(state.selectedPlayerId).toBe('challenger-5');
+      expect(state.logFilterPlayerId).toBe('challenger-5');
+    });
+
+    it('keeps the selection when the filter is cleared (re-click / Show All semantics)', () => {
+      // GIVEN: P2 selected AND filtered (select→filter on, as driven by the
+      // AppShell click handler)
+      useCanvasStore.getState().setSelectedPlayer('challenger-2');
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: Re-selecting the same player clears the filter (AppShell
+      // toggle) — mirrored here by clearing the filter only
+      useCanvasStore.getState().setLogFilter(null);
+
+      // THEN: The pitch highlight survives (selection untouched)
+      expect(useCanvasStore.getState().selectedPlayerId).toBe('challenger-2');
+      expect(useCanvasStore.getState().logFilterPlayerId).toBeNull();
+    });
+
+    it('should keep the log filter across frame changes (AC #3: scrubbing)', () => {
+      // GIVEN: P2 selected and filtered while playing
+      useCanvasStore.getState().setSelectedPlayer('challenger-2');
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: The playhead moves (playback ticks, player states refresh)
+      useCanvasStore.getState().updatePlaybackState(true, 2520, 10800);
+      useCanvasStore.getState().updatePlayerStates([
+        { playerId: 'challenger-2', position: { x: 10, y: 20 }, velocity: { vx: 0, vy: 0 }, state: 'moving' },
+      ]);
+
+      // THEN: The filter survives — the panel stays filtered while scrubbing
+      const state = useCanvasStore.getState();
+      expect(state.currentFrame).toBe(2520);
+      expect(state.logFilterPlayerId).toBe('challenger-2');
+    });
+
+    it('should keep selection and filter independent', () => {
+      // GIVEN: P2 selected and filtered
+      useCanvasStore.getState().setSelectedPlayer('challenger-2');
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: Changing the selection alone (hover-driven or programmatic
+      // path that does not go through the AppShell click handler)
+      useCanvasStore.getState().setSelectedPlayer('challenger-5');
+
+      // THEN: The store does not silently couple the two states — the
+      // filter only moves when setLogFilter moves it
+      expect(useCanvasStore.getState().selectedPlayerId).toBe('challenger-5');
+      expect(useCanvasStore.getState().logFilterPlayerId).toBe('challenger-2');
+    });
+
+    it('should reset the log filter with the store', () => {
+      // GIVEN: Selection + filter active
+      useCanvasStore.getState().setSelectedPlayer('challenger-2');
+      useCanvasStore.getState().setLogFilter('challenger-2');
+
+      // WHEN: Resetting (tactic load / replay load paths)
+      useCanvasStore.getState().reset();
+
+      // THEN: Both are back to their initial values
+      const state = useCanvasStore.getState();
+      expect(state.selectedPlayerId).toBeNull();
+      expect(state.logFilterPlayerId).toBeNull();
     });
   });
 

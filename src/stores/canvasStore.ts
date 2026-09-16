@@ -16,6 +16,11 @@ interface CanvasState {
   selectedPlayerId: string | null;
   hoveredPlayerId: string | null;
 
+  // Debugger log filter (story 3.11): same id convention as
+  // selectedPlayerId (matchPlayerKey: 'challenger-3') — the pitch
+  // selection drives both; null = all players
+  logFilterPlayerId: string | null;
+
   // État de la tactique
   tacticLoaded: boolean;
 
@@ -29,8 +34,8 @@ interface CanvasState {
 interface CanvasActions {
   // Mise à jour depuis le Canvas
   setSelectedPlayer: (id: string | null) => void;
-  /** Toggle semantics: clicking the selected player again deselects it */
-  toggleSelectedPlayer: (id: string) => void;
+  /** Filter the debugger's replay logs to one match player (null = all) */
+  setLogFilter: (id: string | null) => void;
   setHoveredPlayer: (id: string | null) => void;
   updatePlaybackState: (playing: boolean, frame: number, total: number) => void;
   updatePlayerStates: (states: PlayerFrameState[]) => void;
@@ -49,6 +54,7 @@ const initialState: CanvasState = {
   totalFrames: 0,
   selectedPlayerId: null,
   hoveredPlayerId: null,
+  logFilterPlayerId: null,
   tacticLoaded: false,
   playerStates: [],
   matchFrames: [],
@@ -59,8 +65,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>((set) => ({
 
   setSelectedPlayer: (id) => set({ selectedPlayerId: id }),
 
-  toggleSelectedPlayer: (id) =>
-    set((state) => ({ selectedPlayerId: state.selectedPlayerId === id ? null : id })),
+  setLogFilter: (id) => set({ logFilterPlayerId: id }),
 
   setHoveredPlayer: (id) => set({ hoveredPlayerId: id }),
 

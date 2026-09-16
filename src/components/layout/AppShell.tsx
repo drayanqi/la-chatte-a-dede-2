@@ -16,6 +16,7 @@ import { useCanvasStore, useEditorStore, useMatchStore, useTacticsStore } from '
 import { useAuthStore } from '@/stores/authStore';
 import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
+import { matchPlayerKey } from '@/lib/teamMapping';
 import { computeScore, extractGoalTicks } from '@/lib/score';
 import { shouldTogglePlayback } from '@/lib/playbackShortcuts';
 import { isTypingContext } from '@/lib/keyboard';
@@ -49,7 +50,7 @@ export const AppShell: React.FC = () => {
   const {
     selectedPlayerId,
     setSelectedPlayer,
-    toggleSelectedPlayer,
+    setLogFilter,
     setHoveredPlayer,
     updatePlaybackState,
     updatePlayerStates,
@@ -152,6 +153,7 @@ export const AppShell: React.FC = () => {
 
     loadedTacticIdRef.current = activeTacticId;
     setSelectedPlayer(null);
+    setLogFilter(null);
     canvasRef.current?.loadTactic(tacticConfigToTacticData(target));
     // A tactic load ends any replay (the engine just dropped its frames):
     // clear the match state so the score display and playback follow
@@ -168,6 +170,7 @@ export const AppShell: React.FC = () => {
     setMatchFrames,
     setTacticLoaded,
     setSelectedPlayer,
+    setLogFilter,
     clearReplay,
     updatePlaybackState,
     updatePlayerStates,
@@ -188,16 +191,43 @@ export const AppShell: React.FC = () => {
   }, [selectedPlayerId]);
 
   // Canvas callbacks
-  const handlePlayerSelected = useCallback(
-    (playerId: string, teamId: 'home' | 'away') => {
-      toggleSelectedPlayer(playerId);
-    },
-    [toggleSelectedPlayer]
-  );
+
+  /**
+   * Pitch click (story 3.11): ONE handler owns the selection → log-filter
+   * semantics for both modes.
+   * - New player: select it (pitch highlight, existing mirror effect) and
+   *   filter the logs to it — but only when it actually logged; in edit
+   *   mode (no replay) nothing is filtered.
+   * - Re-click on the selected player with logs: toggle the LOG FILTER off
+   *   and keep the highlight (AC #2; deselection stays on empty pitch).
+   * - Re-click without logs: historical deselect toggle.
+   * The engine never decides semantics — it only reports the click.
+   */
+  const handlePlayerSelected = useCallback((playerId: string) => {
+    const canvas = useCanvasStore.getState();
+    const wasSelected = canvas.selectedPlayerId === playerId;
+    const hasLogs = useMatchStore
+      .getState()
+      .replayLogs.some((entry) => matchPlayerKey(entry.team, entry.slot) === playerId);
+
+    if (wasSelected) {
+      if (hasLogs) {
+        canvas.setLogFilter(canvas.logFilterPlayerId === playerId ? null : playerId);
+      } else {
+        canvas.setSelectedPlayer(null);
+      }
+      return;
+    }
+
+    canvas.setSelectedPlayer(playerId);
+    canvas.setLogFilter(hasLogs ? playerId : null);
+  }, []);
 
   const handlePlayerDeselected = useCallback(() => {
-    setSelectedPlayer(null);
-  }, [setSelectedPlayer]);
+    const canvas = useCanvasStore.getState();
+    canvas.setSelectedPlayer(null);
+    canvas.setLogFilter(null);
+  }, []);
 
   const handlePlayerHovered = useCallback(
     (playerId: string | null) => {
@@ -275,9 +305,10 @@ export const AppShell: React.FC = () => {
   useEffect(() => {
     if (replayFrames.length === 0) return;
     setSelectedPlayer(null);
+    setLogFilter(null);
     setMatchFrames(replayFrames);
     canvasRef.current?.loadFrames(replayFrames);
-  }, [replayFrames, setMatchFrames, setSelectedPlayer]);
+  }, [replayFrames, setMatchFrames, setSelectedPlayer, setLogFilter]);
 
   // Watch Replay (story 3.8, AC #1): load the finished match's frames
   const handleWatchReplay = useCallback(() => {
@@ -304,6 +335,12 @@ export const AppShell: React.FC = () => {
     setMatchFrames([]);
     updatePlaybackState(false, 0, 0);
     updatePlayerStates([]);
+    // Replay-scoped state must not survive the replay's exit: the filter
+    // and the match-key selection are meaningless in edit mode, and the
+    // engine already dropped its ring on loadTactic — a surviving store
+    // selection would be a phantom no empty-pitch click could clear
+    setSelectedPlayer(null);
+    setLogFilter(null);
 
     const { tactics, activeTacticId: currentActiveId } = useTacticsStore.getState();
     const target = currentActiveId ? tactics.find((tactic) => tactic.id === currentActiveId) : null;
@@ -318,7 +355,15 @@ export const AppShell: React.FC = () => {
       canvasRef.current?.seekFrame(0);
       setTacticLoaded(false);
     }
-  }, [clearReplay, setMatchFrames, updatePlaybackState, updatePlayerStates, setTacticLoaded]);
+  }, [
+    clearReplay,
+    setMatchFrames,
+    updatePlaybackState,
+    updatePlayerStates,
+    setTacticLoaded,
+    setSelectedPlayer,
+    setLogFilter,
+  ]);
 
   // Cancel a replay load in flight (review decision 3c): unblock the UI
   const handleCancelReplayLoad = useCallback(() => {

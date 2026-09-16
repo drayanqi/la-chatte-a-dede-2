@@ -12,11 +12,18 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCanvasStore, useTacticsStore, useMatchStore } from '@/stores';
-import { rosterFromTactic } from '@/lib/tacticBridge';
+import { rosterFromTactic, type RosterEntry } from '@/lib/tacticBridge';
 import {
+  matchPlayerKey,
+  matchPlayerFromKey,
+  teamIdFromMatchTeam,
+} from '@/lib/teamMapping';
+import {
+  filterLogsByPlayer,
   logsAroundTick,
   LOG_LEVEL_COLORS,
   LOG_TEAM_COLORS,
+  type ReplayLogEntry,
 } from '@/lib/replayLogs';
 import type { PlayerFrameState } from '@/types';
 
@@ -24,9 +31,11 @@ import type { PlayerFrameState } from '@/types';
 const SCROLL_FOLLOW_THRESHOLD = 2;
 
 export const DebuggerPanel: React.FC = () => {
-  const { selectedPlayerId, playerStates, currentFrame } = useCanvasStore();
+  const { selectedPlayerId, playerStates, currentFrame, logFilterPlayerId, setLogFilter } =
+    useCanvasStore();
   const replayLogs = useMatchStore((state) => state.replayLogs);
-  const hasReplay = useMatchStore((state) => state.replayFrames.length > 0);
+  const replayFrames = useMatchStore((state) => state.replayFrames);
+  const hasReplay = replayFrames.length > 0;
 
   const activeTactic = useTacticsStore((state) =>
     state.activeTacticId
@@ -34,7 +43,24 @@ export const DebuggerPanel: React.FC = () => {
       : null
   );
 
-  const roster = rosterFromTactic(activeTactic);
+  // In replay mode the pitch shows the 10 match players whose ids ARE
+  // matchPlayerKey composites — the Watch roster is built from the loaded
+  // frames so a pitch/chip selection and the live frame states join
+  // natively. Edit mode keeps the tactic roster (home-N vocabulary).
+  const matchRoster = useMemo<RosterEntry[]>(() => {
+    const firstFrame = replayFrames[0];
+    if (!firstFrame) return [];
+    return firstFrame.players
+      .map((framePlayer) => ({
+        id: matchPlayerKey(framePlayer.team, framePlayer.slot),
+        name: framePlayer.team,
+        number: framePlayer.slot,
+        teamId: teamIdFromMatchTeam(framePlayer.team),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }, [replayFrames]);
+
+  const roster = hasReplay ? matchRoster : rosterFromTactic(activeTactic);
 
   const stateByPlayerId = useMemo(() => {
     const map = new Map<string, PlayerFrameState>();
@@ -51,13 +77,32 @@ export const DebuggerPanel: React.FC = () => {
 
   const selectedEntry = roster.find((player) => player.id === selectedPlayerId);
 
+  // Log filter (story 3.11): a pitch selection (or a chip click) narrows the
+  // stream to one player. The label derives from the canonical composite —
+  // the filter id is never string-parsed here.
+  const filterParts = logFilterPlayerId ? matchPlayerFromKey(logFilterPlayerId) : null;
+
   // Windowed log display (AC #3): the extracted log set is computed once per
-  // replay load (memoized in matchStore); only the ±1s slice around the
-  // playhead is derived and rendered here.
-  const windowedLogs = useMemo(
-    () => logsAroundTick(replayLogs, currentFrame),
-    [replayLogs, currentFrame]
+  // replay load (memoized in matchStore); the player filter applies FIRST,
+  // then the ±1s slice around the playhead is derived — both from
+  // canvasStore.currentFrame, so scrubbing keeps the filter for free.
+  const filteredLogs = useMemo(
+    () => filterLogsByPlayer(replayLogs, logFilterPlayerId),
+    [replayLogs, logFilterPlayerId]
   );
+
+  const windowedLogs = useMemo(
+    () => logsAroundTick(filteredLogs, currentFrame),
+    [filteredLogs, currentFrame]
+  );
+
+  // Chip click (Task 4): a log entry selects its player on the pitch —
+  // highlight AND filter, one click both ways
+  const handleChipClick = (entry: ReplayLogEntry) => {
+    const playerId = matchPlayerKey(entry.team, entry.slot);
+    useCanvasStore.getState().setSelectedPlayer(playerId);
+    setLogFilter(playerId);
+  };
 
   // Auto-follow (standard console UX): on playhead moves the list scrolls to
   // keep the current-tick window in view; a manual scroll breaks the follow
@@ -177,16 +222,37 @@ export const DebuggerPanel: React.FC = () => {
       <div style={styles.logSection} data-testid="debug-log-panel">
         <div style={styles.logHeader}>
           <h4 style={styles.sectionTitle}>Replay logs</h4>
-          {!following && (
-            <button
-              type="button"
-              style={styles.followPill}
-              data-testid="debug-follow-pill"
-              onClick={() => setFollowing(true)}
-            >
-              Follow replay
-            </button>
-          )}
+          <div style={styles.logHeaderControls}>
+            {filterParts && (
+              <span
+                style={styles.filterIndicator}
+                data-testid="debug-filter-indicator"
+                role="status"
+              >
+                Showing P{filterParts.slot} ({filterParts.team}) only
+              </span>
+            )}
+            {filterParts && (
+              <button
+                type="button"
+                style={styles.followPill}
+                data-testid="debug-show-all-button"
+                onClick={() => setLogFilter(null)}
+              >
+                Show All
+              </button>
+            )}
+            {!following && (
+              <button
+                type="button"
+                style={styles.followPill}
+                data-testid="debug-follow-pill"
+                onClick={() => setFollowing(true)}
+              >
+                Follow replay
+              </button>
+            )}
+          </div>
         </div>
         <div
           ref={listRef}
@@ -205,14 +271,20 @@ export const DebuggerPanel: React.FC = () => {
                   #{entry.tick}
                 </span>
                 {entry.slot > 0 ? (
-                  <span
+                  <button
+                    type="button"
                     style={{
                       ...styles.logPlayerChip,
                       backgroundColor: LOG_TEAM_COLORS[entry.team],
+                      cursor: 'pointer',
                     }}
+                    data-testid={`debug-log-entry-${entry.index}-player-chip`}
+                    title={`Filter logs to P${entry.slot} (${entry.team})`}
+                    aria-pressed={logFilterPlayerId === matchPlayerKey(entry.team, entry.slot)}
+                    onClick={() => handleChipClick(entry)}
                   >
                     P{entry.slot}
-                  </span>
+                  </button>
                 ) : (
                   // Engine system warnings (e.g. LOG_CAP) carry the sentinel
                   // slot 0 — they come from no player, so no player chip
@@ -243,7 +315,11 @@ export const DebuggerPanel: React.FC = () => {
                 ? hasReplay
                   ? 'This AI never logged'
                   : 'No replay loaded'
-                : 'No logs this tick (showing ±1s)'}
+                : filterParts
+                  ? // Story 3.11: distinct from the plain quiet-window state —
+                    // the selected player has logs, just none in ±1s
+                  `No logs from P${filterParts.slot} within ±1s`
+                  : 'No logs this tick (showing ±1s)'}
             </div>
           )}
         </div>
@@ -334,7 +410,22 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: '6px',
     marginBottom: '8px',
+  },
+  logHeaderControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    minWidth: 0,
+  },
+  filterIndicator: {
+    color: '#fbbf24',
+    fontSize: '11px',
+    fontFamily: LOG_FONT,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   followPill: {
     padding: '2px 10px',
@@ -371,9 +462,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   logPlayerChip: {
     color: '#1e1e1e',
+    border: 'none',
     borderRadius: '2px',
     padding: '0 4px',
     fontSize: '11px',
+    fontFamily: LOG_FONT,
     flexShrink: 0,
     fontWeight: 600,
   },

@@ -12,6 +12,7 @@
  * windowing binary search relies on it.
  */
 import type { MatchFrame, MatchFrameLog, MatchTeam } from '@/types';
+import { matchPlayerKey } from '@/lib/teamMapping';
 
 /** One flattened replay log entry: frame log + the tick it was emitted on */
 export interface ReplayLogEntry {
@@ -66,6 +67,24 @@ export function extractLogs(frames: MatchFrame[]): ReplayLogEntry[] {
     }
   }
   return entries;
+}
+
+/**
+ * Keeps only the entries of one match player, identified by the canonical
+ * composite key ('challenger-3' — the same convention as the canvas store's
+ * selectedPlayerId). Pure. A null filter (Show All) returns the input set
+ * untouched. System entries (sentinel slot 0) never match a real player key,
+ * so they can only appear unfiltered.
+ *
+ * Applied BEFORE logsAroundTick (filter → window): a quiet player inside a
+ * busy window must show their own stream, not a misleading empty window.
+ */
+export function filterLogsByPlayer(
+  logs: ReplayLogEntry[],
+  playerId: string | null
+): ReplayLogEntry[] {
+  if (!playerId) return logs;
+  return logs.filter((entry) => matchPlayerKey(entry.team, entry.slot) === playerId);
 }
 
 /**

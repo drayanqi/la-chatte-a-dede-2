@@ -522,15 +522,29 @@ export class Game {
   }
 
   /**
-   * Clicking empty pitch clears the selection. A pointerdown on a player
-   * bubbles here too — the hit-test keeps that click selection-only.
+   * Stage-level pointer handling. Clicking empty pitch clears the selection;
+   * clicking a replay player selects it (story 3.11): replay sprites are
+   * non-interactive (no drag, no hover), so the stage hit-test IS their
+   * click path. Tactic sprites keep their own pointerdown handler — the
+   * matchFrames guard keeps the two paths apart.
    */
   private onStagePointerDown = (event: FederatedPointerEvent): void => {
-    if (this.selectedPlayerId === null) return;
+    const hitId = this.hitTestPlayer(event.global.x, event.global.y);
 
-    if (this.hitTestPlayer(event.global.x, event.global.y) === null) {
-      this.setSelectedPlayer(null);
-      this.callbacks.onPlayerDeselected?.();
+    if (hitId === null) {
+      if (this.selectedPlayerId !== null) {
+        this.setSelectedPlayer(null);
+        this.callbacks.onPlayerDeselected?.();
+      }
+      return;
+    }
+
+    if (this.matchFrames.length > 0) {
+      const sprite = this.players.get(hitId);
+      if (sprite) {
+        // Selection only: no drag session starts in replay mode
+        this.callbacks.onPlayerSelected(hitId, sprite.getTeamId(), sprite.getPosition(), null);
+      }
     }
   };
 
@@ -657,8 +671,12 @@ export class Game {
   }
 
   hitTestPlayer(screenX: number, screenY: number): string | null {
-    for (const [id, player] of this.players) {
-      if (player.containsPoint(screenX, screenY)) {
+    // Reverse insertion order = topmost render order (restackLayers adds
+    // sprites in Map order, and the last addChild draws on top): with
+    // overlapping replay sprites the visually-top one must win, matching
+    // what Pixi's own event system would report
+    for (const id of [...this.players.keys()].reverse()) {
+      if (this.players.get(id)!.containsPoint(screenX, screenY)) {
         return id;
       }
     }

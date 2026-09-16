@@ -10,7 +10,12 @@
  * @priority P1
  */
 import { describe, it, expect } from 'vitest';
-import { extractLogs, logsAroundTick, type ReplayLogEntry } from '@/lib/replayLogs';
+import {
+  extractLogs,
+  logsAroundTick,
+  filterLogsByPlayer,
+  type ReplayLogEntry,
+} from '@/lib/replayLogs';
 import type { MatchFrame, MatchFrameLog } from '@/types';
 
 const log = (overrides: Partial<MatchFrameLog> = {}): MatchFrameLog => ({
@@ -264,5 +269,75 @@ describe('logsAroundTick', () => {
     expect(windowed).toHaveLength(21);
     expect(windowed[0].tick).toBe(490);
     expect(windowed[windowed.length - 1].tick).toBe(510);
+  });
+});
+
+describe('filterLogsByPlayer (story 3.11)', () => {
+  // GIVEN: A mixed log set — challenger P2, opponent P2 (same slot, other
+  // team), the SYS sentinel (slot 0) and challenger P5
+  const logs: ReplayLogEntry[] = [
+    { index: 0, tick: 0, team: 'challenger', slot: 2, level: 'log', type: 'CONSOLE', message: 'p2-a' },
+    { index: 1, tick: 1, team: 'opponent', slot: 2, level: 'log', type: 'CONSOLE', message: 'opp-p2' },
+    { index: 2, tick: 2, team: 'challenger', slot: 0, level: 'warn', type: 'LOG_CAP', message: 'sys' },
+    { index: 3, tick: 3, team: 'challenger', slot: 2, level: 'log', type: 'CONSOLE', message: 'p2-b' },
+    { index: 4, tick: 4, team: 'challenger', slot: 5, level: 'log', type: 'CONSOLE', message: 'p5' },
+  ];
+
+  it('keeps only the entries of the selected player', () => {
+    // WHEN: Filtering to challenger P2
+    // THEN: Only that player's entries survive, in order
+    const filtered = filterLogsByPlayer(logs, 'challenger-2');
+    expect(filtered.map((entry) => entry.message)).toEqual(['p2-a', 'p2-b']);
+  });
+
+  it('matches on the {team, slot} composite, never the slot alone', () => {
+    // WHEN: Filtering challenger P2
+    // THEN: The opponent's P2 (same slot number) is excluded
+    const filtered = filterLogsByPlayer(logs, 'challenger-2');
+    expect(filtered.every((entry) => entry.team === 'challenger')).toBe(true);
+
+    // ...and the opponent key keeps only the opponent's entries
+    expect(filterLogsByPlayer(logs, 'opponent-2').map((entry) => entry.message)).toEqual([
+      'opp-p2',
+    ]);
+  });
+
+  it('excludes SYS entries (slot 0) for any player filter', () => {
+    // WHEN: Filtering any player
+    // THEN: Engine system warnings never leak into a player stream
+    const filtered = filterLogsByPlayer(logs, 'challenger-2');
+    expect(filtered.every((entry) => entry.slot !== 0)).toBe(true);
+  });
+
+  it('returns every entry unchanged when no filter is set', () => {
+    // WHEN: Filtering with null (Show All / no selection)
+    // THEN: The full set is returned as-is
+    expect(filterLogsByPlayer(logs, null)).toEqual(logs);
+  });
+
+  it('returns an empty array when the player never logged', () => {
+    // WHEN: Filtering to a player absent from the set
+    // THEN: Nothing matches (drives the panel's filtered empty state)
+    expect(filterLogsByPlayer(logs, 'challenger-4')).toEqual([]);
+  });
+
+  it('composes with the windowing: filter first, then window', () => {
+    // GIVEN: P2 logs every 60 ticks, P5 logs on the odd tens
+    const mixed: ReplayLogEntry[] = [];
+    for (let tick = 0; tick <= 300; tick++) {
+      if (tick % 60 === 0) {
+        mixed.push({ index: mixed.length, tick, team: 'challenger', slot: 2, level: 'log', type: 'CONSOLE', message: `p2@${tick}` });
+      }
+      if (tick % 10 === 5) {
+        mixed.push({ index: mixed.length, tick, team: 'challenger', slot: 5, level: 'log', type: 'CONSOLE', message: `p5@${tick}` });
+      }
+    }
+
+    // WHEN: Filtering to P2 first, then windowing ±60 around tick 130
+    const windowed = logsAroundTick(filterLogsByPlayer(mixed, 'challenger-2'), 130);
+
+    // THEN: Only P2's entries inside the window show up (a quiet player in
+    // a busy window would render nothing misleadingly the other way around)
+    expect(windowed.map((entry) => entry.message)).toEqual(['p2@120', 'p2@180']);
   });
 });

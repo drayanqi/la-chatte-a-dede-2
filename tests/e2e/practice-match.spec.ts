@@ -30,6 +30,14 @@ const currentFrameOf = async (counter: Locator): Promise<number> => {
   return Number(match[1]);
 };
 
+/**
+ * Log entries are entry-scoped: since story 3.11 the player chips are
+ * buttons whose testids share the entry prefix — the :not() keeps this
+ * locator from matching chips. One shared constant pins the convention.
+ */
+const LOG_ENTRY_SELECTOR =
+  '[data-testid^="debug-log-entry-"]:not([data-testid$="-player-chip"])';
+
 test.describe('Practice Match', () => {
   // Serial per project: the practice-match tests hold the single PHP worker
   // and the engine's single event loop for the whole simulation, starving
@@ -468,8 +476,10 @@ function update(game) {
     await page.keyboard.press('Home');
     await expect.poll(() => currentFrameOf(counter)).toBe(0);
 
-    // AC #1: entries show tick number, player tag and message
-    const entries = page.locator('[data-testid^="debug-log-entry-"]');
+    // AC #1: entries show tick number, player tag and message. Story 3.11
+    // made the player chips clickable buttons whose testids share the entry
+    // prefix — LOG_ENTRY_SELECTOR keeps this locator entry-scoped.
+    const entries = page.locator(LOG_ENTRY_SELECTOR);
     const firstEntry = entries.first();
     await expect(firstEntry).toBeVisible();
     await expect(firstEntry).toContainText(/#\d+/);
@@ -484,10 +494,14 @@ function update(game) {
     await expect(tickZeroEntry).toBeVisible();
 
     // AC #2: color-coded by player — the loggers are all challenger players,
-    // so a chip must carry the challenger orange (same as the pitch)
-    const chipColor = await firstEntry
-      .locator('span')
-      .filter({ hasText: /^P\d$/ })
+    // so a chip must carry the challenger orange (same as the pitch).
+    // Story 3.11 made the chip a clickable button — target it by its own
+    // testid (entry-locators exclude chips to stay entry-scoped).
+    const entriesOnly = page.locator(LOG_ENTRY_SELECTOR);
+    const firstEntryOnly = entriesOnly.first();
+    await expect(firstEntryOnly).toBeVisible();
+    const chipColor = await firstEntryOnly
+      .locator('[data-testid$="-player-chip"]')
       .first()
       .evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(chipColor).toBe('rgb(255, 107, 26)');
@@ -602,5 +616,179 @@ function update(game) {
     await expect(banner).toBeVisible({ timeout: 90000 });
     await expect(page.getByTestId('match-error-message')).toBeHidden();
     await expect(page.getByTestId('simulating-overlay')).toBeHidden();
+  });
+
+  // Story 3.11 (AC #1-#3): click-to-filter debug — ONE pitch click narrows
+  // the log stream to that player (UX spec success criterion), a re-click
+  // or "Show All" clears it (highlight kept), scrubbing keeps the filter,
+  // and a log chip selects its player back on the pitch.
+  //
+  // Determinism: the challenger scripts emit NO actions, so the challenger
+  // players never leave the fixture kickoff formation (the bot players do
+  // move; they are never clicked). Pitch clicks target exact formation
+  // coordinates computed from the canvas box with the engine's pitch-rect
+  // math (FIELD_PADDING = 40, 2:1 fit, percentToScreen).
+  test('filters replay logs by player from the pitch and the log chips (story 3.11 AC #1-#3)', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+  }) => {
+    // Simulation + replay + the same interactions as the 3.9/3.10 tests
+    test.setTimeout(120_000);
+    const user = await userFactory.createAuthenticated();
+
+    // Two log-only scripts: slots 1+5 log 'alpha', slots 2-4 log 'beta'.
+    // No moveToward/dribble: the challenger players stay on their spots.
+    const logScript = (name: string, word: string) =>
+      scriptFactory.create({
+        token: user.token!,
+        name,
+        code: `var ticks = 0;
+function update(game) {
+  ticks = ticks + 1;
+  if (ticks % 60 === 1) {
+    console.log('${word}');
+  }
+}`,
+      });
+    const alpha = await logScript('AlphaLogger', 'alpha');
+    const beta = await logScript('BetaLogger', 'beta');
+
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [alpha.id, beta.id, beta.id, beta.id, alpha.id],
+    });
+
+    await seedAuthToken(page, user.token!);
+    await page.goto('/workspace');
+
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toHaveAttribute('data-match-players', '5');
+    await expect(canvas).toHaveAttribute('data-match-ball', 'false');
+
+    const startButton = page.getByTestId('test-vs-bot-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
+    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
+    await page.getByTestId('watch-replay-button').click();
+    await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
+    await framesResponse;
+    await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+    await expect(canvas).toHaveAttribute('data-match-players', '10');
+
+    // Deterministic window: pause (stable-freeze poll, same as 3.8/3.10)
+    // then seek Home — every logger emits on the very first update call,
+    // so tick 0 carries entries from all five challenger players
+    const counter = page.getByTestId('frame-counter');
+    await page.getByTestId('play-pause-button').click();
+    await expect
+      .poll(
+        async () => {
+          const before = await currentFrameOf(counter);
+          await page.waitForTimeout(150);
+          return (await currentFrameOf(counter)) - before;
+        },
+        { timeout: 10000 }
+      )
+      .toBe(0);
+    await page.getByTestId('timeline-track').focus();
+    await page.keyboard.press('Home');
+    await expect.poll(() => currentFrameOf(counter)).toBe(0);
+
+    // Entry locators: chips share the entry testid prefix — exclude them
+    const entries = page.locator(LOG_ENTRY_SELECTOR);
+    const chips = page.locator('[data-testid$="-player-chip"]');
+    const logList = page.getByTestId('debug-log-list');
+    await expect(entries.first()).toBeVisible();
+    await expect(logList).toContainText('alpha');
+    await expect(logList).toContainText('beta');
+
+    // Pitch-click target: fixture slot 2 sits at (25, 30) API units —
+    // (25, 60) pitch percent after the engine's y normalization
+    const clickPitchPercent = async (percentX: number, percentY: number) => {
+      const box = (await canvas.boundingBox())!;
+      const availW = box.width - 2 * 40;
+      const availH = box.height - 2 * 40;
+      let pitchW = availW;
+      let pitchH = pitchW / 2;
+      if (pitchH > availH) {
+        pitchH = availH;
+        pitchW = pitchH * 2;
+      }
+      const pitchX = box.x + 40 + (availW - pitchW) / 2;
+      const pitchY = box.y + 40 + (availH - pitchH) / 2;
+      await page.mouse.click(
+        pitchX + (percentX / 100) * pitchW,
+        pitchY + (percentY / 100) * pitchH
+      );
+    };
+
+    // AC #1: ONE click on the P2 spot filters the panel to that player —
+    // the UX spec's click-count success criterion is this assertion
+    await clickPitchPercent(25, 60);
+    await expect(page.getByTestId('debug-filter-indicator')).toHaveText(
+      'Showing P2 (challenger) only'
+    );
+
+    // Only P2's stream: every rendered chip is P2 and no alpha message
+    // (P1/P5) survives the filter
+    const filteredChipCount = await chips.count();
+    expect(filteredChipCount).toBeGreaterThan(0);
+    for (let i = 0; i < filteredChipCount; i++) {
+      await expect(chips.nth(i)).toHaveText('P2');
+    }
+    await expect(logList).toContainText('beta');
+    await expect(logList).not.toContainText('alpha');
+
+    // ...and the selected player is highlighted on the pitch (the Pixi ring
+    // has no DOM — the selection census attribute is the engine's echo)
+    await expect(canvas).toHaveAttribute('data-selected-player', 'challenger-2');
+
+    // AC #2: clicking the SAME player again clears the filter but keeps the
+    // pitch highlight (deselection stays on empty pitch)
+    await clickPitchPercent(25, 60);
+    await expect(page.getByTestId('debug-filter-indicator')).toBeHidden();
+    await expect(page.getByTestId('debug-show-all-button')).toBeHidden();
+    await expect(logList).toContainText('alpha');
+    await expect(canvas).toHaveAttribute('data-selected-player', 'challenger-2');
+
+    // AC #3: scrub while filtered — the filter survives frame changes and
+    // every entry stays attributable (chip with the player tag)
+    await clickPitchPercent(25, 60); // filter again
+    await expect(page.getByTestId('debug-filter-indicator')).toBeVisible();
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('Shift+ArrowRight'); // +180 ticks total
+    }
+    await expect.poll(() => currentFrameOf(counter)).toBe(180);
+    const scrubbedChipCount = await chips.count();
+    expect(scrubbedChipCount).toBeGreaterThan(0);
+    for (let i = 0; i < scrubbedChipCount; i++) {
+      await expect(chips.nth(i)).toHaveText('P2');
+    }
+    await expect(logList).not.toContainText('alpha');
+
+    // "Show All" clears the filter without deselecting the player
+    await page.getByTestId('debug-show-all-button').click();
+    await expect(page.getByTestId('debug-filter-indicator')).toBeHidden();
+    await expect(logList).toContainText('alpha');
+    await expect(canvas).toHaveAttribute('data-selected-player', 'challenger-2');
+
+    // Task 4, reverse direction: clicking a P5 chip on a log entry selects
+    // AND filters P5 on the pitch
+    const p5Chip = chips.filter({ hasText: /^P5$/ }).first();
+    await expect(p5Chip).toBeVisible();
+    await p5Chip.click();
+    await expect(page.getByTestId('debug-filter-indicator')).toHaveText(
+      'Showing P5 (challenger) only'
+    );
+    await expect(canvas).toHaveAttribute('data-selected-player', 'challenger-5');
+    const p5ChipCount = await chips.count();
+    for (let i = 0; i < p5ChipCount; i++) {
+      await expect(chips.nth(i)).toHaveText('P5');
+    }
+    await expect(logList).not.toContainText('beta');
   });
 });

@@ -71,7 +71,7 @@ development_status:
   3-8-replay-playback-system: done
   3-9-timeline-scrubber-and-navigation: done
   3-10-debug-panel-log-display: done
-  3-11-debug-panel-player-filtering: ready-for-dev
+  3-11-debug-panel-player-filtering: done
   epic-3-retrospective: optional
 
   # Epic 4: Ranked Competition & Leaderboard
