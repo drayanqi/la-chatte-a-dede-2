@@ -1200,7 +1200,9 @@ describe('Editor Store', () => {
       // THEN: Should have error state and preserve code
       expect(result).toBe(false);
       const state = useEditorStore.getState();
-      expect(state.scriptsError).toBe('Server error');
+      expect(state.saveError).toBe('Server error');
+      // Save errors surface in the script header, not the scripts list
+      expect(state.scriptsError).toBeNull();
       expect(state.saveStatus).toBe('error');
       expect(state.isSaving).toBe(false);
       // Code should be preserved
@@ -1228,7 +1230,8 @@ describe('Editor Store', () => {
       // THEN: Should have error state
       expect(result).toBe(false);
       const state = useEditorStore.getState();
-      expect(state.scriptsError).toBe('Failed to save script. Please try again.');
+      expect(state.saveError).toBe('Failed to save script. Please try again.');
+      expect(state.scriptsError).toBeNull();
       expect(state.saveStatus).toBe('error');
     });
 
@@ -1250,7 +1253,7 @@ describe('Editor Store', () => {
 
       // THEN: Should fail and not call fetch
       expect(result).toBe(false);
-      expect(useEditorStore.getState().scriptsError).toBe('Not authenticated');
+      expect(useEditorStore.getState().saveError).toBe('Not authenticated');
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -1263,7 +1266,7 @@ describe('Editor Store', () => {
 
       // THEN: Should fail
       expect(result).toBe(false);
-      expect(useEditorStore.getState().scriptsError).toBe('Script not found');
+      expect(useEditorStore.getState().saveError).toBe('Script not found');
       expect(mockFetch).not.toHaveBeenCalled();
     });
 

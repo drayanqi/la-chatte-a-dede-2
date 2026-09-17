@@ -12,7 +12,7 @@ import { useEffect, useRef } from 'react';
 import { useEditorStore } from '@/stores';
 
 export const SaveIndicator: React.FC = () => {
-  const { saveStatus, setSaveStatus, hasUnsavedChanges, scriptsError } =
+  const { saveStatus, setSaveStatus, hasUnsavedChanges, saveError } =
     useEditorStore();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -72,7 +72,7 @@ export const SaveIndicator: React.FC = () => {
       <span
         data-testid="save-indicator"
         style={styles.error}
-        title={scriptsError || 'Save failed'}
+        title={saveError || 'Save failed'}
       >
         <span data-testid="save-indicator-error">Save failed</span>
       </span>

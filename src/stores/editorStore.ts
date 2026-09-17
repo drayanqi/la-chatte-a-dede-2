@@ -44,6 +44,9 @@ interface EditorState {
   // Error state for scripts
   scriptsError: string | null;
 
+  // Error state for save operations (shown in the script header)
+  saveError: string | null;
+
   // Syntax errors
   syntaxErrors: Array<{
     scriptId: string;
@@ -94,6 +97,7 @@ const initialState: EditorState = {
   isSaving: false,
   saveStatus: 'idle',
   scriptsError: null,
+  saveError: null,
   syntaxErrors: [],
 };
 
@@ -270,7 +274,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     const token = localStorage.getItem('auth_token');
 
     if (!token) {
-      set({ scriptsError: 'Not authenticated', saveStatus: 'error' });
+      set({ saveError: 'Not authenticated', saveStatus: 'error' });
       return false;
     }
 
@@ -281,11 +285,16 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
     const script = get().scripts.get(id);
     if (!script) {
-      set({ scriptsError: 'Script not found', saveStatus: 'error' });
+      set({ saveError: 'Script not found', saveStatus: 'error' });
       return false;
     }
 
-    set({ isSaving: true, saveStatus: 'saving', scriptsError: null });
+    set({
+      isSaving: true,
+      saveStatus: 'saving',
+      scriptsError: null,
+      saveError: null,
+    });
 
     try {
       const response = await apiFetch(`/scripts/${id}`, {
@@ -314,6 +323,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
           isSaving: false,
           saveStatus: 'saved',
           scriptsError: null,
+          saveError: null,
         };
       });
 
@@ -321,7 +331,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     } catch (error) {
       if (error instanceof ApiError) {
         set({
-          scriptsError: error.message || 'Failed to save script',
+          saveError: error.message || 'Failed to save script',
           isSaving: false,
           saveStatus: 'error',
         });
@@ -329,7 +339,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       }
       console.error('Error saving script:', error);
       set({
-        scriptsError: 'Failed to save script. Please try again.',
+        saveError: 'Failed to save script. Please try again.',
         isSaving: false,
         saveStatus: 'error',
       });
