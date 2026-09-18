@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
+import { useMatchmakingStore } from './matchmakingStore';
 import { useMatchStore } from './matchStore';
 
 export interface User {
@@ -126,6 +127,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     // Match state is user-scoped: never leak the previous user's result
     // banner or error into the next session.
     useMatchStore.getState().reset();
+    // Same for the ranked queue state (story 4.1).
+    useMatchmakingStore.getState().reset();
     set({ ...initialState, isRestoring: false });
   },
 

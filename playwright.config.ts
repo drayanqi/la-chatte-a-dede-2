@@ -20,7 +20,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // workers:1 everywhere (CI already did; local aligned in story 4.1): the
+  // single PHP worker starves under full-parallel (deferred-work.md#73) and
+  // the matchmaking queue is global shared state — two concurrently running
+  // queue tests would pair each other's users (AC #3 timeout race).
+  workers: 1,
 
   // Timeouts optimized for game simulation app
   timeout: 60 * 1000, // Test timeout: 60s (match simulation can take up to 2s)

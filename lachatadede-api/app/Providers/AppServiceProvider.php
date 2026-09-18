@@ -27,5 +27,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', function (Request $request) {
             return Limit::perMinute((int) env('AUTH_THROTTLE_MAX', 10))->by($request->ip());
         });
+
+        // Matchmaking endpoints: the 2s status poll dominates the traffic
+        // and takes a lockForUpdate transaction per call, so it gets a
+        // higher cap than join/cancel. Sized so two concurrent E2E users on
+        // one loopback IP never trip it (2 x 30 polls/min at the 2s cadence
+        // + headroom).
+        RateLimiter::for('matchmaking', function (Request $request) {
+            $max = $request->isMethod('GET') ? 120 : 20;
+
+            return Limit::perMinute($max)->by($request->ip());
+        });
     }
 }

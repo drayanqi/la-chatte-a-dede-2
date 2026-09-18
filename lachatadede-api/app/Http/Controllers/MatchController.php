@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\GameEngineException;
+use App\Http\Serializers\MatchSerializer;
 use App\Models\GameMatch;
 use App\Services\GameEngineService;
 use App\Services\SystemTacticService;
@@ -92,7 +93,7 @@ class MatchController extends Controller
             'frames_file' => $framesFile,
         ]);
 
-        return response()->json($this->serializeMatch($match->fresh()), 201);
+        return response()->json(MatchSerializer::toArray($match->fresh()), 201);
     }
 
     /**
@@ -104,7 +105,7 @@ class MatchController extends Controller
         $matches = Auth::user()->matches()
             ->orderBy('created_at', 'desc')
             ->paginate(20)
-            ->through(fn (GameMatch $match) => $this->serializeMatch($match));
+            ->through(fn (GameMatch $match) => MatchSerializer::toArray($match));
 
         return response()->json($matches);
     }
@@ -120,7 +121,7 @@ class MatchController extends Controller
             return response()->json(['message' => 'Match not found'], 404);
         }
 
-        return response()->json($this->serializeMatch($match));
+        return response()->json(MatchSerializer::toArray($match));
     }
 
     /**
@@ -160,24 +161,5 @@ class MatchController extends Controller
             $scoreChallenger < $scoreOpponent => 'opponent_win',
             default => 'draw',
         };
-    }
-
-    /**
-     * Public API shape (camelCase) — no internal paths or ids leak.
-     *
-     * @return array<string, mixed>
-     */
-    private function serializeMatch(GameMatch $match): array
-    {
-        return [
-            'id' => $match->id,
-            'mode' => $match->mode,
-            'status' => $match->status,
-            'scoreChallenger' => $match->score_challenger,
-            'scoreOpponent' => $match->score_opponent,
-            'result' => $match->result,
-            'durationFrames' => $match->duration_frames,
-            'createdAt' => $match->created_at->toISOString(),
-        ];
     }
 }

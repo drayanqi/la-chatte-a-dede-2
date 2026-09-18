@@ -9,4 +9,5 @@ export { useDebuggerStore } from './debuggerStore';
 export { useAuthStore } from './authStore';
 export { useTacticsStore } from './tacticsStore';
 export { useMatchStore } from './matchStore';
+export { useMatchmakingStore } from './matchmakingStore';
 export type { User } from './authStore';

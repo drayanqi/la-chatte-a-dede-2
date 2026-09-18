@@ -95,3 +95,13 @@
 ## Deferred from: code review of 3-11-debug-panel-player-filtering (2026-09-16)
 
 - **Re-click → filter-off toggle has no direct unit test** — the toggle semantics ("re-click on selected player with logs clears the filter, keeps highlight") live in AppShell's `handlePlayerSelected` (src/components/layout/AppShell.tsx:206); the store unit test only mirrors the logic by calling `setLogFilter(null)` directly, and the real toggle branch is exercised solely by the e2e. Closing the gap needs component-test infra for AppShell (renderHook/component harness), which the repo doesn't have yet — add when component tests are introduced.
+
+## Deferred from: dev of 4-1-ranked-queue-and-matchmaking (2026-09-17)
+
+- **Four pre-existing workspace E2E failures (Epic 2 territory, verified failing on baseline a2c7727 with the 4.1 diff stashed)** — `should persist changes after save @P0` (chromium+firefox), `should show red underline for syntax errors @P0`, `should show error message on hover @P1`, `should show error icon in gutter @P1` (tests/e2e/workspace.spec.ts). All are Monaco behavior assertions (save persistence, marker squiggles, hoverMarkdownTips, gutter glyph) — suspect the Monaco 0.55.1 exact pin and/or the saveError refactor (a2c7727). Needs its own debugging pass against Epic 2 stories 2.2/2.3/2.5; NOT story 4.1 regressions.
+- **panel-layout assertion drift (fixed in 4.1, recorded for traceability)** — story 3.9 (e4958d1) widened the collapsed strip 28px→36px without updating `tests/e2e/panel-layout.spec.ts:143`; 4.1's regression run surfaced it and the assertion was aligned to 36px.
+- **workspace duplicate-flow fixtures predated the 3.4 script validator (fixed in 4.1)** — `copy code content to duplicate` and `allow editing duplicate without affecting original` created scripts without an `update` function and 422'd since story 3.4's validation; wrapped with the factory's `withUpdate()` (the helper that exists for exactly this).
+
+## Deferred from: code review of 4-1-ranked-queue-and-matchmaking (2026-09-17)
+
+- **`MatchSerializer::toArray($match->fresh())` accepts a nullable that TypeError's** — `fresh()` is nullable but the serializer's parameter is not (lachatadede-api/app/Http/Controllers/MatchController.php:96, app/Http/Serializers/MatchSerializer.php); a concurrent delete of the just-created row would 500 instead of degrading gracefully. Pre-existing risk the 4.1 serializer extraction moved behavior-identically; matches are never deleted in-app, so `fresh()` after a same-request create cannot realistically be null — guard it (or widen the param to `?GameMatch`) if a delete path ever lands.

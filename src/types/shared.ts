@@ -197,6 +197,19 @@ export interface MatchFramesFile {
   frames: MatchFrame[];
 }
 
+// ----------------------------------------------------------------------------
+// Matchmaking (Epic 4, story 4.1)
+// ----------------------------------------------------------------------------
+
+/** Queue state as reported by the API (GET/POST /api/matchmaking/queue) */
+export type MatchmakingStatus = 'idle' | 'waiting' | 'matched' | 'timeout';
+
+/** Poll/join response payload: the created match is present when matched */
+export interface QueueStatusResponse {
+  status: MatchmakingStatus;
+  match?: MatchResult;
+}
+
 // ============================================================================
 // DEBUGGER
 // ============================================================================

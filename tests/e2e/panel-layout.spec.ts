@@ -140,7 +140,7 @@ test.describe('Panel Layout', () => {
     const leftStrip = page.getByTestId('panel-strip-left');
     await expect(leftStrip).toBeVisible();
     await expect(page.getByTestId('left-panel')).toHaveCount(0);
-    expect(await getInlineWidth(page, 'panel-strip-left')).toBe('28px');
+    expect(await getInlineWidth(page, 'panel-strip-left')).toBe('36px');
 
     const stored = await page.evaluate(() => localStorage.getItem('panel_layout'));
     expect(JSON.parse(stored ?? '{}')).toMatchObject({

@@ -1764,7 +1764,9 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
   }) => {
     // GIVEN: User with an AI file containing specific code
     const user = await userFactory.createAuthenticated();
-    const testCode = 'const uniqueCode = "test123";';
+    // withUpdate: story 3.4's validator requires an update function; the
+    // comment wrap keeps the asserted text visible in the editor.
+    const testCode = withUpdate('const uniqueCode = "test123";');
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'CodeCopy.js',
@@ -1836,7 +1838,9 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
   }) => {
     // GIVEN: User duplicates a file
     const user = await userFactory.createAuthenticated();
-    const originalCode = 'const original = true;';
+    // withUpdate: story 3.4's validator requires an update function; the
+    // comment wrap keeps the asserted text visible in the editor.
+    const originalCode = withUpdate('const original = true;');
     const script = await scriptFactory.create({
       token: user.token!,
       name: 'EditIndep.js',
