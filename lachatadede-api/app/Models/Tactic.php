@@ -22,6 +22,10 @@ class Tactic extends Model
         'name',
         'is_public',
         'is_system',
+        'is_ready',
+        'elo',
+        'wins',
+        'losses',
     ];
 
     /**
@@ -34,7 +38,22 @@ class Tactic extends Model
         return [
             'is_public' => 'boolean',
             'is_system' => 'boolean',
+            'is_ready' => 'boolean',
+            'elo' => 'integer',
+            'wins' => 'integer',
+            'losses' => 'integer',
         ];
+    }
+
+    /**
+     * A tactic can field a match only with 5 slots, each scripted. Shared
+     * rule for the ranked opponent pool (Epic 4), the ready-flag gate and
+     * the pairing-time re-validation.
+     */
+    public function lineupIsComplete(): bool
+    {
+        return $this->players->count() === 5
+            && $this->players->every(fn ($player) => $player->script !== null);
     }
 
     /**

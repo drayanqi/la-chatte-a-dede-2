@@ -28,11 +28,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) env('AUTH_THROTTLE_MAX', 10))->by($request->ip());
         });
 
-        // Matchmaking endpoints: the 2s status poll dominates the traffic
-        // and takes a lockForUpdate transaction per call, so it gets a
-        // higher cap than join/cancel. Sized so two concurrent E2E users on
-        // one loopback IP never trip it (2 x 30 polls/min at the 2s cadence
-        // + headroom).
+        // Matchmaking endpoints (Epic 4 v2): opponents listing + quick/challenge
+        // posts. The ranked simulation runs synchronously in the request, so a
+        // client must not hammer these while a simulation holds the worker:
+        // per-IP caps keep a runaway client from starving it.
         RateLimiter::for('matchmaking', function (Request $request) {
             $max = $request->isMethod('GET') ? 120 : 20;
 

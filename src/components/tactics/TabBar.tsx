@@ -6,13 +6,21 @@
  * with the default formation, double-click to rename, delete with
  * confirmation (even the last one — a fresh default is recreated).
  * Every edit auto-saves; this bar only switches, renames, creates and deletes.
+ * Each tab also carries the ready-to-play toggle (Epic 4 v2): a ready
+ * tactic is a ranked fighter, challengeable while its owner is offline,
+ * and the tab shows its elo and W-L record.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTacticsStore } from '@/stores/tacticsStore';
+import type { TacticConfig } from '@/types';
 
 /** How long the "saved" indicator stays visible on a tab */
 const SAVED_FLASH_MS = 1500;
+
+/** A tactic can only enter the ranked pool with a complete lineup */
+const lineupIsComplete = (tactic: TacticConfig): boolean =>
+  tactic.players.length === 5 && tactic.players.every((player) => player.scriptId !== null);
 
 export const TabBar: React.FC = () => {
   const tactics = useTacticsStore((state) => state.tactics);
@@ -135,6 +143,18 @@ export const TabBar: React.FC = () => {
     setDeleteConfirmTacticId(null);
   }, []);
 
+  // Ready toggle (Epic 4 v2): same auto-save pipeline as renames (the
+  // update queues behind an in-flight save). The client gate mirrors the
+  // server's 422: an incomplete lineup cannot go ready.
+  const handleToggleReady = useCallback(
+    (tactic: TacticConfig) => {
+      if (lineupIsComplete(tactic)) {
+        void updateTactic(tactic.id, undefined, undefined, !tactic.isReady);
+      }
+    },
+    [updateTactic]
+  );
+
   // Close the delete dialog on Escape
   useEffect(() => {
     if (!deleteConfirmTacticId) return;
@@ -183,7 +203,36 @@ export const TabBar: React.FC = () => {
                 />
               ) : (
                 <>
+                  <button
+                    data-testid="ready-toggle"
+                    data-tactic-id={tactic.id}
+                    aria-pressed={tactic.isReady}
+                    disabled={!lineupIsComplete(tactic)}
+                    style={{
+                      ...styles.readyToggle,
+                      ...(tactic.isReady ? styles.readyToggleOn : {}),
+                      ...(!lineupIsComplete(tactic) ? styles.readyToggleDisabled : {}),
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleReady(tactic);
+                    }}
+                    title={
+                      lineupIsComplete(tactic)
+                        ? tactic.isReady
+                          ? 'Ready to play — other players can challenge this tactic while you are offline'
+                          : 'Mark ready to play — other players will be able to challenge this tactic while you are offline'
+                        : 'Assign AIs to all 5 positions to make this tactic ready'
+                    }
+                  >
+                    ●
+                  </button>
                   <span style={styles.tabName}>{tactic.name}</span>
+                  {tactic.isReady && (
+                    <span data-testid="tactic-record" data-tactic-id={tactic.id} style={styles.record}>
+                      {tactic.elo} · {tactic.wins}-{tactic.losses}
+                    </span>
+                  )}
                   {flashTacticId === tactic.id && (
                     <span data-testid="saved-indicator" style={styles.savedIndicator}>
                       ✓
@@ -300,7 +349,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '6px',
     padding: '4px 10px',
-    maxWidth: '180px',
+    maxWidth: '200px',
     minWidth: '60px',
     backgroundColor: '#2d2d2d',
     border: '1px solid #3c3c3c',
@@ -322,6 +371,35 @@ const styles: Record<string, React.CSSProperties> = {
   tabName: {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  },
+  readyToggle: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '14px',
+    height: '14px',
+    padding: 0,
+    flexShrink: 0,
+    backgroundColor: 'transparent',
+    color: '#555555',
+    border: 'none',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    fontSize: '11px',
+    lineHeight: 1,
+  },
+  readyToggleOn: {
+    color: '#22c55e',
+  },
+  readyToggleDisabled: {
+    opacity: 0.35,
+    cursor: 'not-allowed',
+  },
+  record: {
+    fontSize: '10px',
+    color: '#9d9d9d',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   savedIndicator: {
     color: '#22c55e',

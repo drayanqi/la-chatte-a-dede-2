@@ -80,12 +80,18 @@ export interface TacticPlayerConfig {
 }
 
 /**
- * A saved tactic as exposed by the API (camelCase shape).
+ * A saved tactic as exposed by the API (camelCase shape). A tactic is a
+ * ranked fighter (Epic 4 v2): isReady marks it challengeable, elo/wins/
+ * losses are its own record (server-managed, never client-writable).
  */
 export interface TacticConfig {
   id: string;
   name: string;
   isSystem: boolean;
+  isReady: boolean;
+  elo: number;
+  wins: number;
+  losses: number;
   players: TacticPlayerConfig[];
 }
 
@@ -175,7 +181,8 @@ export interface MatchFrame {
 /**
  * A match as exposed by the API (camelCase shape). The challenger is the
  * user who started the match; scores compare their AI against the bot
- * (practice) or the opponent (ranked, Epic 4).
+ * (practice) or the opponent (ranked, Epic 4). pointsChallenger/
+ * pointsOpponent carry the signed elo deltas of ranked matches.
  */
 export interface MatchResult {
   id: string;
@@ -184,6 +191,10 @@ export interface MatchResult {
   scoreChallenger: number;
   scoreOpponent: number;
   result: MatchOutcome;
+  pointsChallenger?: number | null;
+  pointsOpponent?: number | null;
+  challengerName?: string | null;
+  opponentName?: string | null;
   durationFrames: number;
   createdAt: string;
 }
@@ -198,16 +209,20 @@ export interface MatchFramesFile {
 }
 
 // ----------------------------------------------------------------------------
-// Matchmaking (Epic 4, story 4.1)
+// Ranked matchmaking (Epic 4 v2)
 // ----------------------------------------------------------------------------
 
-/** Queue state as reported by the API (GET/POST /api/matchmaking/queue) */
-export type MatchmakingStatus = 'idle' | 'waiting' | 'matched' | 'timeout';
-
-/** Poll/join response payload: the created match is present when matched */
-export interface QueueStatusResponse {
-  status: MatchmakingStatus;
-  match?: MatchResult;
+/**
+ * One challengeable ready tactic from another player (GET
+ * /api/matchmaking/opponents), ranked by elo on the server.
+ */
+export interface RankedOpponent {
+  id: string;
+  name: string;
+  owner: string | null;
+  elo: number;
+  wins: number;
+  losses: number;
 }
 
 // ============================================================================

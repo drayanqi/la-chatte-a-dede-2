@@ -4,7 +4,7 @@ baseline_commit: a2c77279dd46d63a43b78f80a2888b2f6f77851f
 
 # Story 4.1: Ranked Queue & Matchmaking
 
-Status: done
+Status: superseded — the polling-queue model was replaced by the challenge model (Epic 4 v2, Pelo, 2026-09-19). See `4-1-ready-tactics-and-queue-removal.md` (which also removes this story's code) and `epics.md` Epic 4.
 
 ## Story
 

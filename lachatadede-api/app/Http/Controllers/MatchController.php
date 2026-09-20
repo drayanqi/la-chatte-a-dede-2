@@ -98,11 +98,33 @@ class MatchController extends Controller
 
     /**
      * List the user's matches, newest first (FR34: most recent match),
-     * paginated 20 per page.
+     * paginated 20 per page. Covers BOTH sides (Epic 4 v2): a ranked
+     * challenge is unilateral — the offline opponent reads the match in
+     * their history. Optional `?tactic_id=` filters to one of the user's
+     * tactics on either side (per-tactic record, story 4.4's query shape).
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $matches = Auth::user()->matches()
+        $user = Auth::user();
+
+        $tacticId = null;
+        if ($request->filled('tactic_id')) {
+            $tactic = $user->tactics()->find($request->query('tactic_id'));
+            if (! $tactic) {
+                return response()->json(['message' => 'Tactic not found'], 404);
+            }
+            $tacticId = $tactic->id;
+        }
+
+        $matches = GameMatch::query()
+            ->forUser($user)
+            ->with(['challenger', 'opponent'])
+            ->when($tacticId !== null, function ($query) use ($tacticId) {
+                $query->where(function ($q) use ($tacticId) {
+                    $q->where('challenger_tactic', $tacticId)
+                        ->orWhere('opponent_tactic', $tacticId);
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(20)
             ->through(fn (GameMatch $match) => MatchSerializer::toArray($match));

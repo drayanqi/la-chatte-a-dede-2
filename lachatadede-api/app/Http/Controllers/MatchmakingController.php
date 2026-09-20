@@ -2,75 +2,84 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\RankedMatchException;
 use App\Http\Serializers\MatchSerializer;
-use App\Services\MatchmakingService;
+use App\Models\Tactic;
+use App\Services\RankedMatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * The ranked matchmaking API (Epic 4 v2): browse the challengeable pool,
+ * quick-match against a random ready tactic, or challenge a specific one.
+ * The match is simulated synchronously — the opponent sees it in their
+ * history, online or not.
+ */
 class MatchmakingController extends Controller
 {
     /**
-     * Join the ranked queue (AC #1, #2): validate the tactic, then let the
-     * service upsert the row and attempt an immediate pairing. Idempotent —
-     * re-joining returns the current state (waiting, or the freshly created
-     * match when an opponent was waiting).
+     * The ready tactics of other players, ranked by elo (AC: 4.2 browse).
      */
-    public function join(Request $request, MatchmakingService $matchmaking): JsonResponse
+    public function opponents(RankedMatchService $ranked): JsonResponse
+    {
+        return response()->json($ranked->opponents(Auth::user()));
+    }
+
+    /**
+     * Quick match (AC #1/#2): random ready opponent, any elo. 201 with the
+     * completed match, or a mapped error (404 empty pool, 422 ineligible
+     * tactic, 502 failed simulation).
+     */
+    public function quick(Request $request, RankedMatchService $ranked): JsonResponse
     {
         $validated = $request->validate([
-            'tactic_id' => ['required', 'uuid', 'exists:tactics,id'],
+            'tactic_id' => ['required', 'uuid'],
+        ]);
+
+        $mine = Auth::user()->tactics()->with('players.script')->find($validated['tactic_id']);
+        if (! $mine) {
+            return response()->json(['message' => 'Tactic not found'], 404);
+        }
+
+        try {
+            $match = $ranked->quickMatch(Auth::user(), $mine);
+        } catch (RankedMatchException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->status);
+        }
+
+        return response()->json(MatchSerializer::toArray($match), 201);
+    }
+
+    /**
+     * Challenge (AC #3/#5): one specific opponent tactic from the pool.
+     * Same response contract as quick.
+     */
+    public function challenge(Request $request, RankedMatchService $ranked): JsonResponse
+    {
+        $validated = $request->validate([
+            'tactic_id' => ['required', 'uuid'],
+            'opponent_tactic_id' => ['required', 'uuid'],
         ]);
 
         $user = Auth::user();
 
-        $tactic = $user->tactics()->find($validated['tactic_id']);
-        if (! $tactic) {
+        $mine = $user->tactics()->with('players.script')->find($validated['tactic_id']);
+        if (! $mine) {
             return response()->json(['message' => 'Tactic not found'], 404);
         }
 
-        // The engine needs a full lineup (same rule as practice matches) —
-        // the service's pairing-time re-validation shares this one rule.
-        $tactic->load('players.script');
-        if (! $matchmaking->lineupComplete($tactic)) {
-            return response()->json(['message' => 'Tactic lineup is incomplete'], 422);
+        $opponent = Tactic::query()->with('players.script')->find($validated['opponent_tactic_id']);
+        if (! $opponent) {
+            return response()->json(['message' => 'Tactic not found'], 404);
         }
 
-        return response()->json($this->serialize($matchmaking->join($user, $tactic)));
-    }
-
-    /**
-     * Poll the queue state (AC #2, #3): waiting / matched (with the created
-     * match) / timeout (server-enforced 30s expiry, reported once) / idle.
-     */
-    public function status(MatchmakingService $matchmaking): JsonResponse
-    {
-        return response()->json($this->serialize($matchmaking->status(Auth::user())));
-    }
-
-    /**
-     * Leave the queue (AC #4). Always 204 — idempotent.
-     */
-    public function cancel(MatchmakingService $matchmaking): \Illuminate\Http\Response
-    {
-        $matchmaking->cancel(Auth::user());
-
-        return response()->noContent();
-    }
-
-    /**
-     * Serialize the service result: the match (when present) goes through
-     * the shared serializer — the frontend's MatchResult shape.
-     *
-     * @param  array<string, mixed>  $result
-     * @return array<string, mixed>
-     */
-    private function serialize(array $result): array
-    {
-        if (isset($result['match'])) {
-            $result['match'] = MatchSerializer::toArray($result['match']);
+        try {
+            $match = $ranked->challenge($user, $mine, $opponent);
+        } catch (RankedMatchException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->status);
         }
 
-        return $result;
+        return response()->json(MatchSerializer::toArray($match), 201);
     }
 }

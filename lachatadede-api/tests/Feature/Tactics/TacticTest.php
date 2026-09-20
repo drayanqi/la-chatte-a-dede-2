@@ -542,4 +542,138 @@ class TacticTest extends TestCase
         $this->assertNotNull($response->json('players.1.scriptId'));
         $this->assertNotNull($response->json('players.4.scriptId'));
     }
+
+    // ------------------------------------------------------------------
+    // Ready tactics (Epic 4 v2, story 4.1)
+    // ------------------------------------------------------------------
+
+    public function test_tactic_serializes_the_ranked_fields(): void
+    {
+        $user = User::factory()->create();
+
+        $created = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $this->formationPayload($user))
+            ->assertStatus(201);
+
+        $created->assertJsonPath('isReady', false)
+            ->assertJsonPath('elo', 1000)
+            ->assertJsonPath('wins', 0)
+            ->assertJsonPath('losses', 0);
+
+        $index = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tactics')
+            ->assertOk()
+            ->assertJsonCount(1);
+
+        $index->assertJsonPath('0.isReady', false)
+            ->assertJsonPath('0.elo', 1000)
+            ->assertJsonPath('0.wins', 0)
+            ->assertJsonPath('0.losses', 0);
+    }
+
+    public function test_tactic_can_be_marked_ready_and_unready(): void
+    {
+        $user = User::factory()->create();
+
+        // A complete lineup first: ready is gated on it (AC #3)
+        $created = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $this->formationPayload($user))
+            ->assertStatus(201);
+        $tacticId = $created->json('id');
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tacticId}", ['is_ready' => true])
+            ->assertStatus(200)
+            ->assertJsonPath('isReady', true);
+
+        $this->assertDatabaseHas('tactics', ['id' => $tacticId, 'is_ready' => true]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tacticId}", ['is_ready' => false])
+            ->assertStatus(200)
+            ->assertJsonPath('isReady', false);
+
+        $this->assertDatabaseHas('tactics', ['id' => $tacticId, 'is_ready' => false]);
+    }
+
+    public function test_ready_on_store_requires_a_complete_lineup(): void
+    {
+        $user = User::factory()->create();
+        $script = $user->scripts()->create(['name' => 'One.js', 'code' => 'x', 'language' => 'javascript']);
+
+        $this->actingAs($user, 'sanctum')->postJson('/api/tactics', [
+            'name' => 'Born ready',
+            'is_ready' => true,
+            'players' => [
+                ['player_slot' => 1, 'position_x' => 8.0, 'position_y' => 25.0, 'script_id' => $script->id],
+            ],
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Tactic lineup is incomplete');
+
+        // Without the ready flag the same payload is fine
+        $this->actingAs($user, 'sanctum')->postJson('/api/tactics', [
+            'name' => 'Not ready yet',
+            'players' => [
+                ['player_slot' => 1, 'position_x' => 8.0, 'position_y' => 25.0, 'script_id' => $script->id],
+            ],
+        ])->assertStatus(201)
+            ->assertJsonPath('isReady', false);
+    }
+
+    public function test_ready_on_update_requires_a_complete_lineup(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Half-filled']);
+        $tactic->players()->create(['player_slot' => 1, 'position_x' => 8.0, 'position_y' => 25.0]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['is_ready' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Tactic lineup is incomplete');
+
+        // The gate validates the lineup that results from THIS request: a
+        // complete replacement plus the ready flag together is accepted.
+        $payload = $this->formationPayload($user);
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", [...$payload, 'is_ready' => true])
+            ->assertStatus(200)
+            ->assertJsonPath('isReady', true);
+
+        $this->assertDatabaseHas('tactics', ['id' => $tactic->id, 'is_ready' => true]);
+    }
+
+    public function test_unreadying_is_never_gated(): void
+    {
+        $user = User::factory()->create();
+        // Ready in the database, lineup broken afterwards (script deleted)
+        $script = $user->scripts()->create(['name' => 'Gone.js', 'code' => 'x', 'language' => 'javascript']);
+        $tactic = $user->tactics()->create(['name' => 'Broken', 'is_ready' => true]);
+        $tactic->players()->create([
+            'player_slot' => 1, 'position_x' => 8.0, 'position_y' => 25.0, 'script_id' => $script->id,
+        ]);
+        $script->delete();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['is_ready' => false])
+            ->assertStatus(200)
+            ->assertJsonPath('isReady', false);
+    }
+
+    public function test_ranked_columns_are_server_managed(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Guarded', 'elo' => 1500, 'wins' => 9, 'losses' => 2]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", [
+                'name' => 'Guarded',
+                'elo' => 9999,
+                'wins' => 999,
+                'losses' => -999,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('elo', 1500)
+            ->assertJsonPath('wins', 9)
+            ->assertJsonPath('losses', 2);
+    }
 }

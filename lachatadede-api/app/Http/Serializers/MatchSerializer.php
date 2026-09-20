@@ -25,6 +25,12 @@ class MatchSerializer
             'scoreChallenger' => $match->score_challenger,
             'scoreOpponent' => $match->score_opponent,
             'result' => $match->result,
+            // Ranked (Epic 4 v2): the signed elo deltas applied to each
+            // fighter's tactic; null while pending/failed and for practice
+            'pointsChallenger' => $match->points_challenger,
+            'pointsOpponent' => $match->points_opponent,
+            'challengerName' => $match->challenger?->username,
+            'opponentName' => $match->opponent?->username,
             'durationFrames' => $match->duration_frames,
             'createdAt' => $match->created_at->toISOString(),
         ];

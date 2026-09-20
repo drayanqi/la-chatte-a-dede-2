@@ -5,8 +5,8 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
-import { useMatchmakingStore } from './matchmakingStore';
 import { useMatchStore } from './matchStore';
+import { useRankedStore } from './rankedStore';
 
 export interface User {
   id: string;
@@ -127,8 +127,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     // Match state is user-scoped: never leak the previous user's result
     // banner or error into the next session.
     useMatchStore.getState().reset();
-    // Same for the ranked queue state (story 4.1).
-    useMatchmakingStore.getState().reset();
+    // Same for the ranked matchmaking state (Epic 4 v2). Static import is
+    // safe: rankedStore only reaches back to authStore via dynamic import.
+    useRankedStore.getState().reset();
     set({ ...initialState, isRestoring: false });
   },
 

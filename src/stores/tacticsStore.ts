@@ -33,7 +33,12 @@ interface TacticsState {
   tacticsError: string | null;
 
   // Work queued while a save is in flight (drained when the in-flight settles)
-  pendingUpdate: { id: string; name?: string; slots?: TacticPlayerConfig[] } | null;
+  pendingUpdate: {
+    id: string;
+    name?: string;
+    slots?: TacticPlayerConfig[];
+    isReady?: boolean;
+  } | null;
   pendingCreate: boolean;
 }
 
@@ -41,7 +46,12 @@ interface TacticsActions {
   // API operations
   fetchTactics: () => Promise<void>;
   saveTactic: (name: string, slots: TacticPlayerConfig[]) => Promise<void>;
-  updateTactic: (id: string, name?: string, slots?: TacticPlayerConfig[]) => Promise<void>;
+  updateTactic: (
+    id: string,
+    name?: string,
+    slots?: TacticPlayerConfig[],
+    isReady?: boolean
+  ) => Promise<void>;
   createTactic: () => Promise<TacticConfig | null>;
   deleteTactic: (id: string) => Promise<boolean>;
 
@@ -80,7 +90,12 @@ const runPendingWork = (): void => {
   const state = useTacticsStore.getState();
   if (state.pendingUpdate) {
     useTacticsStore.setState({ pendingUpdate: null });
-    void state.updateTactic(state.pendingUpdate.id, state.pendingUpdate.name, state.pendingUpdate.slots);
+    void state.updateTactic(
+      state.pendingUpdate.id,
+      state.pendingUpdate.name,
+      state.pendingUpdate.slots,
+      state.pendingUpdate.isReady
+    );
   } else if (state.pendingCreate) {
     useTacticsStore.setState({ pendingCreate: false });
     void state.createTactic();
@@ -256,7 +271,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     }
   },
 
-  updateTactic: async (id: string, name?: string, slots?: TacticPlayerConfig[]) => {
+  updateTactic: async (id: string, name?: string, slots?: TacticPlayerConfig[], isReady?: boolean) => {
     const token = localStorage.getItem('auth_token');
 
     if (!token) {
@@ -270,8 +285,13 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       const prev = get().pendingUpdate;
       const pendingUpdate =
         prev && prev.id === id
-          ? { id, name: name ?? prev.name, slots: slots ?? prev.slots }
-          : { id, name, slots };
+          ? {
+              id,
+              name: name ?? prev.name,
+              slots: slots ?? prev.slots,
+              isReady: isReady ?? prev.isReady,
+            }
+          : { id, name, slots, isReady };
       set({ pendingUpdate });
       return;
     }
@@ -285,6 +305,9 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       }
       if (slots !== undefined) {
         body.players = slotsToPayload(slots);
+      }
+      if (isReady !== undefined) {
+        body.is_ready = isReady;
       }
 
       const response = await apiFetch(`/tactics/${id}`, {

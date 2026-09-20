@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-18
+last_updated: 2026-09-20
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -74,11 +74,23 @@ development_status:
   3-11-debug-panel-player-filtering: done
   epic-3-retrospective: optional
 
-  # Epic 4: Ranked Competition & Leaderboard
+  # Epic 4: Ranked Competition & Leaderboard (rewritten 2026-09-19 — party-mode v2:
+  # tactics as ranked fighters, queue removed; old 4-1 file kept as SUPERSEDED)
   epic-4: in-progress
   4-1-ranked-queue-and-matchmaking: done
-  4-2-async-ranked-match-completion: backlog
-  4-3-ranked-match-results-view: backlog
-  4-4-points-elo-rating-system: backlog
+  4-1-ready-tactics-and-queue-removal: done
+  4-2-ranked-match-engine: done
+  4-3-ranked-matchmaking-view: done
+  4-4-match-history-and-results: ready-for-dev
   4-5-public-leaderboard: backlog
   epic-4-retrospective: optional
+
+  # Epic 6: Production Deployment on Infomaniak VPS (planned 2026-09-20 — party-mode;
+  # story order: 6.1 → 6.2 → 6.3 → 6.4 → 6.5, 6.1 independent of the VPS)
+  epic-6: backlog
+  6-1-forward-only-migrations-and-project-guidelines: backlog
+  6-2-vps-ordered-and-provisioned: backlog
+  6-3-ci-builds-to-ghcr-and-vps-pulls: backlog
+  6-4-https-with-lets-encrypt: backlog
+  6-5-database-backups-and-operations-runbook: backlog
+  epic-6-retrospective: optional

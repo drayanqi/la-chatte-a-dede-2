@@ -42,10 +42,10 @@ This document provides the complete epic and story breakdown for Lachatadede, de
 - FR20: Users can start instant practice matches against AI bots
 - FR21: Users can test their AI without queue wait times
 - FR22: System provides Easy difficulty practice bot (MVP)
-- FR23: Users can queue for ranked matches against other players
-- FR24: Users can queue a ranked match and close the browser (async play)
+- FR23: Users can mark tactics ready to play and challenge other players' ready tactics
+- FR24: Users can play ranked matches asynchronously — the opponent does not need to be online
 - FR25: Users can view their ranked match results when returning to the platform
-- FR26: System matches players using a ranking algorithm (Elo or points-based)
+- FR26: System rates tactics with a ranking algorithm (Elo) and matches quick match requests to ready opponents
 - FR27: System simulates matches server-side using deterministic physics
 - FR28: System executes AI code at a fixed tick rate (30 or 15 fps)
 - FR29: System enforces 3-minute match duration
@@ -157,10 +157,10 @@ This document provides the complete epic and story breakdown for Lachatadede, de
 | FR37 | Epic 3 | Color-coded logs by player |
 | FR38 | Epic 3 | Correlate logs with ticks |
 | FR39 | Epic 3 | Identify player per log entry |
-| FR23 | Epic 4 | Queue for ranked matches |
-| FR24 | Epic 4 | Async play (queue and close) |
+| FR23 | Epic 4 | Ready tactics + challenge other players |
+| FR24 | Epic 4 | Async play (opponent offline) |
 | FR25 | Epic 4 | View ranked results on return |
-| FR26 | Epic 4 | Matchmaking algorithm |
+| FR26 | Epic 4 | Elo rating + quick match algorithm |
 | FR40 | Epic 4 | View public leaderboard |
 | FR41 | Epic 4 | See current ranking position |
 | FR42 | Epic 4 | See other players' rankings |
@@ -215,6 +215,15 @@ The match canvas gets a unique, colorful "Wild Card" arena look that makes lacha
 **FRs covered:** None (visual polish — extends the "DevTools meets ESPN" UX design direction)
 
 **User Outcome:** A colorful two-tone arcade pitch with watermark logo, surface pattern, and territory tints — readable at all times.
+
+---
+
+### Epic 6: Production Deployment on Infomaniak VPS
+The full app deploys automatically to a personal Infomaniak VPS on every push to `main`, over HTTPS, with database backups.
+
+**FRs covered:** None (infrastructure — makes FR1–FR43 reachable by real users)
+
+**User Outcome:** Anyone can open https://venanciohugo.fr, register, and play ranked matches against real deployed code; shipping is a `git push` and rollback is one command.
 
 ---
 
@@ -795,138 +804,142 @@ So that I can focus on specific AI behavior.
 
 ---
 
-## Epic 4: Ranked Competition & Leaderboard
+## Epic 4: Ranked Competition — Ready Tactics & Challenge Mode
 
-Users can prove their code against other players and track their progression.
+Users prove their code against other players: any tactic can be marked **ready to play**, carries its **own elo** and **win/loss record**, and fights other players' ready tactics — even while their owner is offline. Matches are simulated the moment a challenge is made; the opponent reads the result in their history later.
 
-### Story 4.1: Ranked Queue & Matchmaking
+> **Rewritten 2026-09-19 (Pelo):** the polling queue model (old stories 4.1–4.4) is superseded by the challenge model. Decisions locked: elo lives on the TACTIC; the 4.1 queue (code + table) is ripped out; draws are hidden from records; quick match v1 picks any ready opponent regardless of elo (band-matching deferred).
+
+### Story 4.1: Ready Tactics & Queue Removal
 
 As a user,
-I want to queue for ranked matches against other players,
-So that I can compete and prove my AI skills.
+I want to mark any of my tactics as ready to play,
+So that they can be challenged by other players while I am offline.
 
 **Acceptance Criteria:**
 
-**Given** I have a valid lineup configured
-**When** I click "Queue Ranked"
-**Then** I am added to the matchmaking queue
-**And** I see "Searching for opponent..."
+**Given** I have a tactic with a complete lineup (5 slots, all scripted)
+**When** I toggle "ready" on its tab
+**Then** the tactic is marked ready and the toggle persists
+**And** the tab shows its elo and win/loss record
 
-**Given** another player is in queue with similar rating
-**When** matchmaking runs
-**Then** we are paired together
-**And** a ranked match is created
+**Given** I have several tactics
+**When** I mark more than one ready
+**Then** all of them are independently challengeable
 
-**Given** no opponent is found within 30 seconds
-**When** the timeout occurs
-**Then** I see "No opponent found, try again later"
-**And** I am removed from queue
+**Given** a tactic whose lineup is incomplete
+**When** I try to mark it ready
+**Then** the request is refused (422 "Tactic lineup is incomplete")
 
-**Given** I am in queue
-**When** I click "Cancel"
-**Then** I am removed from queue
+**Given** the ranked queue shipped by the superseded story 4.1
+**When** this story lands
+**Then** the queue backend, UI and `matchmaking_queue` table are removed
+**And** the tactics API exposes `isReady`, `elo`, `wins` and `losses`
 
 ---
 
-### Story 4.2: Async Ranked Match Completion
+### Story 4.2: Ranked Match Engine
 
 As a user,
-I want to queue a ranked match and close my browser,
-So that I don't have to wait online for results.
+I want to quick-match or challenge a specific ready tactic,
+So that a ranked match is simulated immediately, even if the opponent is offline.
 
 **Acceptance Criteria:**
 
-**Given** I am matched with an opponent
-**When** the match starts simulating
-**Then** I can close the browser
-**And** the match continues server-side
+**Given** ready tactics from other players exist
+**When** I quick-match with one of my ready tactics
+**Then** a random opponent's ready tactic is selected (any elo, never mine, never a system tactic)
+**And** the match is simulated synchronously and stored with my tactic as challenger
 
-**Given** a ranked match is in progress
-**When** I return to the platform
-**Then** I see my pending match status
+**Given** no other player's tactic is ready
+**When** I quick-match
+**Then** I get "No opponents ready"
 
-**Given** I have a completed ranked match
-**When** I return to the platform
-**Then** I see a notification "Match completed!"
-**And** I can view the results
+**Given** the list of ready tactics from other players
+**When** I challenge one of them
+**Then** the match is simulated and stored the same way
+
+**Given** a ranked match completes
+**When** the result is recorded
+**Then** both tactics' elo, wins and losses update in one transaction (Elo, K=50, initial 1000; draws move elo symmetrically but never the counters)
+**And** the match appears in BOTH players' history
+
+**Given** a challenge whose opponent tactic is not ready / not complete / not another player's
+**When** the request arrives
+**Then** it is refused
 
 ---
 
-### Story 4.3: Ranked Match Results View
+### Story 4.3: Ranked Matchmaking View
+
+As a user,
+I want a dedicated ranked screen,
+So that I can manage my fighters and find opponents.
+
+**Acceptance Criteria:**
+
+**Given** I open the ranked view
+**When** my ready tactics are listed
+**Then** each shows its elo and record with a Quick Match button
+
+**Given** other players' ready tactics exist
+**When** I browse the opponents list
+**Then** each row shows owner, tactic name, elo and record with a Challenge button
+
+**Given** I just played a ranked match
+**When** the simulation completes
+**Then** I see the score and my elo change
+**And** I can watch the replay
+
+**Given** no ready tactics from other players exist
+**When** I browse the opponents list
+**Then** I see an empty state inviting me back later
+
+---
+
+### Story 4.4: Match History & Results (rescoped)
 
 As a user,
 I want to view my ranked match results,
-So that I can see how I performed.
+So that I can see how each of my tactics performed.
 
 **Acceptance Criteria:**
 
 **Given** I have completed ranked matches
 **When** I view my match history
-**Then** I see my recent ranked matches
-**And** each shows: opponent name, score, result (win/loss/draw), rating change
+**Then** I see matches where I was challenger OR opponent
+**And** each shows: opponent name, my tactic, score, result, elo change
+
+**Given** I filter by one of my tactics
+**When** the history loads
+**Then** only that tactic's matches are shown
 
 **Given** I click on a ranked match
 **When** the details load
-**Then** I can watch the replay
-**And** I see the same debug panel features as practice mode
-
-**Given** I just finished a ranked match
-**When** I view results
-**Then** I see my new rating
-**And** I see how many points I gained/lost
+**Then** I can watch the replay with the same debug panel features as practice mode
 
 ---
 
-### Story 4.4: Points/Elo Rating System
-
-As a system,
-I want to calculate player ratings after matches,
-So that rankings reflect skill accurately.
-
-**Acceptance Criteria:**
-
-**Given** a new user
-**When** they play their first ranked match
-**Then** they start with initial rating (e.g., 1000 points)
-
-**Given** a ranked match completes
-**When** ratings are calculated
-**Then** winner gains points and loser loses points
-**And** point change is based on rating difference (upset = more points)
-
-**Given** two players of equal rating
-**When** one wins
-**Then** they gain standard points (e.g., +25)
-**And** loser loses standard points (e.g., -25)
-
-**Given** a lower-rated player beats higher-rated
-**When** ratings update
-**Then** upset bonus applies (winner gains more, loser loses more)
-
----
-
-### Story 4.5: Public Leaderboard
+### Story 4.5: Public Leaderboard (rescoped)
 
 As a user,
 I want to view the public leaderboard,
-So that I can see top players and my ranking.
+So that I can see the top TACTICS ranked by elo.
 
 **Acceptance Criteria:**
 
 **Given** I navigate to leaderboard
 **When** the page loads
-**Then** I see top 100 players ranked by rating
-**And** each entry shows: rank, username, rating, win/loss record
+**Then** I see tactics ranked by elo
+**And** each entry shows: rank, owner, tactic name, elo, win/loss record
 
 **Given** I am logged in
 **When** I view leaderboard
-**Then** my position is highlighted
-**And** I see my current ranking position (e.g., "#47 of 156 players")
+**Then** my tactics are highlighted
 
 **Given** I want to find a specific player
 **When** I view the leaderboard
-**Then** I can see other players' rankings
-**And** click their name to see their profile stats (wins, losses, rating history)
+**Then** I can find their tactics and challenge them from the ranked view
 
 ---
 
@@ -1085,3 +1098,167 @@ So that possession, passes, and goals are visible.
 **Then** the ball stays at its static tactic position — never NaN, never frozen mid-flight
 
 > **Status: proposed (not started).** Sizing decision locked by Pelo: the ball is NOT 1px — goal depth is already sized for it (see 5.4 polish pass 3). Plan: static render first; replay motion needs an optional per-tick `ballFrames` in `SimulationResult` (backend emits, engine consumes when present — backward compatible, no contract break).
+
+## Epic 6: Production Deployment on Infomaniak VPS
+
+The full app — frontend, Laravel API, Node game engine, MySQL — ships automatically to a personal Infomaniak VPS on every push to `main` (after the full E2E suite passes), served over HTTPS at `venanciohugo.fr`, with database backups that make forward-only migrations safe.
+
+**FRs covered:** None (infrastructure — makes FR1–FR43 reachable by real users)
+
+**User Outcome:** Anyone can open https://venanciohugo.fr, register, and play ranked matches against real deployed code; shipping is a `git push` and rollback is one command.
+
+**Implementation note (decisions locked with Pelo — party session 2026-09-20):**
+- Box: Infomaniak **VPS Lite 2GB** (Debian, Geneva), fresh IP, domain unchanged (`venanciohugo.fr`).
+- Pipeline: **build in CI → GHCR → pull on VPS**. Nothing is built on the VPS (kills the current build-on-the-box design). No Docker Hub.
+- Full app = 4 services: `web` (nginx + Vite build baked in), `api` (Laravel PHP-FPM), `engine` (Node, `isolated-vm`), `mysql` — current deploy scripts never start `node`; fixed here.
+- In-epic: HTTPS (Let's Encrypt) and nightly + pre-migrate DB backups.
+- Deploy gate: full E2E suite green on `main` (kept from `test.yml` Stage 6).
+- Migrations become **forward-only**: every `down()` removed; the law lives in `lachatadede-api/AGENTS.md`.
+- 2GB mitigations: 2GB swapfile, tuned MySQL, registry-based deploys, dumps (VPS Lite has no provider snapshots).
+
+**Story order:** 6.1 → 6.2 → 6.3 → 6.4 → 6.5 (6.1 is independent of the VPS and ships immediately).
+
+### Story 6.1: Forward-Only Migrations & Project Guidelines
+
+As the operator,
+I want every `down()` method removed from the migrations and the forward-only law recorded in `lachatadede-api/AGENTS.md`,
+So that the schema only ever moves forward and "undo" is an ops action (previous image + forward fix), not dead code.
+
+**Acceptance Criteria:**
+
+**Given** the 11 files in `lachatadede-api/database/migrations/`
+**When** they are reviewed
+**Then** no file contains a `down()` method (`grep -r "function down" database/migrations` returns nothing)
+**And** every `up()` body is byte-identical to before (nothing else changes)
+
+**Given** the CI suite (backend tests, E2E)
+**When** it runs after the removal
+**Then** it stays green (`RefreshDatabase` and `migrate:fresh` never call `down()` — verified zero callers in workflows, `scripts/`, docs)
+
+**Given** `lachatadede-api/AGENTS.md` (new file)
+**When** it is read
+**Then** it states the migration law: migrations are forward-only, no `down()` ever; to reverse, write a new forward migration; rollback = redeploy previous image + forward fix
+**And** it carries minimal project pointers (stack layout, test commands) so any agent working in `lachatadede-api/` inherits them
+
+**Given** a fresh database
+**When** `php artisan migrate --force` runs
+**Then** all migrations apply cleanly and `php artisan test` passes
+
+### Story 6.2: VPS Ordered & Provisioned (Ansible)
+
+As the operator,
+I want the fresh Infomaniak VPS hardened and reproducible from the repo via Ansible,
+So that the deploy target is secure, tuned for 2GB, and rebuildable from scratch.
+
+**Acceptance Criteria:**
+
+**Given** Pelo ordered the VPS Lite 2GB (Debian 12, Geneva) and added a deploy SSH key at the Infomaniak console
+**When** `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml` runs against the new IP
+**Then** it completes without errors
+
+**Given** the playbook has run
+**When** the box is inspected
+**Then** Docker + compose plugin are installed and usable by the `debian` user
+**And** a 2GB swapfile is active
+**And** ufw allows only 22/80/443 and fail2ban protects sshd
+**And** SSH accepts key auth only (password + root login disabled)
+
+**Given** `deploy/ansible/inventory.yml`
+**When** reviewed
+**Then** it holds the new VPS IP and the ghost `83.228.196.103` is gone
+
+**Given** the DNS A record for `venanciohugo.fr` points at the new IP
+**When** the box is probed before the app exists
+**Then** it is reachable (TLS arrives with 6.4)
+
+**Given** the manual ordering steps
+**When** documented
+**Then** `docs/DEPLOYMENT.md` lists them (order, SSH key, DNS, secrets) so a fresh box is reproducible
+
+### Story 6.3: CI Builds Images to GHCR, VPS Pulls & Runs All Four Services
+
+As a player,
+I want every push to `main` (E2E-green) to deploy the full app automatically,
+So that new code reaches production with zero manual steps — and a bad build rolls back with one command.
+
+**Acceptance Criteria:**
+
+**Given** a push to `main` with lint/unit/backend/E2E green
+**When** deploy (Stage 6 of `test.yml`) runs
+**Then** CI builds three images and pushes them to GHCR with tags `latest` and `sha-<sha>`: `api` (Dockerfile.api, production target), `web` (new multi-stage Dockerfile.web: Vite build baked into nginx — no more scp), `engine` (Dockerfile.node)
+
+**Given** the deploy step on the VPS
+**When** it executes
+**Then** it logs into ghcr.io (PAT, read:packages), runs `docker compose pull`, `docker compose up -d` for **all four services** (nginx, laravel, node, mysql — `node` is finally started), runs a pre-migrate `mysqldump`, then `php artisan migrate --force`, caches config/routes, and passes a health check
+
+**Given** `deploy/docker-compose.yml`
+**When** reviewed
+**Then** services reference `ghcr.io/...` images (no `build:` in the production compose)
+**And** MySQL is tuned for 2GB (`innodb_buffer_pool_size=128M`, `max_connections=50`)
+**And** vestigial mounts and the unused Docker Hub login are gone
+
+**Given** the old deploy path
+**When** reviewed
+**Then** the frontend scp step, the on-VPS `docker compose build`, and the manual `deploy.yml` are deleted (one pipeline, no drift)
+
+**Given** a completed deploy
+**When** I open https://venanciohugo.fr
+**Then** the game loads and a new user can register and log in through the UI
+
+**Given** a bad release
+**When** the previous `sha-*` image tags are redeployed
+**Then** the app returns to that build (rollback = previous images + forward fix, not `down()`)
+
+### Story 6.4: HTTPS with Let's Encrypt
+
+As a player,
+I want https://venanciohugo.fr served over a valid certificate with HTTP redirecting to HTTPS,
+So that accounts and tokens never cross the wire in cleartext.
+
+**Acceptance Criteria:**
+
+**Given** DNS points at the VPS
+**When** the certbot (webroot) issuance runs
+**Then** a valid certificate for `venanciohugo.fr` is issued and mounted by nginx
+
+**Given** any HTTP request
+**When** it arrives on port 80
+**Then** it 301-redirects to HTTPS
+
+**Given** renewal
+**When** `certbot renew --dry-run` runs
+**Then** it succeeds without manual action (auto-renewal configured)
+
+**Given** the app environment
+**When** reviewed
+**Then** `APP_URL=https://venanciohugo.fr` and Laravel cookies are secure-flagged over HTTPS
+
+### Story 6.5: Database Backups & Operations Runbook
+
+As the operator,
+I want nightly database backups plus a runbook that matches the deployed reality,
+So that forward-only migrations have a real undo and the box is operable without archaeology.
+
+**Acceptance Criteria:**
+
+**Given** `deploy/backup.sh`
+**When** it runs
+**Then** it dumps all databases (gzip) to `/home/debian/lachatadede/backups/` and prunes to the 7 most recent
+**And** it replaces the inline pre-migrate dump from 6.3 (same mechanism, formalized with retention)
+
+**Given** Ansible
+**When** configured
+**Then** a nightly cron (03:30) runs the backup
+
+**Given** a backup file
+**When** the one-time restore drill runs into a scratch database
+**Then** the restore succeeds and the drill is documented
+
+**Given** the docs
+**When** `docs/DEPLOYMENT.md` and `docs/ci-secrets-checklist.md` are reviewed
+**Then** they describe the real system: GHCR pipeline, four services, HTTPS, backups, restore drill
+**And** the secrets list reads: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `APP_KEY`, `GHCR_PAT` (DOCKERHUB_* removed)
+
+**Given** the health check
+**When** the deploy finishes
+**Then** it hits `GET /api/health` (new public route exercising PHP→MySQL), not nginx's static 200

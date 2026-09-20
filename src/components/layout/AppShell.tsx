@@ -12,12 +12,11 @@ import { Header } from './Header';
 import { Timeline } from './Timeline';
 import { PanelDivider } from './PanelDivider';
 import { MatchStatusOverlay } from './MatchStatusOverlay';
-import { QueueStatusBanner } from './QueueStatusBanner';
+import { RankedView } from '../ranked/RankedView';
 import {
   useCanvasStore,
   useEditorStore,
   useMatchStore,
-  useMatchmakingStore,
   useTacticsStore,
 } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,13 +27,18 @@ import { computeScore, extractGoalTicks } from '@/lib/score';
 import { shouldTogglePlayback } from '@/lib/playbackShortcuts';
 import { isTypingContext } from '@/lib/keyboard';
 import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
-import type { MatchFrame, PlayerFrameState, TeamId } from '@/types';
+import type { MatchFrame, MatchResult, PlayerFrameState, TeamId } from '@/types';
 
 /** How long the goal celebration layer stays mounted (ms) */
 const CELEBRATION_DURATION_MS = 1500;
 
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
+
+  // Ranked matchmaking view (Epic 4 v2, story 4.3): a full-screen overlay
+  // ABOVE the workspace — the PixiJS engine and panels stay mounted so
+  // nothing re-initializes on entry/exit (Winston: no route swap)
+  const [rankedOpen, setRankedOpen] = useState(false);
 
   // Loaded match frames (score derivation, from the canvas store) + goal
   // celebration state
@@ -95,25 +99,6 @@ export const AppShell: React.FC = () => {
       ? state.tactics.find((tactic) => tactic.id === state.activeTacticId) ?? null
       : null
   );
-
-  // Ranked matchmaking state (story 4.1): queue phase and errors. The
-  // matched match payload stays in the store (4.2+ consumes it).
-  const {
-    queueStatus,
-    error: queueError,
-    joinQueue,
-    pollStatus,
-    cancelQueue,
-    dismiss: dismissQueue,
-    reconcile: reconcileQueue,
-  } = useMatchmakingStore();
-
-  // True while the user occupies the ranked queue (mutual exclusion with
-  // the practice flow — one active match flow at a time). 'matched' stays
-  // active: a ranked match is still pending until story 4.2's UI takes it
-  // over (decision: Pelo, 2026-09-18).
-  const queueActive =
-    queueStatus === 'waiting' || queueStatus === 'joining' || queueStatus === 'matched';
 
   // Track which tactic id is currently loaded in the canvas
   const loadedTacticIdRef = useRef<string | null>(null);
@@ -448,33 +433,16 @@ export const AppShell: React.FC = () => {
     void startPracticeMatch(activeTactic.id);
   }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch]);
 
-  // Ranked queue join (story 4.1, AC #1): same lineup guard as practice;
-  // the store ignores double-joins while joining/waiting.
-  const handleStartQueue = useCallback(() => {
-    if (!activeTactic || !lineupComplete || isSimulating || queueActive) return;
-    void joinQueue(activeTactic.id);
-  }, [activeTactic, lineupComplete, isSimulating, queueActive, joinQueue]);
-
-  // Ranked queue polling (story 4.1, AC #2/#3): the component owns the 2s
-  // interval while waiting; each poll carries the store's sequence token,
-  // so a response after cancel/reset can never write state.
-  const isWaitingForOpponent = queueStatus === 'waiting';
-  useEffect(() => {
-    if (!isWaitingForOpponent) return;
-
-    const interval = window.setInterval(() => {
-      void pollStatus();
-    }, 2000);
-
-    return () => window.clearInterval(interval);
-  }, [isWaitingForOpponent, pollStatus]);
-
-  // Reconcile the queue once on mount (story 4.1, AC #2/#3): a page reload
-  // while queued would otherwise drop the banner and the polling while the
-  // server-side row keeps waiting — or has already matched unheard.
-  useEffect(() => {
-    void reconcileQueue();
-  }, [reconcileQueue]);
+  // Watch replay from the ranked view (story 4.3): the overlay must close
+  // first — the canvas underneath owns the replay rendering
+  const handleRankedWatchReplay = useCallback(
+    (match: MatchResult) => {
+      setRankedOpen(false);
+      if (isReplayLoading) return;
+      void loadReplay(match.id, match);
+    },
+    [isReplayLoading, loadReplay]
+  );
 
   // Contrôles de lecture
   const handlePlay = useCallback(() => {
@@ -547,6 +515,10 @@ export const AppShell: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ranked view open (story 4.3): the workspace is covered — its
+      // playback shortcuts must not act on the hidden engine underneath
+      if (rankedOpen) return;
+
       // Arrow navigation (story 3.9): auto-repeat stays welcome (hold to
       // scrub) — only typing surfaces steal the keys
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -574,7 +546,7 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback, navigate]);
+  }, [togglePlayback, navigate, rankedOpen]);
 
   return (
     <div style={styles.container}>
@@ -583,20 +555,11 @@ export const AppShell: React.FC = () => {
         lineupComplete={lineupComplete}
         isSimulating={isSimulating}
         onStartPractice={handleStartPractice}
-        queueActive={queueActive}
-        onStartQueue={handleStartQueue}
+        onOpenRanked={() => setRankedOpen(true)}
       />
 
       {/* Tactic tabs (between header and field) */}
       <TabBar />
-
-      {/* Ranked matchmaking feedback (story 4.1): searching/matched/timeout/error */}
-      <QueueStatusBanner
-        status={queueStatus}
-        error={queueError}
-        onCancel={() => void cancelQueue()}
-        onDismiss={dismissQueue}
-      />
 
       {/* Practice match feedback: simulating overlay, result banner or error */}
       <MatchStatusOverlay
@@ -789,6 +752,14 @@ export const AppShell: React.FC = () => {
           onSeek={handleSeek}
         />
       )}
+
+      {/* Ranked matchmaking view (Epic 4 v2): opaque overlay above the
+          workspace; the engine and panels stay mounted underneath */}
+      <RankedView
+        open={rankedOpen}
+        onClose={() => setRankedOpen(false)}
+        onWatchReplay={handleRankedWatchReplay}
+      />
     </div>
   );
 };

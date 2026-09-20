@@ -46,6 +46,13 @@ class TacticController extends Controller
     {
         $validated = $request->validate($this->rules());
 
+        // Same rule as update: a tactic can only be born ready with a
+        // complete lineup in the same payload.
+        if (($validated['is_ready'] ?? false) === true
+            && ! $this->payloadLineupComplete($validated['players'] ?? [])) {
+            return response()->json(['message' => 'Tactic lineup is incomplete'], 422);
+        }
+
         $ownershipError = $this->foreignScriptError($validated);
         if ($ownershipError !== null) {
             return $ownershipError;
@@ -55,6 +62,7 @@ class TacticController extends Controller
             $tactic = DB::transaction(function () use ($validated) {
                 $tactic = Auth::user()->tactics()->create([
                     'name' => $validated['name'],
+                    'is_ready' => (bool) ($validated['is_ready'] ?? false),
                 ]);
 
                 $this->replacePlayers($tactic, $validated['players'] ?? []);
@@ -67,7 +75,9 @@ class TacticController extends Controller
             return $this->foreignScriptErrorResponse();
         }
 
-        return response()->json($this->serializeTactic($tactic->load('players')), 201);
+        // Refresh before serializing: create() leaves column-defaulted
+        // attributes (elo/wins/losses) unset in the in-memory model.
+        return response()->json($this->serializeTactic($tactic->refresh()->load('players')), 201);
     }
 
     /**
@@ -75,7 +85,7 @@ class TacticController extends Controller
      */
     public function update(Request $request, string $id): JsonResponse
     {
-        $tactic = Auth::user()->tactics()->with('players')->find($id);
+        $tactic = Auth::user()->tactics()->with('players.script')->find($id);
 
         if (! $tactic) {
             return response()->json(['message' => 'Tactic not found'], 404);
@@ -91,9 +101,26 @@ class TacticController extends Controller
             // keeps the current one rather than violating the NOT NULL column.
             $changes['name'] = $validated['name'] ?? $tactic->name;
         }
+        if ($request->has('is_ready')) {
+            $changes['is_ready'] = (bool) ($validated['is_ready'] ?? false);
+        }
         // An explicitly sent null players key (middleware delivers '' as null)
         // keeps the current lineup; an empty array is a valid full clear.
         $replacePlayers = $request->has('players') && $validated['players'] !== null;
+
+        // Marking a tactic ready is only meaningful with a complete lineup:
+        // the gate re-validates against the lineup that would result from
+        // this very request (replaced players when present, else the stored
+        // one). Un-readying is never gated — standing down is always allowed.
+        if (($changes['is_ready'] ?? false) === true) {
+            $complete = $replacePlayers
+                ? $this->payloadLineupComplete($validated['players'] ?? [])
+                : $tactic->lineupIsComplete();
+
+            if (! $complete) {
+                return response()->json(['message' => 'Tactic lineup is incomplete'], 422);
+            }
+        }
 
         if ($replacePlayers) {
             $ownershipError = $this->foreignScriptError($validated);
@@ -149,12 +176,26 @@ class TacticController extends Controller
     {
         return [
             'name' => [$nameRequired ? 'required' : 'nullable', 'string', 'max:100'],
+            'is_ready' => ['nullable', 'boolean'],
             'players' => ['nullable', 'array', 'max:5'],
             'players.*.player_slot' => ['required', 'integer', 'min:1', 'max:5', 'distinct'],
             'players.*.position_x' => ['required', 'numeric', 'min:0', 'max:100'],
             'players.*.position_y' => ['required', 'numeric', 'min:0', 'max:50'],
             'players.*.script_id' => ['nullable', 'uuid', 'exists:scripts,id'],
         ];
+    }
+
+    /**
+     * Lineup completeness of a raw players payload (validation already
+     * guarantees distinct slots 1-5, at most 5 entries): complete means
+     * exactly 5 slots, each with a script reference.
+     *
+     * @param  array<int, array<string, mixed>>  $players
+     */
+    private function payloadLineupComplete(array $players): bool
+    {
+        return count($players) === 5
+            && collect($players)->every(fn ($player) => ($player['script_id'] ?? null) !== null);
     }
 
     /**
@@ -224,6 +265,10 @@ class TacticController extends Controller
             'id' => $tactic->id,
             'name' => $tactic->name,
             'isSystem' => (bool) $tactic->is_system,
+            'isReady' => (bool) $tactic->is_ready,
+            'elo' => $tactic->elo,
+            'wins' => $tactic->wins,
+            'losses' => $tactic->losses,
             'players' => $tactic->players
                 ->sortBy('player_slot')
                 ->values()

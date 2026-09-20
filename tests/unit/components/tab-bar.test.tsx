@@ -311,4 +311,115 @@ describe('TabBar Component', () => {
 
     expect(screen.getByTestId('tactics-error')).toBeInTheDocument();
   });
+
+  // ------------------------------------------------------------------
+  // Ready toggle + record (Epic 4 v2, story 4.1)
+  // ------------------------------------------------------------------
+
+  const completeLineup = [
+    { playerSlot: 1 as const, positionX: 8, positionY: 25, scriptId: 's1' },
+    { playerSlot: 2 as const, positionX: 25, positionY: 15, scriptId: 's2' },
+    { playerSlot: 3 as const, positionX: 25, positionY: 35, scriptId: 's3' },
+    { playerSlot: 4 as const, positionX: 40, positionY: 15, scriptId: 's4' },
+    { playerSlot: 5 as const, positionX: 40, positionY: 35, scriptId: 's5' },
+  ];
+
+  it('should toggle ready through the update pipeline with a PUT is_ready body', async () => {
+    seedStore(
+      [makeTactic({ players: completeLineup, isReady: false, elo: 1000, wins: 0, losses: 0 })],
+      'tactic-1'
+    );
+    (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => makeTactic({ players: completeLineup, isReady: true }),
+    });
+
+    render(<TabBar />);
+
+    fireEvent.click(screen.getByTestId('ready-toggle'));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics/tactic-1'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ is_ready: true }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(useTacticsStore.getState().tactics[0].isReady).toBe(true);
+    });
+  });
+
+  it('should show the elo and W-L record on ready tabs only', () => {
+    seedStore(
+      [
+        makeTactic({
+          id: 'ready-1',
+          name: 'Fighter',
+          isReady: true,
+          elo: 1043,
+          wins: 2,
+          losses: 1,
+          players: completeLineup,
+        }),
+        makeTactic({ id: 'idle-1', name: 'Idle', isReady: false }),
+      ],
+      'ready-1'
+    );
+
+    render(<TabBar />);
+
+    const record = screen.getByTestId('tactic-record');
+    expect(record).toBeInTheDocument();
+    expect(record).toHaveTextContent('1043 · 2-1');
+    // The not-ready tab has a toggle but no record
+    expect(screen.getAllByTestId('ready-toggle')).toHaveLength(2);
+    expect(screen.queryByText('Idle')?.closest('[data-testid="tactic-tab"]')).not.toHaveTextContent(
+      '1043'
+    );
+  });
+
+  it('should disable the ready toggle when the lineup is incomplete', () => {
+    seedStore(
+      [
+        makeTactic({
+          players: completeLineup.slice(0, 3),
+          isReady: false,
+        }),
+      ],
+      'tactic-1'
+    );
+
+    render(<TabBar />);
+
+    const toggle = screen.getByTestId('ready-toggle');
+    expect(toggle).toBeDisabled();
+
+    // Clicking a disabled toggle fires nothing
+    fireEvent.click(toggle);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should mark the toggle as pressed when the tactic is ready', () => {
+    seedStore(
+      [
+        makeTactic({
+          players: completeLineup,
+          isReady: true,
+          elo: 1000,
+          wins: 0,
+          losses: 0,
+        }),
+      ],
+      'tactic-1'
+    );
+
+    render(<TabBar />);
+
+    expect(screen.getByTestId('ready-toggle')).toHaveAttribute('aria-pressed', 'true');
+  });
 });

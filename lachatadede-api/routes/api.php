@@ -39,12 +39,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/matches/{id}', [MatchController::class, 'show']);
     Route::get('/matches/{id}/frames', [MatchController::class, 'frames']);
 
-    // Matchmaking API. The status endpoint is polled every 2s while queued
-    // and takes a lockForUpdate transaction per call on the single PHP
-    // worker: rate limit per IP so a runaway client cannot starve it.
+    // Ranked matchmaking API (Epic 4 v2). Simulations run synchronously in
+    // the request: rate limit per IP so a runaway client cannot starve the
+    // single PHP worker while a simulation holds it.
     Route::middleware('throttle:matchmaking')->group(function () {
-        Route::post('/matchmaking/queue', [MatchmakingController::class, 'join']);
-        Route::get('/matchmaking/queue', [MatchmakingController::class, 'status']);
-        Route::delete('/matchmaking/queue', [MatchmakingController::class, 'cancel']);
+        Route::get('/matchmaking/opponents', [MatchmakingController::class, 'opponents']);
+        Route::post('/matchmaking/quick', [MatchmakingController::class, 'quick']);
+        Route::post('/matchmaking/challenge', [MatchmakingController::class, 'challenge']);
     });
 });

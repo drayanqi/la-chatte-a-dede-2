@@ -14,18 +14,15 @@ interface HeaderProps {
   isSimulating: boolean;
   /** Start a practice match (story 3.5 wiring) */
   onStartPractice: () => void;
-  /** True while the user is joining/waiting in the ranked queue (story 4.1) */
-  queueActive: boolean;
-  /** Join the ranked queue (story 4.1 wiring) */
-  onStartQueue: () => void;
+  /** Open the ranked matchmaking view (Epic 4 v2, story 4.3 wiring) */
+  onOpenRanked: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   lineupComplete,
   isSimulating,
   onStartPractice,
-  queueActive,
-  onStartQueue,
+  onOpenRanked,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const userSectionRef = useRef<HTMLDivElement | null>(null);
@@ -72,23 +69,19 @@ export const Header: React.FC<HeaderProps> = ({
             data-testid="test-vs-bot-button"
             style={{
               ...styles.button,
-              ...(!lineupComplete || isSimulating || queueActive ? styles.buttonDisabled : {}),
+              ...(!lineupComplete || isSimulating ? styles.buttonDisabled : {}),
             }}
             onClick={onStartPractice}
-            disabled={!lineupComplete || isSimulating || queueActive}
+            disabled={!lineupComplete || isSimulating}
           >
             ▶ Test vs Bot
           </button>
           <button
-            data-testid="queue-ranked-button"
-            style={{
-              ...styles.button,
-              ...(!lineupComplete || isSimulating || queueActive ? styles.buttonDisabled : {}),
-            }}
-            onClick={onStartQueue}
-            disabled={!lineupComplete || isSimulating || queueActive}
+            data-testid="ranked-nav-button"
+            style={styles.button}
+            onClick={onOpenRanked}
           >
-            Queue Ranked
+            ⚔ Ranked
           </button>
           {!lineupComplete && (
             <span data-testid="lineup-incomplete-message" style={styles.helperMessage}>

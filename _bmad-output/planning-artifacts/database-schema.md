@@ -2,7 +2,8 @@
 
 > **Statut** : VALIDE par Pelo
 > **Date** : 2026-01-19
-> **Version** : 3.0 (Multijoueur)
+> **Version** : 3.1 (Multijoueur — elo par tactique, modele defi)
+> **MAJ 2026-09-19** : Epic 4 v2 — `is_ready`/`elo`/`wins`/`losses` sur la tactique, matchmaking_queue supprimee, deltas elo signes sur match
 
 ---
 
@@ -11,7 +12,7 @@
 Lachatadede est un editeur tactique 5v5 **multijoueur asynchrone** ou les joueurs:
 - Creent des scripts IA et des tactiques
 - Defient les tactiques d'autres joueurs
-- Gagnent/perdent des points (+3 victoire, +1 nul, -1 defaite)
+- Gagnent/perdent de l'elo par tactique (Elo K=50)
 - Revisionnent les matchs en replay
 
 ---
@@ -66,12 +67,17 @@ CREATE TABLE tactique (
   name        VARCHAR(100) NOT NULL,
   is_public   BOOLEAN DEFAULT TRUE,
   is_system   BOOLEAN DEFAULT FALSE,  -- TRUE pour les tactiques d'entrainement
+  is_ready    BOOLEAN DEFAULT FALSE,  -- challengeable en classe (Epic 4 v2)
+  elo         INT DEFAULT 1000,       -- elo DE LA TACTIQUE (pas du joueur)
+  wins        INT DEFAULT 0,
+  losses      INT DEFAULT 0,          -- les nuls n'apparaissent pas dans le bilan
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX idx_tactique_user ON tactique(user_id);
 CREATE INDEX idx_tactique_public ON tactique(is_public) WHERE is_public = TRUE;
+CREATE INDEX idx_tactique_pool ON tactique(is_ready, elo);  -- pool adversaires
 ```
 
 ### TACTIQUE_JOUEUR
@@ -113,6 +119,8 @@ CREATE TABLE match (
   duration_frames    INT NOT NULL,
   created_at         TIMESTAMP DEFAULT NOW()
 );
+-- points_challenger / points_opponent : delta elo SIGNED de chaque tactique
+-- (K=50 : +25/-25 a elo egal, upset bonus integre). Nuls : elo bouge, compteurs non.
 
 CREATE INDEX idx_match_challenger ON match(challenger_id);
 CREATE INDEX idx_match_opponent ON match(opponent_id);
@@ -187,8 +195,8 @@ MATCH ──1:N──► MATCH_FRAME
 | Aspect | Decision |
 |--------|----------|
 | Mode principal | Multijoueur asynchrone |
-| Defi | Unilateral (pas d'acceptation) |
-| Points | +3 win / +1 draw / -1 loss |
+| Defi | Unilateral (pas d'acceptation) — le defie n'a pas besoin d'etre en ligne |
+| Points | Elo PAR TACTIQUE (K=50, depart 1000) ; nuls caches du bilan W/L |
 | Replay | Stocke par frame, recalcul affichage |
 | Tactiques systeme | `is_system = TRUE` pour entrainement |
 | Scripts | Valides avant sauvegarde (`is_valid`) |

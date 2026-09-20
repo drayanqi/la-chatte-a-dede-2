@@ -958,6 +958,42 @@ describe('Tactics Store', () => {
       await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
     });
 
+    it('should merge a ready toggle queued behind an in-flight slots PUT', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      let resolveFirst: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi({ isReady: true }),
+      });
+
+      const first = useTacticsStore.getState().updateTactic('tactic-1', undefined, makeSlots());
+      // The ready toggle queues behind the in-flight slots PUT (same
+      // latest-wins pipeline as renames, Epic 4 v2)
+      const second = useTacticsStore.getState().updateTactic('tactic-1', undefined, undefined, true);
+      await second;
+
+      resolveFirst!({ ok: true, json: async () => mockTacticFromApi() });
+      await first;
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+      // First PUT carried the slots edit, the trailing PUT the ready flag
+      expect(JSON.parse((mockFetch.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({
+        is_ready: true,
+      });
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+      expect(useTacticsStore.getState().tactics[0]?.isReady).toBe(true);
+    });
+
     it('should not resurrect a deleted script from a stale PUT response', async () => {
       (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
 

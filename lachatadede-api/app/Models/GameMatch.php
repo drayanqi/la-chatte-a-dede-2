@@ -113,4 +113,17 @@ class GameMatch extends Model
     {
         return $query->where('challenger_id', $user->id);
     }
+
+    /**
+     * Matches the user took part in on EITHER side (Epic 4 v2, AC: 4.2 #4):
+     * a challenge is unilateral — the offline opponent must still find the
+     * match in their history.
+     */
+    public function scopeForUser(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $q) use ($user) {
+            $q->where('challenger_id', $user->id)
+                ->orWhere('opponent_id', $user->id);
+        });
+    }
 }
