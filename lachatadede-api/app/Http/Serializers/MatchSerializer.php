@@ -31,6 +31,10 @@ class MatchSerializer
             'pointsOpponent' => $match->points_opponent,
             'challengerName' => $match->challenger?->username,
             'opponentName' => $match->opponent?->username,
+            // Fighter names, not ids (the serializer law keeps tactic ids
+            // private); practice matches have no opponent tactic
+            'challengerTacticName' => $match->challengerTactic?->name,
+            'opponentTacticName' => $match->opponentTactic?->name,
             'durationFrames' => $match->duration_frames,
             'createdAt' => $match->created_at->toISOString(),
         ];

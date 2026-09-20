@@ -346,6 +346,213 @@ describe('RankedStore', () => {
     });
   });
 
+  describe('fetchHistory (story 4.4)', () => {
+    const makePage = (
+      matches: ReturnType<typeof makeMatch>[],
+      currentPage: number,
+      lastPage: number
+    ) => ({ data: matches, current_page: currentPage, last_page: lastPage });
+
+    it('should fetch ranked history page 1 and replace the slice', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch()], 1, 3),
+      });
+
+      await useRankedStore.getState().fetchHistory();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/matches?mode=ranked'),
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
+      );
+      expect(useRankedStore.getState().historyMatches).toHaveLength(1);
+      expect(useRankedStore.getState().historyPage).toBe(1);
+      expect(useRankedStore.getState().historyLastPage).toBe(3);
+      expect(useRankedStore.getState().historyTacticId).toBeNull();
+      expect(useRankedStore.getState().isLoadingHistory).toBe(false);
+      expect(useRankedStore.getState().historyError).toBeNull();
+    });
+
+    it('should pass the tactic filter through to the endpoint (AC #2)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([], 1, 1),
+      });
+
+      await useRankedStore.getState().fetchHistory('tactic-9');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/matches?mode=ranked&tactic_id=tactic-9'),
+        expect.anything()
+      );
+      expect(useRankedStore.getState().historyTacticId).toBe('tactic-9');
+    });
+
+    it('should surface the API message on failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ message: 'Server exploded' }),
+      });
+
+      await useRankedStore.getState().fetchHistory();
+
+      expect(useRankedStore.getState().historyError).toBe('Server exploded');
+      expect(useRankedStore.getState().isLoadingHistory).toBe(false);
+    });
+
+    it('should fall back to a human message on non-JSON failures', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error('not json');
+        },
+      });
+
+      await useRankedStore.getState().fetchHistory();
+
+      expect(useRankedStore.getState().historyError).toBe(
+        'Could not load match history. Please try again.'
+      );
+    });
+
+    it('should log out on a dead session', async () => {
+      const logoutSpy = vi.fn();
+      const authStore = await import('@/stores/authStore');
+      const spy = vi
+        .spyOn(authStore.useAuthStore.getState(), 'logout')
+        .mockImplementation(logoutSpy);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ message: 'Unauthenticated.' }),
+      });
+
+      await useRankedStore.getState().fetchHistory();
+
+      expect(logoutSpy).toHaveBeenCalled();
+      // The slice must not spin even if logout stops resetting the ranked store
+      expect(useRankedStore.getState().isLoadingHistory).toBe(false);
+      expect(useRankedStore.getState().isLoadingMoreHistory).toBe(false);
+
+      spy.mockRestore();
+      expect(authStore.useAuthStore.getState().logout).not.toBe(logoutSpy);
+    });
+  });
+
+  describe('loadMoreHistory (story 4.4)', () => {
+    const makePage = (
+      matches: ReturnType<typeof makeMatch>[],
+      currentPage: number,
+      lastPage: number
+    ) => ({ data: matches, current_page: currentPage, last_page: lastPage });
+
+    it('should append the next page when more pages remain', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch({ id: 'match-1' })], 1, 2),
+      });
+      await useRankedStore.getState().fetchHistory();
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch({ id: 'match-2' })], 2, 2),
+      });
+      await useRankedStore.getState().loadMoreHistory();
+
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        expect.stringContaining('/matches?mode=ranked&page=2'),
+        expect.anything()
+      );
+      expect(useRankedStore.getState().historyMatches.map((m) => m.id)).toEqual([
+        'match-1',
+        'match-2',
+      ]);
+      expect(useRankedStore.getState().historyPage).toBe(2);
+      expect(useRankedStore.getState().isLoadingHistory).toBe(false);
+      expect(useRankedStore.getState().isLoadingMoreHistory).toBe(false);
+    });
+
+    it('should no-op when the last page is already loaded', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch()], 1, 1),
+      });
+      await useRankedStore.getState().fetchHistory();
+
+      await useRankedStore.getState().loadMoreHistory();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should drop a stale append superseded by a page-1 refetch', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch({ id: 'match-1' })], 1, 2),
+      });
+      await useRankedStore.getState().fetchHistory();
+
+      // The load-more hangs until we resolve it manually...
+      let resolveLoadMore: (value: unknown) => void = () => {};
+      mockFetch.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveLoadMore = resolve;
+          })
+      );
+      const pending = useRankedStore.getState().loadMoreHistory();
+
+      // ...meanwhile the user changes the filter: page 1 is replaced
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch({ id: 'match-filtered' })], 1, 1),
+      });
+      await useRankedStore.getState().fetchHistory('tactic-9');
+
+      // The stale page-2 response lands last — it must NOT append
+      resolveLoadMore({
+        ok: true,
+        status: 200,
+        json: async () => makePage([makeMatch({ id: 'match-stale' })], 2, 2),
+      });
+      await pending;
+
+      expect(useRankedStore.getState().historyMatches.map((m) => m.id)).toEqual([
+        'match-filtered',
+      ]);
+      expect(useRankedStore.getState().historyPage).toBe(1);
+      expect(useRankedStore.getState().historyTacticId).toBe('tactic-9');
+    });
+  });
+
+  it('should clear the history slice on reset (story 4.4)', () => {
+    useRankedStore.setState({
+      historyMatches: [makeMatch() as never],
+      historyPage: 2,
+      historyLastPage: 5,
+      historyTacticId: 'tactic-1',
+      isLoadingHistory: true,
+      historyError: 'boom',
+    });
+    useRankedStore.getState().reset();
+
+    expect(useRankedStore.getState().historyMatches).toEqual([]);
+    expect(useRankedStore.getState().historyPage).toBe(1);
+    expect(useRankedStore.getState().historyLastPage).toBe(1);
+    expect(useRankedStore.getState().historyTacticId).toBeNull();
+    expect(useRankedStore.getState().isLoadingHistory).toBe(false);
+    expect(useRankedStore.getState().historyError).toBeNull();
+  });
+
   it('should expose ApiError shape compatibility (regression guard)', () => {
     const error = new ApiError(404, 'No opponents ready');
     expect(error.status).toBe(404);

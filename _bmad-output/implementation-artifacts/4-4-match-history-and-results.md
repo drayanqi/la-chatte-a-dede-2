@@ -4,7 +4,7 @@ baseline_commit: a3d02b04faed3634cadaee5a4077d8180090adb2
 
 # Story 4.4: Match History & Results
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -25,7 +25,7 @@ So that I can see how each of my tactics performed.
 - The history is a new **"Match history" section inside the existing `RankedView` overlay** (full-width, below the My fighters / Opponents columns). No route, no second top-level overlay — Winston's 4.3 decision stands: one overlay, the engine stays mounted underneath.
 - Watching a replay from history reuses the **exact `onWatchReplay` prop path the result banner already uses** (AppShell closes the overlay, then `loadReplay(match.id, match)`). The whole replay pipeline — frames fetch, PixiJS playback, timeline scrubber, debug panel, player filtering — is shared with practice mode. Build **zero** new playback code (AC #3).
 - **Ranked matches only** in this history: the backend gains an optional `?mode=` filter. The workspace "Watch last match" chip (story 3.8) keeps calling `GET /matches` unfiltered and must not change behavior.
-- Only `completed` matches render — `failed` rows (engine failure, zero elo movement per 4.2) are hidden client-side: they are unwatchable and moved nothing.
+- Only `completed` matches render — `failed` rows (engine failure, zero elo movement per 4.2) are hidden. **Amended by review 2026-09-20 (Pelo):** the hiding is **server-side for `?mode=ranked`** (`where status = completed`) so the paginator describes the rows the client actually renders; unfiltered lists (fetchLatestMatch) are untouched, and the client keeps its completed-only row filter as defense in depth.
 - **Pagination = one "Load more" button.** The server already paginates 20/page. No date/opponent filters, no unread markers, no notifications for the offline opponent (4.3 v1 deferrals all stand).
 - The tactic filter lists **all my non-system tactics**, not only ready ones — a retired tactic still owns its record.
 - Tactic names shown are the tactic's **current** name (a rename rewrites history labels; accepted in v1 — match rows store tactic ids, which never leave the API per the serializer law).
@@ -34,12 +34,12 @@ So that I can see how each of my tactics performed.
 
 ### Backend Tasks (Laravel — `lachatadede-api/`)
 
-- [ ] Task 1: History rows can name the fighters (AC: #1)
-  - [ ] `MatchSerializer::toArray`: add `challengerTacticName` / `opponentTacticName` (null-safe through the relations; practice rows carry `challengerTacticName`, `opponentTacticName` stays null). Purely additive — existing `MatchTest` + `RankedMatchmakingTest` assertions stay green untouched.
-  - [ ] `MatchController@index`: eager-load `challengerTactic`, `opponentTactic` next to `challenger`, `opponent`; add an optional `?mode=` filter (`in:practice,ranked`, absent param = no clause so `fetchLatestMatch` is untouched).
-- [ ] Task 2: BOTH sides can open a match and its frames (AC: #3) — **bug fix, not new code**
-  - [ ] `MatchController@show` and `MatchController@frames`: replace `Auth::user()->matches()->find($id)` — that relation is challenger-side only (`challenger_id`), so the offline opponent currently gets a **404 on replays of matches they lost**. Use `GameMatch::query()->forUser($user)->find($id)` (the scope shipped in 4.2). Non-participants must still 404 (`MatchTest::test_show_is_scoped_to_the_owner` stays green).
-  - [ ] Feature tests (extend `tests/Feature/Matchmaking/RankedMatchmakingTest.php`):
+- [x] Task 1: History rows can name the fighters (AC: #1)
+  - [x] `MatchSerializer::toArray`: add `challengerTacticName` / `opponentTacticName` (null-safe through the relations; practice rows carry `challengerTacticName`, `opponentTacticName` stays null). Purely additive — existing `MatchTest` + `RankedMatchmakingTest` assertions stay green untouched.
+  - [x] `MatchController@index`: eager-load `challengerTactic`, `opponentTactic` next to `challenger`, `opponent`; add an optional `?mode=` filter (`in:practice,ranked`, absent param = no clause so `fetchLatestMatch` is untouched).
+- [x] Task 2: BOTH sides can open a match and its frames (AC: #3) — **bug fix, not new code**
+  - [x] `MatchController@show` and `MatchController@frames`: replace `Auth::user()->matches()->find($id)` — that relation is challenger-side only (`challenger_id`), so the offline opponent currently gets a **404 on replays of matches they lost**. Use `GameMatch::query()->forUser($user)->find($id)` (the scope shipped in 4.2). Non-participants must still 404 (`MatchTest::test_show_is_scoped_to_the_owner` stays green).
+  - [x] Feature tests (extend `tests/Feature/Matchmaking/RankedMatchmakingTest.php`):
     - history rows expose `challengerTacticName` / `opponentTacticName` (assert the fighter names, e.g. `'Mine'` / `'Theirs'`);
     - `?mode=ranked` excludes a practice match, `?mode=practice` excludes a ranked match, no param returns both;
     - the OFFLINE opponent gets 200 on `GET /matches/{id}` **and** `GET /matches/{id}/frames` for the match they lost;
@@ -47,24 +47,24 @@ So that I can see how each of my tactics performed.
 
 ### Frontend Tasks (React — `src/`)
 
-- [ ] Task 3: Types + store (AC: #1, #2)
-  - [ ] `types/shared.ts`: `MatchResult` gains optional `challengerTacticName?: string | null` and `opponentTacticName?: string | null`.
-  - [ ] `stores/rankedStore.ts` — new history slice, same patterns as the pool slice: `historyMatches: MatchResult[]`, `isLoadingHistory`, `historyError`, `historyPage`, `historyLastPage`, `historyTacticId: string | null`; actions `fetchHistory(tacticId?)` (page 1, **replace**) and `loadMoreHistory()` (`&page=historyPage+1`, **append**). Endpoint: `GET /matches?mode=ranked` + `&tactic_id=` when filtered. 401 → dead-session logout (dynamic-import `authStore` precedent); failures use `getApiError` + a human fallback message; `reset()` clears the slice (authStore.logout already calls ranked reset — keep it that way).
-- [ ] Task 4: My-perspective helpers (AC: #1)
-  - [ ] New `src/lib/matchPerspective.ts`: `matchPerspective(match, myUsername)` → `{ amChallenger, myScore, theirScore, myPoints, outcome: 'win' | 'loss' | 'draw', opponentLabel, myTacticLabel }`. Side rule: `amChallenger = match.challengerName === myUsername` (usernames are unique); if `challengerName === null` (deleted user) I am necessarily the opponent. Pure functions, no store, no React (timeFormat.ts precedent).
-- [ ] Task 5: RankedView history section (AC: #1, #2, #3)
-  - [ ] Full-width `section` below `styles.columns`, same panel chrome (`#252526` / `#3c3c3c` / 8px radius). Header row: "Match history" + tactic filter `<select data-testid="ranked-history-filter">` ("All tactics" + my non-system tactics from `tacticsStore` by name).
-  - [ ] Row (`data-testid="ranked-history-row"`, `data-match-id`): date (`createdAt`, short local format), opponent label, my tactic name, `myScore — theirScore`, result badge — Victory (green `#4ec9b0`) / Defeat (red `#f14c4c`) / Draw (muted) — signed elo delta (green/red, `pointsLabel`-style `+25` / `-25`), and a `▶ Watch replay` button → `onWatchReplay(match)`.
-  - [ ] Render only `status === 'completed'` rows; loading / error+Retry / empty ("No ranked matches yet — quick-match a fighter to start its record.") states mirror the opponents section; hide the whole section's rows behind the same `!open` early-return as the rest of the view.
-  - [ ] "Load more" button (`data-testid="ranked-history-load-more"`) when `historyPage < historyLastPage`; a filter change refetches page 1; opening the view AND settling a play both trigger `fetchHistory` (fresh match appears without reopening).
-- [ ] Task 6: Unit tests
-  - [ ] `tests/unit/lib/matchPerspective.test.ts`: challenger-win, opponent-loss, draw, deleted-challenger (`challengerName: null`), sign/label math.
-  - [ ] `tests/unit/stores/ranked-store.test.ts`: history happy path, `tactic_id` param passthrough, load-more append vs page-1 replace, error + fallback message, 401 logout, `reset()` clears the slice.
+- [x] Task 3: Types + store (AC: #1, #2)
+  - [x] `types/shared.ts`: `MatchResult` gains optional `challengerTacticName?: string | null` and `opponentTacticName?: string | null`.
+  - [x] `stores/rankedStore.ts` — new history slice, same patterns as the pool slice: `historyMatches: MatchResult[]`, `isLoadingHistory`, `historyError`, `historyPage`, `historyLastPage`, `historyTacticId: string | null`; actions `fetchHistory(tacticId?)` (page 1, **replace**) and `loadMoreHistory()` (`&page=historyPage+1`, **append**). Endpoint: `GET /matches?mode=ranked` + `&tactic_id=` when filtered. 401 → dead-session logout (dynamic-import `authStore` precedent); failures use `getApiError` + a human fallback message; `reset()` clears the slice (authStore.logout already calls ranked reset — keep it that way).
+- [x] Task 4: My-perspective helpers (AC: #1)
+  - [x] New `src/lib/matchPerspective.ts`: `matchPerspective(match, myUsername)` → `{ amChallenger, myScore, theirScore, myPoints, outcome: 'win' | 'loss' | 'draw', opponentLabel, myTacticLabel }`. Side rule: `amChallenger = match.challengerName === myUsername` (usernames are unique); if `challengerName === null` (deleted user) I am necessarily the opponent. Pure functions, no store, no React (timeFormat.ts precedent).
+- [x] Task 5: RankedView history section (AC: #1, #2, #3)
+  - [x] Full-width `section` below `styles.columns`, same panel chrome (`#252526` / `#3c3c3c` / 8px radius). Header row: "Match history" + tactic filter `<select data-testid="ranked-history-filter">` ("All tactics" + my non-system tactics from `tacticsStore` by name).
+  - [x] Row (`data-testid="ranked-history-row"`, `data-match-id`): date (`createdAt`, short local format), opponent label, my tactic name, `myScore — theirScore`, result badge — Victory (green `#4ec9b0`) / Defeat (red `#f14c4c`) / Draw (muted) — signed elo delta (green/red, `pointsLabel`-style `+25` / `-25`), and a `▶ Watch replay` button → `onWatchReplay(match)`.
+  - [x] Render only `status === 'completed'` rows; loading / error+Retry / empty states mirror the opponents section (empty copy: "No ranked matches yet — quick-match a fighter to start its record." unfiltered; "No matches for this tactic yet." under an active filter — amended by review 2026-09-20); hide the whole section's rows behind the same `!open` early-return as the rest of the view.
+  - [x] "Load more" button (`data-testid="ranked-history-load-more"`) when `historyPage < historyLastPage`; a filter change refetches page 1; opening the view AND settling a play both trigger `fetchHistory` (fresh match appears without reopening).
+- [x] Task 6: Unit tests
+  - [x] `tests/unit/lib/matchPerspective.test.ts`: challenger-win, opponent-loss, draw, deleted-challenger (`challengerName: null`), sign/label math.
+  - [x] `tests/unit/stores/ranked-store.test.ts`: history happy path, `tactic_id` param passthrough, load-more append vs page-1 replace, error + fallback message, 401 logout, `reset()` clears the slice.
 
 ### E2E (Playwright — `tests/e2e/ranked-matchmaking.spec.ts`)
 
-- [ ] Task 7: History flow (engine-backed, serial mode, same file + shared fixtures)
-  - [ ] Reuse the two-ready-fighters seed (A offline, B in browser): B challenges → result banner → A's context: open ranked view → history row shows B's name, A's tactic, a `N — N` score, "Defeat", a negative elo delta → select A's tactic in the filter → row remains → click `Watch replay` → overlay closes, workspace shows `field-canvas` with the score display (replay actually loaded).
+- [x] Task 7: History flow (engine-backed, serial mode, same file + shared fixtures)
+  - [x] Reuse the two-ready-fighters seed (A offline, B in browser): B challenges → result banner → A's context: open ranked view → history row shows B's name, A's tactic, a `N — N` score, "Defeat", a negative elo delta → select A's tactic in the filter → row remains → click `Watch replay` → overlay closes, workspace shows `field-canvas` with the score display (replay actually loaded).
 
 ## Verification
 
@@ -147,8 +147,53 @@ So that I can see how each of my tactics performed.
 
 ### Agent Model Used
 
+euria-code (Infomaniak)
+
 ### Debug Log References
+
+- Backend: `php artisan test --env=testing` → 107 passed, 1 failed (pre-existing `ExampleTest` sessions-table red, documented in 4.2/4.3 — the only allowed failure).
+- Frontend: `npm run lint` 0 errors (4 pre-existing warnings in unrelated files), `npx tsc -b` clean, `npm run test:unit` 518 passed (baseline 501 + 17 new).
+- E2E: `npx playwright test tests/e2e/ranked-matchmaking.spec.ts --project=chromium --workers=1` → 4/4 green (new history-flow test 21.1s incl. real simulation).
 
 ### Completion Notes List
 
+- **Backend (Tasks 1-2):** serializer gained `challengerTacticName`/`opponentTacticName` after the name keys, null-safe `?->name` (practice rows carry the challenger name, opponent stays null — asserted). `index()` eager-loads `challengerTactic`/`opponentTactic` and validates an optional `?mode` (`nullable|in:practice,ranked`) — an invalid mode 422s, absent param keeps `fetchLatestMatch` untouched (verified by MatchTest staying green). The challenger-only 404 bug is fixed in `show()`/`frames()` via `GameMatch::query()->forUser(Auth::user())`; the completed-status check and `realpath` containment guard in `frames()` are untouched. Feature tests added: fighter names in rows, mode-filter splits (order-safe canonical comparison), offline-opponent 200 on match + frames, non-participant 404 regression guard.
+- **Frontend (Tasks 3-5):** `MatchResult` gained the two optional tactic-name fields. `rankedStore` gained the history slice with `fetchHistory` (page 1 replace) / `loadMoreHistory` (append, stale-drop guard: the append is discarded if the filter changed or a page-1 refetch landed while the request was in flight — captured request context before the `await`); 401 → dynamic-import logout, failures via `getApiError` + human fallback. `matchPerspective.ts` is a pure lib; a null `challengerName` forces the opponent side. `RankedView` gained the full-width history section under the columns: header + tactic filter (`All tactics` + all non-system tactics), completed-only rows with date / opponent / my tactic / score / colored outcome badge / signed elo delta / watch button, loading / error+Retry / empty states mirroring the opponents section, `Load more` when `historyPage < historyLastPage`. A settled play refetches the history via a `settledMatchId` effect (keeps the current filter, no reopen needed) — done in the component rather than inside the store's play actions so quickMatch/challenge behavior stays byte-identical.
+- **E2E (Task 7):** new test in the serial ranked spec. A is a deliberately weak fighter (5 idle `me.stop()` scripts) so the "offline loser" scenario is deterministic; B is challenged specifically by `data-opponent-id` because earlier serial tests leave ready tactics in the shared pool. First run failed on the opponent-name assertion: `createReadyFighter` used a faker name (username `Tommy Wehner`), fixed by threading an explicit `name` through the helper (B = `HistoryWinnerB`, A = `HistoryLoserA`; the e2e DB is `migrate:fresh` per run so fixed usernames are safe). The screenshots confirmed the row rendering was already correct (0 — 60 / Defeat / -25 elo).
+- AppShell.tsx needed **zero** changes — the `onWatchReplay` pass-through and overlay-close-then-`loadReplay` flow covered history rows as predicted in Dev Notes.
+
 ### File List
+
+- lachatadede-api/app/Http/Controllers/MatchController.php (modified)
+- lachatadede-api/app/Http/Serializers/MatchSerializer.php (modified)
+- lachatadede-api/tests/Feature/Matchmaking/RankedMatchmakingTest.php (modified)
+- src/types/shared.ts (modified)
+- src/stores/rankedStore.ts (modified)
+- src/lib/matchPerspective.ts (new)
+- src/components/ranked/RankedView.tsx (modified)
+- tests/unit/lib/matchPerspective.test.ts (new)
+- tests/unit/stores/ranked-store.test.ts (modified)
+- tests/e2e/ranked-matchmaking.spec.ts (modified)
+
+### Change Log
+
+- 2026-09-20: Story 4.4 implemented — ranked match history section (both-sides rows, tactic filter, one "Load more" pagination), fighter tactic names exposed by the serializer, optional `?mode=` filter, offline-opponent replay 404 bug fixed (`forUser` scope on show/frames), 3 new feature tests + 17 new unit tests + 1 new engine-backed e2e test. All ACs verified.
+- 2026-09-20: Code review (3-layer adversarial) — 11 findings applied: shared `historySeq` token for history fetches/appends, pagination reset at fetch start, eager loads on `show()`/`store()`, 401 flag self-containment + test hardening, zero-delta elo label fix, error-vs-Load-more/Retry-in-place fix, serializer id-leak negative assertions, dangling-filter 404 recovery, append never unmounts rows; 2 decisions by Pelo: server-side `status=completed` for ranked history (spec scope boundary amended), filtered empty-state copy. Verified: backend 107 passed (pre-existing ExampleTest red only), lint 0 errors, tsc clean, 518 unit tests, e2e ranked spec 4/4 chromium.
+
+### Review Findings
+
+Code review 2026-09-20 (3 layers: blind adversarial, edge-case path tracer, acceptance auditor — auditor: NO FINDINGS).
+
+- [x] [Review][Decision] History endpoint returns all statuses; pagination counts include hidden failed rows — `index()` has no `status` clause, the client hides non-completed rows, so `historyPage`/`historyLastPage` describe rows the user never sees: a page of all-failed rows renders the empty state plus a dead-end "Load more" loop. The 4.4 scope boundary explicitly pins client-side hiding — a server-side `where status = completed` (ranked mode only) is the clean fix but amends the spec. [lachatadede-api/app/Http/Controllers/MatchController.php:125-141]
+- [x] [Review][Decision] Empty-state copy is wrong under an active tactic filter — with a tactic selected and zero matches for it, the row area still says "No ranked matches yet — quick-match a fighter to start its record." (other tactics have rows). The spec pins that copy verbatim, so a filtered variant ("No matches for this tactic yet.") needs sign-off. [src/components/ranked/RankedView.tsx:373-376]
+- [x] [Review][Patch] `fetchHistory` has no stale-response guard — two overlapping page-1 fetches resolve last-wins: rows can show filter A's data while `historyTacticId` says B, and a same-filter page-1 refetch landing during `loadMoreHistory` passes the existing guard and appends a pre-settle page (one row can drop). Fix: shared `historySeq` token in both actions (playSeq precedent). [src/stores/rankedStore.ts:202-284]
+- [x] [Review][Patch] `fetchHistory` doesn't reset pagination at request start — after a failed filter change, `historyPage`/`historyLastPage` still describe the previous filter while `historyTacticId` is the new one; the visible stale rows can then pair with a wrong "Load more". Fix: set `historyPage: 1, historyLastPage: 1` in the initial `set()`. [src/stores/rankedStore.ts:205-209]
+- [x] [Review][Patch] `show()` (and `store()`'s `fresh()`) lazy-load the four serialized relations — `index()` got `->with([...])` but `show()` didn't; the serializer's new tactic-name keys add 2 more lazy queries per call. Fix: add the same eager load to `show()` (and optionally `store()`). [lachatadede-api/app/Http/Controllers/MatchController.php:151-153, 96]
+- [x] [Review][Patch] 401 paths leave `isLoadingHistory` true and the 401 test can't catch it — the flag is only cleared via the invisible logout→`reset()` coupling; the unit test no-op-spies `logout` and asserts only that the spy fired (no post-state assertion, spy not restored). Fix: `set({ isLoadingHistory: false })` before the 401 returns in both actions + assert the state in the test + restore the spy. [src/stores/rankedStore.ts:225-228, 273-276]
+- [x] [Review][Patch] Zero elo delta renders "0 elo" — `eloDeltaLabel`'s own contract says `''` when elo did not move, but `pointsLabel(0)` returns `"0"`; a draw between equal-elo fighters renders unsigned "0 elo" instead of nothing. Fix: treat `0` like `null`. [src/components/ranked/RankedView.tsx:50-51]
+- [x] [Review][Patch] `historyError` and "Load more" render simultaneously; Retry discards loaded pages — after a failed append both the error+Retry block and the button are visible (neither checks `historyError`), and Retry always refetches page 1. Fix: hide "Load more" while `historyError` is set; ideally Retry re-issues the failed append. [src/components/ranked/RankedView.tsx:355-367, 432-441]
+- [x] [Review][Patch] No negative assertion for the serializer id-leak law — the new tests assert the tactic names are present but never that `challengerTacticId`/`opponentTacticId` are absent; the privacy law can regress with the suite green. Fix: `assertArrayNotHasKey` for both id keys. [lachatadede-api/tests/Feature/Matchmaking/RankedMatchmakingTest.php]
+- [x] [Review][Patch] A deleted-tactic filter 404-loops on every refetch — the backend 404s a non-owned `tactic_id`; if the selected tactic is deleted mid-session, each settled-play refetch errors until the filter is manually changed. Fix: on 404 with a filter set, clear `historyTacticId` and refetch unfiltered. [src/stores/rankedStore.ts:224-235]
+- [x] [Review][Patch] "Load more" unmounts the whole visible list — one shared `isLoadingHistory` flag gates the rows, so appending page 2 blanks the list and flashes the loading text. Fix: separate append-loading flag (or render rows whenever `completedHistory.length > 0`). [src/components/ranked/RankedView.tsx:368-378]
+
+Dismissed by triage (6): settled-play refetch while overlay closed (benign prefetch, refetched on reopen); null `myUsername` flip (unreachable — shell is auth-gated); null/unknown `result` in `matchPerspective` (type-exhaustive, completed-only call site); foreign `tactic_id` silently no-op (false positive — controller already 404s); e2e fixture not forwarding `name` (it does; e2e green); `ranked-empty-history` testid (matches the file-wide `ranked-empty-*` convention).

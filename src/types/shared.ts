@@ -195,6 +195,9 @@ export interface MatchResult {
   pointsOpponent?: number | null;
   challengerName?: string | null;
   opponentName?: string | null;
+  /** Fighter names, not ids (serializer law); practice has no opponent tactic */
+  challengerTacticName?: string | null;
+  opponentTacticName?: string | null;
   durationFrames: number;
   createdAt: string;
 }

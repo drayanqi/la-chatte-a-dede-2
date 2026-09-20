@@ -10,8 +10,10 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 import { useRankedStore } from '@/stores/rankedStore';
 import { useTacticsStore } from '@/stores/tacticsStore';
+import { matchPerspective } from '@/lib/matchPerspective';
 import type { MatchResult, MatchOutcome, TacticConfig } from '@/types';
 
 interface RankedViewProps {
@@ -27,11 +29,29 @@ interface RankedViewProps {
 const outcomeLabel = (result: MatchOutcome): string =>
   result === 'challenger_win' ? 'Victory' : result === 'opponent_win' ? 'Defeat' : 'Draw';
 
+/** History rows (story 4.4): the outcome from MY side of the match */
+const historyOutcomeLabel = (outcome: 'win' | 'loss' | 'draw'): string =>
+  outcome === 'win' ? 'Victory' : outcome === 'loss' ? 'Defeat' : 'Draw';
+
+/** VSCode dark palette: green for wins, red for losses, muted for draws */
+const OUTCOME_COLORS: Record<'win' | 'loss' | 'draw', string> = {
+  win: '#4ec9b0',
+  loss: '#f14c4c',
+  draw: '#9d9d9d',
+};
+
 /** The elo delta I pocketed, signed */
 const pointsLabel = (points: number | null | undefined): string => {
   if (typeof points !== 'number') return '';
   return points > 0 ? `+${points}` : `${points}`;
 };
+
+/** Signed delta + unit for the history rows ('' when elo did not move) */
+const eloDeltaLabel = (points: number | null): string =>
+  points === null || points === 0 ? '' : `${pointsLabel(points)} elo`;
+
+/** Short local date for a match row */
+const dateLabel = (iso: string): string => new Date(iso).toLocaleDateString();
 
 export const RankedView: React.FC<RankedViewProps> = ({ open, onClose, onWatchReplay }) => {
   const {
@@ -42,18 +62,35 @@ export const RankedView: React.FC<RankedViewProps> = ({ open, onClose, onWatchRe
     isPlaying,
     matchError,
     activeTacticId,
+    historyMatches,
+    isLoadingHistory,
+    isLoadingMoreHistory,
+    historyError,
+    historyPage,
+    historyLastPage,
+    historyTacticId,
     fetchOpponents,
     quickMatch,
     challenge,
     clearResult,
+    fetchHistory,
+    loadMoreHistory,
   } = useRankedStore();
 
   const tactics = useTacticsStore((state) => state.tactics);
+  const myUsername = useAuthStore((state) => state.user?.username ?? null);
 
   // My ranked fighters: ready tactics, readying is what puts a tactic in
   // the pool (the tab toggle is the entry point)
   const myFighters = useMemo(
     () => tactics.filter((tactic) => tactic.isReady && !tactic.isSystem),
+    [tactics]
+  );
+
+  // The history filter lists ALL my tactics, not only ready ones — a retired
+  // tactic still owns its record (story 4.4)
+  const myTactics = useMemo(
+    () => tactics.filter((tactic) => !tactic.isSystem),
     [tactics]
   );
 
@@ -63,12 +100,23 @@ export const RankedView: React.FC<RankedViewProps> = ({ open, onClose, onWatchRe
   const fightingAs =
     myFighters.find((tactic) => tactic.id === fightingAsId) ?? myFighters[0] ?? null;
 
-  // Refresh the pool each time the view opens (elo moved since last time)
+  // Refresh the pool and the history each time the view opens (elo moved
+  // since last time; the filter starts on "All tactics")
   useEffect(() => {
     if (open) {
       void fetchOpponents();
+      void fetchHistory();
     }
-  }, [open, fetchOpponents]);
+  }, [open, fetchOpponents, fetchHistory]);
+
+  // A settled play lands in the history immediately — no reopening needed.
+  // The active tactic filter stays applied.
+  const settledMatchId = match && !isPlaying ? match.id : null;
+  useEffect(() => {
+    if (settledMatchId) {
+      void fetchHistory(useRankedStore.getState().historyTacticId);
+    }
+  }, [settledMatchId, fetchHistory]);
 
   if (!open) return null;
 
@@ -82,7 +130,25 @@ export const RankedView: React.FC<RankedViewProps> = ({ open, onClose, onWatchRe
     }
   };
 
+  const handleHistoryFilterChange = (tacticId: string) => {
+    void fetchHistory(tacticId || null);
+  };
+
+  // Retry the failed request in place: an append failure must not throw away
+  // the pages the user already scrolled through
+  const handleHistoryRetry = () => {
+    if (historyPage < historyLastPage) {
+      void loadMoreHistory();
+    } else {
+      void fetchHistory(historyTacticId);
+    }
+  };
+
   const playedTactic = myFighters.find((tactic) => tactic.id === activeTacticId) ?? null;
+
+  // Only completed matches render: failed rows moved nothing and are
+  // unwatchable (story 4.4 scope boundary)
+  const completedHistory = historyMatches.filter((m) => m.status === 'completed');
 
   return (
     <div data-testid="ranked-view" style={styles.overlay}>
@@ -274,6 +340,122 @@ export const RankedView: React.FC<RankedViewProps> = ({ open, onClose, onWatchRe
               ))}
           </section>
         </div>
+
+        {/* Match history (story 4.4): my ranked matches, both sides */}
+        <section data-testid="ranked-history" style={styles.historyPanel}>
+          <div style={styles.panelHeader}>
+            <h2 style={styles.panelTitle}>Match history</h2>
+            <label style={styles.fighterSelectLabel}>
+              Tactic
+              <select
+                data-testid="ranked-history-filter"
+                value={historyTacticId ?? ''}
+                onChange={(event) => handleHistoryFilterChange(event.target.value)}
+                style={styles.fighterSelect}
+              >
+                <option value="">All tactics</option>
+                {myTactics.map((tactic: TacticConfig) => (
+                  <option key={tactic.id} value={tactic.id}>
+                    {tactic.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {historyError && (
+            <div data-testid="ranked-history-error" style={styles.emptyText}>
+              {historyError}
+              <button
+                type="button"
+                data-testid="ranked-history-retry"
+                style={styles.bannerButton}
+                onClick={handleHistoryRetry}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {isLoadingHistory && (
+            <p data-testid="ranked-history-loading" style={styles.emptyText}>
+              Loading match history...
+            </p>
+          )}
+          {!isLoadingHistory && !historyError && completedHistory.length === 0 && (
+            <p data-testid="ranked-empty-history" style={styles.emptyText}>
+              {historyTacticId
+                ? 'No matches for this tactic yet.'
+                : 'No ranked matches yet — quick-match a fighter to start its record.'}
+            </p>
+          )}
+          {!isLoadingHistory &&
+            completedHistory.map((historyMatch) => {
+              const perspective = matchPerspective(historyMatch, myUsername);
+              return (
+                <div
+                  key={historyMatch.id}
+                  data-testid="ranked-history-row"
+                  data-match-id={historyMatch.id}
+                  style={styles.row}
+                >
+                  <span data-testid="ranked-history-date" style={styles.record}>
+                    {dateLabel(historyMatch.createdAt)}
+                  </span>
+                  <div style={styles.rowMain}>
+                    <span data-testid="ranked-history-opponent" style={styles.rowName}>
+                      {perspective.opponentLabel ?? 'unknown'}
+                    </span>
+                    <span data-testid="ranked-history-tactic" style={styles.record}>
+                      {perspective.myTacticLabel ?? 'Unknown tactic'}
+                    </span>
+                  </div>
+                  <span data-testid="ranked-history-score" style={styles.historyScore}>
+                    {perspective.myScore} — {perspective.theirScore}
+                  </span>
+                  <span
+                    data-testid="ranked-history-outcome"
+                    style={{
+                      ...styles.historyOutcome,
+                      color: OUTCOME_COLORS[perspective.outcome],
+                    }}
+                  >
+                    {historyOutcomeLabel(perspective.outcome)}
+                  </span>
+                  <span
+                    data-testid="ranked-history-points"
+                    style={{
+                      ...styles.historyPoints,
+                      color: OUTCOME_COLORS[perspective.outcome],
+                    }}
+                  >
+                    {eloDeltaLabel(perspective.myPoints)}
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="ranked-history-watch-button"
+                    style={styles.rowButton}
+                    onClick={() => onWatchReplay(historyMatch)}
+                  >
+                    ▶ Watch replay
+                  </button>
+                </div>
+              );
+            })}
+
+          {!isLoadingHistory &&
+            !isLoadingMoreHistory &&
+            !historyError &&
+            historyPage < historyLastPage && (
+              <button
+                type="button"
+                data-testid="ranked-history-load-more"
+                style={{ ...styles.rowButton, ...styles.loadMore }}
+                onClick={() => void loadMoreHistory()}
+              >
+                Load more
+              </button>
+            )}
+        </section>
       </div>
     </div>
   );
@@ -473,5 +655,38 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+  },
+  historyPanel: {
+    width: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: '#252526',
+    border: '1px solid #3c3c3c',
+    borderRadius: '8px',
+    padding: '16px',
+    marginTop: '24px',
+  },
+  historyScore: {
+    fontWeight: 600,
+    fontSize: '13px',
+    color: '#ffffff',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  historyOutcome: {
+    fontWeight: 600,
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  historyPoints: {
+    fontWeight: 600,
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    minWidth: '52px',
+    textAlign: 'right',
+  },
+  loadMore: {
+    marginTop: '12px',
   },
 };

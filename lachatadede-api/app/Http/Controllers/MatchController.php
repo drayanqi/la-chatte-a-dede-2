@@ -93,7 +93,9 @@ class MatchController extends Controller
             'frames_file' => $framesFile,
         ]);
 
-        return response()->json(MatchSerializer::toArray($match->fresh()), 201);
+        return response()->json(MatchSerializer::toArray(
+            $match->fresh(['challenger', 'opponent', 'challengerTactic', 'opponentTactic'])
+        ), 201);
     }
 
     /**
@@ -102,10 +104,19 @@ class MatchController extends Controller
      * challenge is unilateral — the offline opponent reads the match in
      * their history. Optional `?tactic_id=` filters to one of the user's
      * tactics on either side (per-tactic record, story 4.4's query shape).
+     * Optional `?mode=` (practice|ranked) filters the kind; absent param
+     * means no clause (fetchLatestMatch keeps its unfiltered behavior).
+     * Ranked history surfaces completed matches only: failed rows moved
+     * nothing and are unwatchable (review 2026-09-20 — the paginator must
+     * describe the rows the client actually renders).
      */
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
+
+        $validated = $request->validate([
+            'mode' => ['nullable', 'string', 'in:practice,ranked'],
+        ]);
 
         $tacticId = null;
         if ($request->filled('tactic_id')) {
@@ -118,7 +129,13 @@ class MatchController extends Controller
 
         $matches = GameMatch::query()
             ->forUser($user)
-            ->with(['challenger', 'opponent'])
+            ->with(['challenger', 'opponent', 'challengerTactic', 'opponentTactic'])
+            ->when($validated['mode'] ?? null, function ($query, string $mode) {
+                $query->where('mode', $mode);
+            })
+            ->when(($validated['mode'] ?? null) === 'ranked', function ($query) {
+                $query->where('status', 'completed');
+            })
             ->when($tacticId !== null, function ($query) use ($tacticId) {
                 $query->where(function ($q) use ($tacticId) {
                     $q->where('challenger_tactic', $tacticId)
@@ -133,11 +150,16 @@ class MatchController extends Controller
     }
 
     /**
-     * Get a single match, scoped to its owner.
+     * Get a single match, scoped to its participants: BOTH sides of a ranked
+     * match may open it (story 4.4) — the challenger-only relation would 404
+     * the offline opponent's replay. Non-participants still 404.
      */
     public function show(string $id): JsonResponse
     {
-        $match = Auth::user()->matches()->find($id);
+        $match = GameMatch::query()
+            ->forUser(Auth::user())
+            ->with(['challenger', 'opponent', 'challengerTactic', 'opponentTactic'])
+            ->find($id);
 
         if (! $match) {
             return response()->json(['message' => 'Match not found'], 404);
@@ -153,7 +175,10 @@ class MatchController extends Controller
      */
     public function frames(string $id): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        $match = Auth::user()->matches()->find($id);
+        // Both sides of a ranked match may watch (story 4.4, same fix as show)
+        $match = GameMatch::query()
+            ->forUser(Auth::user())
+            ->find($id);
 
         if (! $match || $match->status !== 'completed' || ! $match->frames_file) {
             return response()->json(['message' => 'Match frames not found'], 404);

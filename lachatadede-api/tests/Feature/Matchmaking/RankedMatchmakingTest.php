@@ -407,6 +407,140 @@ class RankedMatchmakingTest extends TestCase
             ->assertJsonPath('message', 'Tactic not found');
     }
 
+    public function test_history_rows_expose_the_fighter_tactic_names(): void
+    {
+        $this->fakeEngineSuccess(2, 1);
+
+        $me = User::factory()->create();
+        $rival = User::factory()->create();
+
+        $mine = $this->createUserTactic($me, 'Mine', ['is_ready' => true]);
+        $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
+
+        $this->actingAs($me, 'sanctum')
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
+            ->assertStatus(201);
+
+        // Fighter NAMES, never tactic ids (serializer law)
+        $row = $this->actingAs($rival, 'sanctum')
+            ->getJson('/api/matches')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->assertSame('Mine', $row['challengerTacticName']);
+        $this->assertSame('Theirs', $row['opponentTacticName']);
+
+        // The id-leak law cuts both ways: names present, ids absent
+        $this->assertArrayNotHasKey('challengerTacticId', $row);
+        $this->assertArrayNotHasKey('opponentTacticId', $row);
+    }
+
+    public function test_the_mode_filter_splits_the_history(): void
+    {
+        $this->fakeEngineSuccess(1, 0);
+
+        $me = User::factory()->create();
+        $rival = User::factory()->create();
+
+        $mine = $this->createUserTactic($me, 'Mine', ['is_ready' => true]);
+        $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
+
+        // One ranked match and one practice match, same user
+        $this->actingAs($me, 'sanctum')
+            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->assertStatus(201);
+
+        $this->actingAs($me, 'sanctum')
+            ->postJson('/api/matches', ['mode' => 'practice', 'tactic_id' => $mine->id, 'bot' => 'easy'])
+            ->assertStatus(201);
+
+        $modes = fn (string $query) => $this->actingAs($me, 'sanctum')
+            ->getJson('/api/matches'.$query)
+            ->assertOk()
+            ->collect('data.*.mode')
+            ->sort()
+            ->values()
+            ->all();
+
+        // Both filters, then no param (both rows; canonical order — same-second
+        // rows make created_at ordering ambiguous)
+        $this->assertSame(['ranked'], $modes('?mode=ranked'));
+        $this->assertSame(['practice'], $modes('?mode=practice'));
+        $this->assertSame(['practice', 'ranked'], $modes(''));
+
+        // An unknown mode is rejected by validation
+        $this->actingAs($me, 'sanctum')
+            ->getJson('/api/matches?mode=speedrun')
+            ->assertStatus(422);
+
+        // Practice rows carry the challenger tactic name; the bot side has none
+        $practiceRow = $this->actingAs($me, 'sanctum')
+            ->getJson('/api/matches?mode=practice')
+            ->json('data.0');
+        $this->assertSame('Mine', $practiceRow['challengerTacticName']);
+        $this->assertNull($practiceRow['opponentTacticName']);
+
+        // A failed ranked match moved nothing and is unwatchable — the ranked
+        // history must not count it (review 2026-09-20: the paginator describes
+        // the rows the client renders; unfiltered lists stay untouched)
+        GameMatch::create([
+            'challenger_id' => $rival->id,
+            'opponent_id' => $me->id,
+            'challenger_tactic' => $theirs->id,
+            'opponent_tactic' => $mine->id,
+            'mode' => 'ranked',
+            'seed' => 1,
+            'status' => 'failed',
+        ]);
+
+        $this->assertSame(['ranked'], $modes('?mode=ranked'));
+        $this->assertSame(['practice'], $modes('?mode=practice'));
+    }
+
+    public function test_the_offline_opponent_can_open_the_match_and_its_frames(): void
+    {
+        $this->fakeEngineSuccess(2, 1);
+
+        $me = User::factory()->create();
+        $rival = User::factory()->create();
+
+        $mine = $this->createUserTactic($me, 'Mine', ['is_ready' => true]);
+        $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
+
+        $response = $this->actingAs($me, 'sanctum')
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
+            ->assertStatus(201);
+
+        $matchId = $response->json('id');
+
+        // The opponent LOST this match (2-1) but can still open it and
+        // stream its frames (story 4.4: the challenger-only relation 404'd them)
+        $this->actingAs($rival, 'sanctum')
+            ->getJson('/api/matches/'.$matchId)
+            ->assertOk()
+            ->assertJsonPath('id', $matchId)
+            ->assertJsonPath('result', 'challenger_win');
+
+        $this->actingAs($rival, 'sanctum')
+            ->get('/api/matches/'.$matchId.'/frames')
+            ->assertOk();
+
+        // Regression guard: non-participants stay scoped out on both endpoints
+        $intruder = User::factory()->create();
+        $this->actingAs($intruder, 'sanctum')
+            ->getJson('/api/matches/'.$matchId)
+            ->assertStatus(404);
+        $this->actingAs($intruder, 'sanctum')
+            ->getJson('/api/matches/'.$matchId.'/frames')
+            ->assertStatus(404);
+    }
+
     public function test_a_failed_simulation_marks_the_match_failed_and_moves_nothing(): void
     {
         $this->fakeEngineFailure();
