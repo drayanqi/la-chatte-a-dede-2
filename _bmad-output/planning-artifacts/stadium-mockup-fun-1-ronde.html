@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Fun 1 · La Ronde (light/dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eaf6ee; --halo1:rgba(70,190,120,.18); --halo2:rgba(255,150,90,.15);
+  --card:#ffffff; --card2:#f2faf5; --ink:#173024; --muted:#7ca28e; --line:rgba(23,48,36,.1);
+  --pitch:#3fae62; --pitch2:#36a057; --coral:#ff6b57; --coral-d:#e04e3a; --sun:#ffc244; --mint:#31c48d;
+  --shadow:0 14px 34px rgba(23,48,36,.14);
+}
+body.dark{
+  --bg:#12241b; --halo1:rgba(63,174,98,.22); --halo2:rgba(255,107,87,.12);
+  --card:#1c3529; --card2:#22402f; --ink:#e8f5ec; --muted:#7fae95; --line:rgba(232,245,236,.12);
+  --pitch:#2e8a4c; --pitch2:#277a42; --coral:#ff7a67; --coral-d:#d1553f; --sun:#ffc244; --mint:#3ad197;
+  --shadow:0 14px 34px rgba(0,0,0,.45);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);background-image:radial-gradient(560px 420px at 78% -8%,var(--halo1),transparent 70%),
+    radial-gradient(520px 420px at 6% 88%,var(--halo2),transparent 70%);
+  color:var(--ink);font-family:'Sora',sans-serif;min-height:100vh;transition:background .3s,color .3s;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px 90px}
+h1,h2,h3{font-weight:800;letter-spacing:-.3px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px;font-size:13px;font-weight:700;background:var(--ink);color:var(--bg)}
+.ribbon b{color:var(--sun)}
+.mode-toggle{position:fixed;top:12px;right:14px;z-index:99;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--line);background:var(--card);font-size:18px;cursor:pointer;box-shadow:var(--shadow)}
+
+/* nav fine centrée */
+.nav{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:22px}
+.nav .logo{display:flex;align-items:center;gap:10px;margin-right:18px;font-weight:800;font-size:17px}
+.logo .ball{width:40px;height:40px;border-radius:50%;background:conic-gradient(var(--coral) 0 25%,var(--sun) 0 50%,var(--mint) 0 75%,var(--coral) 0);border:3px solid var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:17px}
+.nav-link{padding:10px 22px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;border:1.5px solid transparent}
+.nav-link:hover{color:var(--ink)}
+.nav-link.active{background:var(--ink);color:var(--bg)}
+.nav .user{display:flex;align-items:center;gap:9px;margin-left:18px;font-weight:700;font-size:13px}
+.user .ava{width:38px;height:38px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-weight:800;border:2px solid var(--card);box-shadow:var(--shadow)}
+
+/* ===== agencement "ronde" : terrain héros entouré de cartes flottantes ===== */
+.arena{position:relative;margin-top:34px}
+.arena-center{max-width:660px;margin:0 auto;text-align:center}
+.vs-title{display:inline-block;font-weight:800;font-size:12.5px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase}
+.arena h1{font-size:44px;margin:10px 0 6px}
+.arena h1 b{color:var(--coral)}
+.arena .sub{color:var(--muted);font-size:14.5px;font-weight:600;max-width:440px;margin:0 auto}
+.pitch-card{
+  position:relative;margin:26px auto 0;border-radius:30px;overflow:hidden;max-width:660px;
+  background:var(--card);box-shadow:var(--shadow);
+}
+.pitch{position:relative;height:340px;background:repeating-linear-gradient(90deg,var(--pitch) 0 54px,var(--pitch2) 54px 108px)}
+.ln{position:absolute;border:2.5px solid rgba(255,255,255,.8);border-radius:6px}
+.ln.mid{left:50%;top:8px;bottom:8px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%)}
+.spot{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:88px;border-radius:8px;background:rgba(255,255,255,.4);border:2.5px solid rgba(255,255,255,.85)}
+.pl{position:absolute;transform:translate(-50%,-50%);text-align:center;z-index:4}
+.p-body{width:36px;height:36px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;background:var(--coral);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 4px 10px rgba(0,0,0,.3)}
+.p-body.away{background:#3b4d68}
+.p-num{font-weight:800;font-size:14px;color:#fff}
+.p-badge{position:absolute;top:-9px;left:-9px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.p-tag{display:inline-block;margin-top:6px;padding:1px 10px;border-radius:999px;background:rgba(0,0,0,.35);color:#fff;font-size:10px;font-weight:700;backdrop-filter:blur(2px)}
+.big-cta{
+  margin:22px auto 0;display:block;font-size:19px;font-weight:800;color:#fff;cursor:pointer;
+  background:linear-gradient(180deg,var(--coral),var(--coral-d));border:none;padding:20px 74px;border-radius:999px;
+  box-shadow:0 12px 26px rgba(224,78,58,.4);
+}
+.big-cta:hover{transform:translateY(-2px)}
+.big-cta:active{transform:translateY(2px)}
+
+/* cartes adversaires flottantes autour */
+.float-card{
+  position:absolute;width:250px;border-radius:22px;background:var(--card);box-shadow:var(--shadow);
+  padding:16px;text-align:left;z-index:5;
+}
+.float-card .fc-head{display:flex;align-items:center;gap:11px}
+.fc-crest{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.18);flex:none}
+.fc-name{font-weight:800;font-size:15px}
+.fc-wl{font-size:11.5px;color:var(--muted);font-weight:600}
+.fc-elo{margin-left:auto;font-weight:800;font-size:13px;background:var(--card2);border-radius:999px;padding:4px 12px}
+.fc-bar{height:6px;border-radius:3px;background:var(--card2);margin:12px 0 10px;overflow:hidden}
+.fc-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--mint),var(--sun))}
+.fc-foot{display:flex;align-items:center;justify-content:space-between}
+.fc-vs{font-size:11px;font-weight:800;color:var(--muted)}
+.fc-btn{font-size:13px;font-weight:800;color:#fff;background:var(--ink);border:none;border-radius:999px;padding:8px 20px;cursor:pointer}
+.fc1{left:-30px;top:120px;transform:rotate(-3deg)}
+.fc2{right:-30px;top:60px;transform:rotate(2.5deg)}
+.fc3{right:36px;bottom:-46px;transform:rotate(-2deg)}
+
+/* historique : bandeau horizontal bas */
+.hist-band{margin-top:96px}
+.band-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.band-head h3{font-size:18px}
+.band-head .hint{color:var(--muted);font-size:12px;font-weight:600}
+.band-head .link{margin-left:auto;font-weight:800;font-size:13px;color:var(--coral);cursor:pointer}
+.hist-cards{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+.h-card{flex:0 0 210px;border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:14px 16px}
+.h-top{display:flex;align-items:center;gap:9px;font-weight:800;font-size:14px}
+.h-res{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
+.h-res.win{background:var(--mint)}
+.h-res.loss{background:var(--muted)}
+.h-vs{color:var(--muted);font-size:12px;font-weight:600;margin-top:6px}
+.h-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.h-elo{font-weight:800;font-size:13px}
+.h-elo.plus{color:var(--mint)}.h-elo.minus{color:var(--coral)}
+.h-time{font-size:11px;color:var(--muted);font-weight:600}
+
+/* leaderboard : rail droit flottant */
+.lb-rail{
+  position:fixed;right:20px;top:120px;z-index:20;width:64px;border-radius:999px;background:var(--card);
+  box-shadow:var(--shadow);padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.lb-rail .lb-title{writing-mode:vertical-rl;font-size:10px;font-weight:800;letter-spacing:2px;color:var(--muted);margin-bottom:8px;text-transform:uppercase}
+.lb-ava{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:16px;border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.15);position:relative;margin-bottom:6px;cursor:pointer}
+.lb-ava .rk{position:absolute;bottom:-4px;right:-4px;width:17px;height:17px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:9.5px;font-weight:800;display:grid;place-items:center;border:2px solid var(--card)}
+.lb-ava.me::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2.5px solid var(--coral)}
+
+/* équipes : terrain + dock bas */
+.dock{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:10px;
+  background:var(--card);border-radius:999px;padding:10px 14px;box-shadow:var(--shadow);align-items:center;
+}
+.dock-btn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:20px;cursor:pointer;border:1.5px solid var(--line);background:var(--card2)}
+.dock-btn.on{background:var(--ink);color:var(--bg)}
+.dock-btn.small{width:40px;height:40px;font-size:16px}
+.dock-sep{width:1.5px;height:30px;background:var(--line)}
+.dock-play{font-size:14px;font-weight:800;color:#fff;background:var(--coral);border:none;border-radius:999px;padding:12px 26px;cursor:pointer}
+.casiers{display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+.cas{
+  display:flex;align-items:center;gap:10px;padding:8px 18px 8px 9px;border-radius:999px;background:var(--card);
+  box-shadow:var(--shadow);cursor:pointer;font-weight:800;font-size:14px;border:2px solid transparent;
+}
+.cas.active{border-color:var(--coral)}
+.cas .cc{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:16px;background:var(--coral);border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.18)}
+.cas .wl{color:var(--muted);font-size:11.5px;font-weight:600}
+.cas .rdy{font-size:9.5px;font-weight:800;color:#fff;background:var(--mint);border-radius:999px;padding:2px 9px}
+.cas.new{color:var(--coral);border-style:dashed;border-color:var(--muted);box-shadow:none;background:transparent}
+.custom-pop{
+  position:absolute;bottom:86px;left:50%;transform:translateX(-50%);z-index:41;width:400px;border-radius:24px;
+  background:var(--card);box-shadow:var(--shadow);padding:20px;
+}
+.custom-pop h3{font-size:15px;margin-bottom:4px}
+.custom-pop .hint{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:13px;font-weight:700}
+.row .k{width:76px;color:var(--muted)}
+.sw{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.18);cursor:pointer}
+.sw.sel{outline:3px solid var(--coral);outline-offset:2px}
+.emo{width:38px;height:38px;display:grid;place-items:center;font-size:17px;border-radius:12px;background:var(--card2);cursor:pointer}
+.emo.sel{background:var(--sun)}
+.footer-note{margin-top:80px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<button class="mode-toggle" onclick="document.body.classList.toggle('dark')">🌙</button>
+<div class="ribbon">FUN <b>1 · LA RONDE</b> — agencement neuf : terrain héros au centre, adversaires en cartes flottantes autour, historique en bandeau bas, leaderboard en rail latéral</div>
+
+<div class="wrap">
+
+  <nav class="nav">
+    <span class="logo"><span class="ball">⚽</span> LACHATADEDE</span>
+    <span class="nav-link">Équipes</span>
+    <span class="nav-link active">Jouer</span>
+    <span class="user"><span class="ava">P</span> @Pelo</span>
+  </nav>
+
+  <!-- JOUER : la ronde -->
+  <section class="arena">
+    <div class="arena-center">
+      <span class="vs-title">Quick match</span>
+      <h1>Un adversaire, <b>une balle</b>, 90 secondes</h1>
+      <p class="sub">Tiré au sort parmi les équipes prêtes. Ton élo bouge, ton ego aussi — c'est la 3e mi-temps ici.</p>
+      <div class="pitch-card">
+        <div class="pitch">
+          <div class="ln cir"></div><div class="ln mid"></div>
+          <div class="spot"></div>
+          <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+          <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-badge">🧤</span><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+          <div class="pl" style="left:24%;top:24%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+          <div class="pl" style="left:24%;top:76%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+          <div class="pl" style="left:40%;top:38%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+          <div class="pl" style="left:40%;top:62%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+          <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">1</span></div></div>
+          <div class="pl" style="left:76%;top:26%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">8</span></div></div>
+          <div class="pl" style="left:76%;top:74%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">10</span></div></div>
+          <div class="pl" style="left:58%;top:34%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">7</span></div></div>
+          <div class="pl" style="left:58%;top:66%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">9</span></div></div>
+        </div>
+      </div>
+      <button class="big-cta">Lancer le match ⚡</button>
+    </div>
+
+    <div class="float-card fc1">
+      <div class="fc-head">
+        <span class="fc-crest" style="background:var(--sun)">🦁</span>
+        <div><div class="fc-name">Kaaris FC</div><div class="fc-wl">18V · 4D</div></div>
+        <span class="fc-elo">1022</span>
+      </div>
+      <div class="fc-bar"><i style="width:82%"></i></div>
+      <div class="fc-foot"><span class="fc-vs">forme : chauffée 🔥</span><button class="fc-btn">Jouer</button></div>
+    </div>
+
+    <div class="float-card fc2">
+      <div class="fc-head">
+        <span class="fc-crest" style="background:#bfe6ff">🧊</span>
+        <div><div class="fc-name">Glacier United</div><div class="fc-wl">9V · 11D</div></div>
+        <span class="fc-elo">988</span>
+      </div>
+      <div class="fc-bar"><i style="width:45%"></i></div>
+      <div class="fc-foot"><span class="fc-vs">forme : glacée 🥶</span><button class="fc-btn">Jouer</button></div>
+    </div>
+
+    <div class="float-card fc3">
+      <div class="fc-head">
+        <span class="fc-crest" style="background:#ffc4d6">👑</span>
+        <div><div class="fc-name">Les Bleus de DD</div><div class="fc-wl">22V · 2D</div></div>
+        <span class="fc-elo">1187</span>
+      </div>
+      <div class="fc-bar"><i style="width:95%"></i></div>
+      <div class="fc-foot"><span class="fc-vs">forme : intouchable 😤</span><button class="fc-btn">Jouer</button></div>
+    </div>
+  </section>
+
+  <!-- historique : bandeau horizontal -->
+  <section class="hist-band">
+    <div class="band-head">
+      <h3>Derniers matchs</h3><span class="hint">glisse pour tout voir →</span>
+      <span class="link">tout l'historique</span>
+    </div>
+    <div class="hist-cards">
+      <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 3 – 1</div><div class="h-vs">vs Glacier United</div><div class="h-bottom"><span class="h-elo plus">+12</span><span class="h-time">il y a 2 h</span></div></div>
+      <div class="h-card"><div class="h-top"><span class="h-res loss">D</span> 1 – 2</div><div class="h-vs">vs Kaaris FC</div><div class="h-bottom"><span class="h-elo minus">−9</span><span class="h-time">hier</span></div></div>
+      <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 2 – 0</div><div class="h-vs">vs Bleus de DD</div><div class="h-bottom"><span class="h-elo plus">+18</span><span class="h-time">hier</span></div></div>
+      <div class="h-card"><div class="h-top"><span class="h-res loss">D</span> 0 – 4</div><div class="h-vs">vs Kaaris FC</div><div class="h-bottom"><span class="h-elo minus">−11</span><span class="h-time">mardi</span></div></div>
+      <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 5 – 3</div><div class="h-vs">vs Tiki-taka 2009</div><div class="h-bottom"><span class="h-elo plus">+7</span><span class="h-time">lundi</span></div></div>
+    </div>
+  </section>
+
+  <div class="footer-note">FUN 1 — <b>la ronde</b> · rien de rétro : flottant, arrondi, aéré · 🌙 pour le dark</div>
+</div>
+
+<!-- rail leaderboard -->
+<aside class="lb-rail">
+  <span class="lb-title">Top 5</span>
+  <span class="lb-ava me" style="background:var(--sun)">👑<span class="rk">1</span></span>
+  <span class="lb-ava" style="background:#ffc4d6">🦁<span class="rk">2</span></span>
+  <span class="lb-ava me" style="background:var(--coral)">🔶<span class="rk">3</span></span>
+  <span class="lb-ava" style="background:#bfe6ff">🧊<span class="rk">4</span></span>
+  <span class="lb-ava" style="background:var(--mint)">⚡<span class="rk">5</span></span>
+</aside>
+
+<!-- ÉQUIPES : aperçu dock -->
+<div style="margin-top:40px">
+  <div class="ribbon" style="border-radius:999px;max-width:560px;margin:0 auto">PAGE ÉQUIPES — aperçu : casiers en haut, terrain, dock flottant</div>
+</div>
+<div class="casiers">
+  <span class="cas active"><span class="cc">🔶</span> Pressing 804 <span class="wl">12W·3L</span> <span class="rdy">PRÊT</span></span>
+  <span class="cas"><span class="cc" style="background:#5aa0d8">🧊</span> Glacier U. <span class="wl">4W·8L</span></span>
+  <span class="cas new">＋ nouvelle</span>
+</div>
+<div class="pitch-card" style="margin-top:22px">
+  <div class="pitch" style="height:300px">
+    <div class="ln cir"></div><div class="ln mid"></div>
+    <div class="spot"></div>
+    <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+    <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-badge">🧤</span><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+    <div class="pl" style="left:24%;top:24%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+    <div class="pl" style="left:24%;top:76%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+    <div class="pl" style="left:40%;top:38%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+    <div class="pl" style="left:40%;top:62%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+    <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">1</span></div></div>
+    <div class="pl" style="left:76%;top:26%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">8</span></div></div>
+    <div class="pl" style="left:76%;top:74%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">10</span></div></div>
+    <div class="pl" style="left:58%;top:34%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">7</span></div></div>
+    <div class="pl" style="left:58%;top:66%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">9</span></div></div>
+  </div>
+</div>
+<div class="custom-pop">
+  <h3>Équipement — Pressing 804</h3>
+  <div class="hint">couleur du maillot + blason ; le numéro reste au centre</div>
+  <div class="row"><span class="k">Maillot</span>
+    <span class="sw sel" style="background:var(--coral)"></span>
+    <span class="sw" style="background:var(--sun)"></span>
+    <span class="sw" style="background:var(--mint)"></span>
+    <span class="sw" style="background:#5aa0d8"></span>
+  </div>
+  <div class="row"><span class="k">Blason</span>
+    <span class="emo sel">🔶</span><span class="emo">🦁</span><span class="emo">⚡</span><span class="emo">🐱</span><span class="emo">👑</span>
+  </div>
+</div>
+<div class="dock">
+  <span class="dock-btn">📜</span>
+  <span class="dock-btn">⌨️</span>
+  <span class="dock-btn on">🎨</span>
+  <span class="dock-sep"></span>
+  <button class="dock-play">▶ Test vs bot</button>
+</div>
+
+</body>
+</html>

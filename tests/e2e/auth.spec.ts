@@ -27,12 +27,14 @@ test.describe('Authentication', () => {
       await page.getByTestId('confirm-password-input').fill('SecurePass123!');
       await page.getByTestId('register-button').click();
 
-      // Registration redirects to the workspace
-      await expect(page).toHaveURL(/\/workspace/);
+      // Registration redirects to the lobby
+      await expect(page).toHaveURL(/\/play/);
       await expect(page.getByTestId('user-menu')).toBeVisible();
       await expect(page.getByTestId('user-menu')).toContainText(name);
 
-      // The backend provisions the starter AI file (story 1.4 AC #1)
+      // The backend provisions the starter AI file (story 1.4 AC #1) —
+      // visible in the teams editor
+      await page.getByTestId('nav-teams').click();
       await expect(page.getByTestId('scripts-list')).toContainText('StarterAI.js');
     });
 
@@ -64,7 +66,7 @@ test.describe('Authentication', () => {
   });
 
   test.describe('Login', () => {
-    test('should login with valid credentials and land in workspace @P0', async ({
+    test('should login with valid credentials and land in the lobby @P0', async ({
       page,
       userFactory,
     }) => {
@@ -75,7 +77,7 @@ test.describe('Authentication', () => {
       await page.getByTestId('password-input').fill(user.password);
       await page.getByTestId('login-button').click();
 
-      await expect(page).toHaveURL(/\/workspace/);
+      await expect(page).toHaveURL(/\/play/);
       await expect(page.getByTestId('user-menu')).toBeVisible();
       await expect(page.getByTestId('user-menu')).toContainText(user.name);
     });
@@ -98,16 +100,16 @@ test.describe('Authentication', () => {
     }) => {
       const user = await userFactory.create();
 
-      // A direct visit to /workspace while logged out redirects to /login
-      await page.goto('/workspace');
+      // A direct visit to /teams while logged out redirects to /login
+      await page.goto('/teams');
       await expect(page).toHaveURL(/\/login/);
 
       await page.getByTestId('email-input').fill(user.email);
       await page.getByTestId('password-input').fill(user.password);
       await page.getByTestId('login-button').click();
 
-      // Login returns the user to /workspace, not a hardcoded page
-      await expect(page).toHaveURL(/\/workspace/);
+      // Login returns the user to /teams, not a hardcoded page
+      await expect(page).toHaveURL(/\/teams/);
     });
   });
 
@@ -119,7 +121,7 @@ test.describe('Authentication', () => {
       const user = await userFactory.create();
       await seedAuthToken(page, user.token ?? '');
 
-      await page.goto('/workspace');
+      await page.goto('/teams');
       await expect(page.getByTestId('user-menu')).toBeVisible();
 
       await page.getByTestId('user-menu').click();
@@ -132,16 +134,16 @@ test.describe('Authentication', () => {
       const stored = await page.evaluate(() => localStorage.getItem('auth_token'));
       expect(stored).toBeNull();
 
-      await page.goto('/workspace');
+      await page.goto('/teams');
       await expect(page).toHaveURL(/\/login/);
     });
   });
 
   test.describe('Protected routes', () => {
-    test('should redirect unauthenticated users from workspace to login @P0', async ({
+    test('should redirect unauthenticated users from teams to login @P0', async ({
       page,
     }) => {
-      await page.goto('/workspace');
+      await page.goto('/teams');
       await expect(page).toHaveURL(/\/login/);
     });
   });
@@ -154,11 +156,11 @@ test.describe('Authentication', () => {
       const user = await userFactory.create();
       await seedAuthToken(page, user.token ?? '');
 
-      await page.goto('/workspace');
+      await page.goto('/teams');
       await expect(page.getByTestId('user-menu')).toBeVisible();
 
       await page.reload();
-      await expect(page).toHaveURL(/\/workspace/);
+      await expect(page).toHaveURL(/\/teams/);
       await expect(page.getByTestId('user-menu')).toBeVisible();
     });
   });

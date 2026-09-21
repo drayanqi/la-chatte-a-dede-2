@@ -1,13 +1,15 @@
 /**
- * ScriptsPanel - Scripts list and Monaco editor placeholder
+ * ScriptsPanel - Scripts column of the Teams page (story 7.5)
  * OWNER: Dev Team
+ *
+ * One row per script: status dot (ok / err), name, assignment-count chip.
+ * Single click opens the code in the adjacent Code panel, double click
+ * renames, right-click opens the context menu (rename / duplicate /
+ * delete). Assignment happens from the pitch picker — no drag-and-drop.
  */
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { useEditorStore } from '@/stores';
-import { useUnsavedChangesWarning, useAutoSave } from '@/hooks';
-import { MonacoEditor } from './MonacoEditor';
-import { SaveIndicator } from './SaveIndicator';
+import { useEditorStore, useTacticsStore } from '@/stores';
 import type { Script } from '@/types';
 
 /**
@@ -80,16 +82,31 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
     isRenaming,
     isDuplicating,
     isDeleting,
-    isSaving,
-    hasUnsavedChanges,
+    syntaxErrors,
     scriptsError,
     createScript,
-    updateScript,
-    saveScript,
     renameScript,
     duplicateScript,
     deleteScript,
   } = useEditorStore();
+
+  const activeTactic = useTacticsStore((state) =>
+    state.activeTacticId
+      ? state.tactics.find((tactic) => tactic.id === state.activeTacticId) ?? null
+      : null
+  );
+
+  // Assignment counts (story 7.5 chip): scriptId -> how many slots use it
+  const assignmentCounts = new Map<string, number>();
+  if (activeTactic) {
+    for (const player of activeTactic.players) {
+      if (player.scriptId) {
+        assignmentCounts.set(player.scriptId, (assignmentCounts.get(player.scriptId) ?? 0) + 1);
+      }
+    }
+  }
+  const hasSyntaxError = (scriptId: string): boolean =>
+    syntaxErrors.some((error) => error.scriptId === scriptId);
 
   // Rename state
   const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
@@ -126,31 +143,6 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
     }
   }, [contextMenuScriptId]);
 
-  // Warn user before leaving with unsaved changes
-  useUnsavedChangesWarning(hasUnsavedChanges);
-
-  // Auto-save changes after 2 seconds of inactivity or every 30 seconds
-  useAutoSave({
-    hasUnsavedChanges,
-    isSaving,
-    activeScriptId,
-    saveScript,
-  });
-
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, script: Script) => {
-      e.dataTransfer.setData(
-        'application/json',
-        JSON.stringify({
-          type: 'script',
-          scriptId: script.id,
-        })
-      );
-      e.dataTransfer.effectAllowed = 'copy';
-    },
-    []
-  );
-
   const handleCreateScript = useCallback(async () => {
     // Generate unique name based on existing scripts
     const existingNames = new Set(
@@ -159,14 +151,6 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
     const uniqueName = generateUniqueName(existingNames);
     await createScript(uniqueName);
   }, [scripts, createScript]);
-
-  const handleSave = useCallback(async () => {
-    // Prevent save if already saving or no active script
-    if (isSaving || !activeScriptId) {
-      return;
-    }
-    await saveScript(activeScriptId);
-  }, [isSaving, activeScriptId, saveScript]);
 
   // Context menu handler
   const handleContextMenu = useCallback(
@@ -327,21 +311,21 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h3 style={styles.title}>AI Scripts</h3>
+      <div style={styles.colhead}>
+        <span style={styles.colheadTitle}>Scripts</span>
         <button
           data-testid="create-script-button"
           style={{
-            ...styles.addButton,
-            ...(isCreatingScript ? styles.addButtonDisabled : {}),
+            ...styles.plus,
+            ...(isCreatingScript ? styles.plusDisabled : {}),
           }}
           onClick={handleCreateScript}
           disabled={isCreatingScript}
           title="Create new AI file"
         >
           {isCreatingScript ? (
-            <span data-testid="script-creating" style={styles.spinnerIcon}>
-              Creating...
+            <span data-testid="script-creating" style={styles.creating}>
+              ...
             </span>
           ) : (
             '+'
@@ -351,32 +335,37 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
 
       <div data-testid="scripts-list" style={styles.scriptList}>
         {isLoadingScripts && (
-          <div style={styles.loadingState}>Loading scripts...</div>
+          <div style={styles.stateText}>Loading scripts...</div>
         )}
 
         {scriptsError && (
-          <div style={styles.errorState}>{scriptsError}</div>
+          <div style={{ ...styles.stateText, ...styles.errorText }}>{scriptsError}</div>
         )}
 
         {!isLoadingScripts && !scriptsError && scripts.size === 0 && (
-          <div style={styles.emptyState}>No scripts yet</div>
+          <div style={styles.stateText}>No scripts yet</div>
         )}
 
-        {Array.from(scripts.values()).map((script) => (
-          <div
-            key={script.id}
-            data-testid={`script-item-${script.id}`}
-            style={{
-              ...styles.scriptItem,
-              ...(activeScriptId === script.id ? styles.scriptItemActive : {}),
-            }}
-            draggable={renamingScriptId !== script.id}
-            onDragStart={(e) => handleDragStart(e, script)}
-            onClick={() => handleScriptClick(script)}
-            onContextMenu={(e) => handleContextMenu(e, script)}
-          >
-            <span style={styles.scriptIcon}>📜</span>
-            <div style={styles.scriptInfo}>
+        {Array.from(scripts.values()).map((script) => {
+          const usage = assignmentCounts.get(script.id) ?? 0;
+          const errored = hasSyntaxError(script.id);
+
+          return (
+            <div
+              key={script.id}
+              data-testid={`script-item-${script.id}`}
+              style={{
+                ...styles.srow,
+                ...(activeScriptId === script.id ? styles.srowActive : {}),
+              }}
+              onClick={() => handleScriptClick(script)}
+              onContextMenu={(e) => handleContextMenu(e, script)}
+            >
+              <span
+                data-testid="script-status-dot"
+                data-status={errored ? 'err' : 'ok'}
+                style={{ ...styles.statusDot, background: errored ? 'var(--corail)' : 'var(--mint)' }}
+              />
               {renamingScriptId === script.id ? (
                 <div style={styles.renameContainer}>
                   <input
@@ -404,18 +393,25 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
                   )}
                 </div>
               ) : (
-                <span
-                  data-testid={`script-name-${script.id}`}
-                  style={styles.scriptName}
-                >
-                  {script.name}
-                </span>
+                <>
+              <span
+                data-testid={`script-name-${script.id}`}
+                style={styles.scriptName}
+              >
+                {script.name}
+              </span>
+              <span
+                data-testid="script-usage"
+                data-tactic-id={activeTactic?.id ?? ''}
+                style={styles.usageChip}
+              >
+                {usage}
+              </span>
+                </>
               )}
-              <span style={styles.scriptLang}>{script.language}</span>
             </div>
-            <span style={styles.dragHandle}>⋮⋮</span>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Context Menu */}
         {contextMenuScriptId && (
@@ -433,7 +429,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
               style={styles.contextMenuItem}
               onClick={() => startRename(contextMenuScriptId)}
             >
-              Rename
+              Renommer
             </button>
             <button
               data-testid="duplicate-option"
@@ -444,7 +440,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
               onClick={() => handleDuplicate(contextMenuScriptId)}
               disabled={isDuplicating}
             >
-              {isDuplicating ? 'Duplicating...' : 'Duplicate'}
+              {isDuplicating ? 'Duplication...' : 'Dupliquer'}
             </button>
             <button
               data-testid="delete-option"
@@ -454,7 +450,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
               }}
               onClick={() => handleDeleteClick(contextMenuScriptId)}
             >
-              Delete
+              Supprimer
             </button>
           </div>
         )}
@@ -471,7 +467,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
               onClick={(e) => e.stopPropagation()}
             >
               <div style={styles.dialogTitle}>
-                Delete {scripts.get(deleteConfirmScriptId)?.name}?
+                Supprimer {scripts.get(deleteConfirmScriptId)?.name} ?
               </div>
               <div style={styles.dialogButtons}>
                 <button
@@ -482,7 +478,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
                   }}
                   onClick={cancelDelete}
                 >
-                  Cancel
+                  Annuler
                 </button>
                 <button
                   data-testid="delete-confirm-button"
@@ -494,7 +490,7 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
                   onClick={confirmDelete}
                   disabled={isDeleting}
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? 'Suppression...' : 'Supprimer'}
                 </button>
               </div>
             </div>
@@ -502,26 +498,9 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
         )}
       </div>
 
-      <div data-testid="editor-container" style={styles.editorPlaceholder}>
-        {activeScriptId ? (
-          <div style={styles.editorContent}>
-            <div style={styles.editorHeader}>
-              <span>{scripts.get(activeScriptId)?.name}</span>
-              <SaveIndicator />
-            </div>
-            <div style={styles.monacoWrapper}>
-              <MonacoEditor
-                value={scripts.get(activeScriptId)?.code ?? ''}
-                onChange={(newCode) => updateScript(activeScriptId, newCode)}
-                onSave={handleSave}
-              />
-            </div>
-          </div>
-        ) : (
-          <div style={styles.noSelection}>
-            Select a script or drag it onto a player
-          </div>
-        )}
+      <div data-testid="script-hint" style={styles.scripthint}>
+        Clique un joueur du terrain pour lui assigner un script. Un script
+        peut être partagé par plusieurs joueurs.
       </div>
     </div>
   );
@@ -532,136 +511,107 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    backgroundColor: '#252526',
+    background: 'var(--panel)',
   },
-  header: {
+  colhead: {
+    flex: 'none',
+    height: '44px',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 16px',
-    borderBottom: '1px solid #3c3c3c',
+    gap: '9px',
+    padding: '0 14px',
+    borderBottom: '1px solid var(--line)',
   },
-  title: {
-    margin: 0,
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#cccccc',
+  colheadTitle: {
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.07em',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    color: 'var(--muted)',
   },
-  addButton: {
-    width: '24px',
-    height: '24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    color: '#cccccc',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
+  plus: {
+    marginLeft: 'auto',
+    width: '26px',
+    height: '26px',
+    borderRadius: '10px',
+    background: 'var(--corail)',
+    color: '#fff',
+    fontSize: '15px',
+    display: 'grid',
+    placeItems: 'center',
+    border: 'none',
     cursor: 'pointer',
-    fontSize: '16px',
+    lineHeight: 1,
   },
-  addButtonDisabled: {
+  plusDisabled: {
     opacity: 0.5,
     cursor: 'not-allowed',
   },
-  spinnerIcon: {
+  creating: {
     fontSize: '10px',
-    letterSpacing: '1px',
   },
   scriptList: {
-    flex: '0 0 auto',
-    maxHeight: '200px',
-    overflowY: 'auto',
-  },
-  loadingState: {
-    padding: '16px',
-    color: '#888888',
-    fontSize: '13px',
-    textAlign: 'center',
-  },
-  errorState: {
-    padding: '16px',
-    color: '#f14c4c',
-    fontSize: '13px',
-    textAlign: 'center',
-  },
-  emptyState: {
-    padding: '16px',
-    color: '#666666',
-    fontSize: '13px',
-    textAlign: 'center',
-  },
-  scriptItem: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '8px 16px',
-    cursor: 'grab',
-    borderBottom: '1px solid #2d2d2d',
-    transition: 'background-color 0.15s',
-  },
-  scriptItemActive: {
-    backgroundColor: '#37373d',
-  },
-  scriptIcon: {
-    fontSize: '16px',
-    marginRight: '8px',
-  },
-  scriptInfo: {
     flex: 1,
+    overflowY: 'auto',
+    padding: '9px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '2px',
+    gap: '4px',
+  },
+  stateText: {
+    padding: '12px',
+    color: 'var(--muted)',
+    fontSize: '12.5px',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: 'var(--corail)',
+  },
+  srow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '9px',
+    padding: '9px 11px',
+    borderRadius: 'var(--r-sm, 12px)',
+    fontSize: '12.5px',
+    cursor: 'pointer',
+    color: 'var(--ink)',
+  },
+  srowActive: {
+    background: 'var(--panel2)',
+    boxShadow: 'inset 0 0 0 1.5px var(--corail)',
+    fontWeight: 700,
+  },
+  statusDot: {
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    flexShrink: 0,
   },
   scriptName: {
-    fontSize: '13px',
-    color: '#ffffff',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
-  scriptLang: {
+  usageChip: {
+    marginLeft: 'auto',
+    fontSize: '10px',
+    fontWeight: 700,
+    color: 'var(--muted)',
+    background: 'var(--bg)',
+    padding: '2px 8px',
+    borderRadius: '99px',
+    flexShrink: 0,
+  },
+  scripthint: {
+    flex: 'none',
+    margin: '8px',
+    padding: '9px 12px',
+    borderRadius: 'var(--r-sm, 12px)',
+    background: 'var(--panel2)',
     fontSize: '11px',
-    color: '#888888',
-  },
-  dragHandle: {
-    color: '#666666',
-    fontSize: '12px',
-    cursor: 'grab',
-  },
-  editorPlaceholder: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    borderTop: '1px solid #3c3c3c',
-    overflow: 'hidden',
-  },
-  editorContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-  },
-  editorHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '8px 16px',
-    backgroundColor: '#2d2d2d',
-    borderBottom: '1px solid #3c3c3c',
-    fontSize: '12px',
-    color: '#cccccc',
-  },
-  monacoWrapper: {
-    flex: 1,
-    minHeight: 0,
-    overflow: 'hidden',
-  },
-  noSelection: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: '#666666',
-    fontSize: '13px',
-    padding: '16px',
-    textAlign: 'center',
+    color: 'var(--muted)',
+    lineHeight: 1.5,
   },
   renameContainer: {
     display: 'flex',
@@ -670,41 +620,45 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
   },
   renameInput: {
-    fontSize: '13px',
-    color: '#d4d4d4',
-    backgroundColor: '#3c3c3c',
-    border: '1px solid #007acc',
-    borderRadius: '2px',
-    padding: '2px 4px',
+    fontSize: '12.5px',
+    color: 'var(--ink)',
+    backgroundColor: 'var(--panel2)',
+    border: '1.5px solid var(--corail)',
+    borderRadius: '8px',
+    padding: '2px 6px',
     outline: 'none',
     width: '100%',
     boxSizing: 'border-box',
   },
   renameInputError: {
-    borderColor: '#f14c4c',
+    borderColor: 'var(--corail)',
   },
   renameErrorText: {
     fontSize: '11px',
-    color: '#f14c4c',
+    color: 'var(--corail)',
   },
   contextMenu: {
     position: 'fixed',
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
+    background: 'var(--panel)',
+    borderRadius: '16px',
+    boxShadow: 'var(--shadow-lg)',
+    padding: '7px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
     zIndex: 1000,
-    minWidth: '120px',
-    padding: '4px 0',
+    minWidth: '140px',
   },
   contextMenuItem: {
     display: 'block',
     width: '100%',
-    padding: '6px 12px',
+    padding: '9px 12px',
     backgroundColor: 'transparent',
     border: 'none',
-    color: '#cccccc',
-    fontSize: '13px',
+    borderRadius: '11px',
+    color: 'var(--ink)',
+    fontSize: '12.5px',
+    fontWeight: 600,
     textAlign: 'left',
     cursor: 'pointer',
   },
@@ -713,53 +667,55 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'not-allowed',
   },
   contextMenuItemDanger: {
-    color: '#f14c4c',
+    color: 'var(--corail)',
   },
   dialogOverlay: {
     position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    inset: 0,
+    background: 'rgba(10, 20, 14, 0.45)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1001,
+    backdropFilter: 'blur(3px)',
   },
   dialogContent: {
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
-    padding: '16px',
-    minWidth: '280px',
+    background: 'var(--panel)',
+    borderRadius: 'var(--r-modal)',
+    boxShadow: 'var(--shadow-lg)',
+    padding: '24px',
+    minWidth: '320px',
     maxWidth: '400px',
   },
   dialogTitle: {
-    fontSize: '14px',
-    color: '#ffffff',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: 'var(--ink)',
     marginBottom: '12px',
   },
   dialogButtons: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '8px',
+    gap: '9px',
     marginTop: '16px',
   },
   dialogButton: {
-    padding: '6px 14px',
-    borderRadius: '2px',
+    padding: '9px 16px',
+    borderRadius: 'var(--r-btn)',
     fontSize: '13px',
+    fontWeight: 700,
     cursor: 'pointer',
     border: 'none',
   },
   dialogButtonDanger: {
-    backgroundColor: '#f14c4c',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
+    boxShadow: '0 4px 14px rgba(255, 107, 87, 0.35)',
   },
   dialogButtonSecondary: {
-    backgroundColor: '#3c3c3c',
-    color: '#cccccc',
+    backgroundColor: 'var(--panel2)',
+    color: 'var(--ink)',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
   },
   dialogButtonDisabled: {
     opacity: 0.5,

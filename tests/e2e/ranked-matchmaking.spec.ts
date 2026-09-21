@@ -1,17 +1,20 @@
 /**
- * Ranked Matchmaking E2E Tests (Epic 4 v2: stories 4.1 + 4.2 + 4.3)
+ * Ranked Matchmaking E2E Tests (Epic 4 v2 flows on the La Ronde lobby,
+ * story 7.6 traversal)
  *
- * The full ranked loop against the real stack (Laravel API + Node engine):
- * a tactic marked ready from its tab appears in other players' opponent
- * pool; challenging (or quick-matching) it simulates the match
- * synchronously even though the opponent never opens a browser, and the
- * result banner carries the score and the elo delta. The offline opponent
- * finds the match in their history, with their tactic's record moved.
+ * The full ranked loop against the real stack (Laravel API + Node engine),
+ * driven from /play: the hero's "Match classé" opens the chooser, the
+ * challenge simulates the match synchronously even though the opponent
+ * never opens a browser, the result card carries the outcome and the elo
+ * delta, and "Revoir le match" lands in the /match/:id viewer. The offline
+ * opponent finds the match in their history, with their tactic's record
+ * moved. The lobby history rows offer the same viewer.
  *
  * The simulation is REAL (same engine-backed setup as practice-match.spec):
  * each test allows the engine's queued-simulation budget.
  *
  * @see Epic 4 v2: Ranked Competition — Ready Tactics & Challenge Mode
+ * @see Story 7.6: Play Page
  * @see FR23-FR26 in PRD
  */
 import { test, expect } from '../support/fixtures';
@@ -60,17 +63,23 @@ test.describe('Ranked Matchmaking', () => {
     return { token: user.token!, tacticId: tactic.id };
   };
 
-  const openRankedView = async (browser: Browser, token: string): Promise<Page> => {
+  const openPlayPage = async (browser: Browser, token: string): Promise<Page> => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await seedAuthToken(page, token);
-    await page.goto('/workspace');
-    await page.getByTestId('ranked-nav-button').click();
+    await page.goto('/play');
+    await expect(page.getByTestId('play-hero')).toBeVisible();
+    return page;
+  };
+
+  const openChooser = async (browser: Browser, token: string): Promise<Page> => {
+    const page = await openPlayPage(browser, token);
+    await page.getByTestId('ranked-open-button').click();
     await expect(page.getByTestId('ranked-view')).toBeVisible();
     return page;
   };
 
-  test('challenge flow: ready tab shows the record, the opponent list challenges, the offline player sees the match', async ({
+  test('challenge flow: hero opens the chooser, the challenge settles in a result card, the match opens in the viewer', async ({
     browser,
     userFactory,
     scriptFactory,
@@ -81,33 +90,34 @@ test.describe('Ranked Matchmaking', () => {
     const a = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
     const b = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
 
-    const pageB = await openRankedView(browser, b.token);
+    const pageB = await openChooser(browser, b.token);
 
-    // Story 4.1: my fighter card shows the starting record (elo 1000, 0-0)
-    const myFighter = pageB.getByTestId('ranked-my-fighter-row').first();
-    await expect(myFighter).toBeVisible();
-    await expect(myFighter.getByTestId('fighter-record')).toHaveText(/1000 · 0-0/);
+    // My fighter select lists the ready tactic
+    const fighterSelect = pageB.getByTestId('ranked-fighter-select');
+    await expect(fighterSelect).toBeVisible();
+    await expect(fighterSelect).toContainText('Formation');
 
-    // Story 4.3: the pool lists the offline player's ready tactic
+    // The pool lists the offline player's ready tactic
     const opponentRow = pageB.getByTestId('ranked-opponent-row').first();
     await expect(opponentRow).toBeVisible();
     await expect(opponentRow).toContainText('Formation');
 
-    // Story 4.2 AC #3: challenge — the simulation runs in the request
+    // Challenge — the simulation runs in the request
     await opponentRow.getByTestId('ranked-challenge-button').click();
 
     const simulating = pageB.getByTestId('ranked-simulating-banner');
     await expect(simulating).toBeVisible();
 
-    const result = pageB.getByTestId('ranked-result-banner');
+    const result = pageB.getByTestId('result-card');
     await expect(result).toBeVisible({ timeout: 120000 });
-    await expect(pageB.getByTestId('ranked-result-score')).toContainText(/\d+ — \d+/);
-    await expect(pageB.getByTestId('ranked-result-points')).toContainText(/[+-]\d+ elo/);
+    await expect(pageB.getByTestId('result-outcome')).toHaveText(/Victoire|Défaite|Match nul/);
+    await expect(pageB.getByTestId('result-score')).toContainText(/\d+ – \d+/);
 
-    // Story 4.3: watch replay returns to the workspace
-    await pageB.getByTestId('ranked-watch-replay-button').click();
-    await expect(pageB.getByTestId('ranked-view')).not.toBeVisible();
+    // Story 7.6 AC #3: "Revoir le match" opens the /match/:id viewer
+    await pageB.getByTestId('result-watch-replay-button').click();
+    await expect(pageB).toHaveURL(/\/match\/[0-9a-f-]{36}/);
     await expect(pageB.getByTestId('field-canvas')).toBeVisible();
+    await expect(pageB.getByTestId('score-display')).toBeVisible({ timeout: 30000 });
 
     // The offline opponent: their history holds the match and their tactic
     // record moved (story 4.2 AC #4)
@@ -132,44 +142,10 @@ test.describe('Ranked Matchmaking', () => {
     expect(tacticsABody[0].elo).not.toBe(1000);
     expect(tacticsABody[0].wins + tacticsABody[0].losses).toBe(1);
     expect(tacticsABody[0].isReady).toBe(true);
+
   });
 
-  test('quick match flow: one click from my fighter to a played match', async ({
-    browser,
-    userFactory,
-    scriptFactory,
-    matchFactory,
-    apiContext,
-  }) => {
-    const a = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
-    const b = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
-
-    const pageB = await openRankedView(browser, b.token);
-
-    // Story 4.2 AC #1: quick match draws a random pool opponent (any elo)
-    await pageB
-      .getByTestId('ranked-quick-match-button')
-      .first()
-      .click();
-
-    const result = pageB.getByTestId('ranked-result-banner');
-    await expect(result).toBeVisible({ timeout: 120000 });
-    await expect(pageB.getByTestId('ranked-result-score')).toContainText(/\d+ — \d+/);
-
-    const matchBody = (await (
-      await apiContext.get('matches', { headers: { Authorization: `Bearer ${b.token}` } })
-    ).json()) as { data: { mode: string; challengerName: string }[] };
-    expect(matchBody.data).toHaveLength(1);
-    expect(matchBody.data[0].mode).toBe('ranked');
-
-    // Sanity: the opponent pool still lists the (now beaten) fighter
-    await pageB.getByTestId('ranked-back-button').click();
-    await expect(pageB.getByTestId('ranked-view')).not.toBeVisible();
-
-    void a;
-  });
-
-  test('empty pool: quick match and the list both say no opponents are ready', async ({
+  test('empty pool: the chooser says no opponents are ready', async ({
     browser,
     userFactory,
     scriptFactory,
@@ -179,21 +155,13 @@ test.describe('Ranked Matchmaking', () => {
     // A single player: only their own ready tactic exists — the pool is empty
     const solo = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
 
-    const page = await openRankedView(browser, solo.token);
+    const page = await openChooser(browser, solo.token);
 
     // Story 4.3 AC #4: the empty state
     await expect(page.getByTestId('ranked-empty-opponents')).toBeVisible();
-
-    // Story 4.2 AC #2: quick match → "No opponents ready"
-    await page.getByTestId('ranked-quick-match-button').first().click();
-    await expect(page.getByTestId('ranked-error-banner')).toBeVisible();
-    await expect(page.getByTestId('ranked-error-message')).toContainText('No opponents ready');
-
-    await page.getByTestId('ranked-error-dismiss').click();
-    await expect(page.getByTestId('ranked-error-banner')).not.toBeVisible();
   });
 
-  test('history flow: the offline loser reads their record and watches the replay (story 4.4)', async ({
+  test('history flow: the loser reads their row on /play and watches the replay in the viewer (story 4.4)', async ({
     browser,
     userFactory,
     scriptFactory,
@@ -229,35 +197,85 @@ test.describe('Ranked Matchmaking', () => {
 
     // B challenges A's idle fighter SPECIFICALLY (earlier tests left other
     // ready tactics in the shared pool)
-    const pageB = await openRankedView(browser, b.token);
+    const pageB = await openChooser(browser, b.token);
     await pageB
       .locator(`[data-testid="ranked-opponent-row"][data-opponent-id="${idleTactic.id}"]`)
       .getByTestId('ranked-challenge-button')
       .click();
-    await expect(pageB.getByTestId('ranked-result-banner')).toBeVisible({ timeout: 120000 });
+    await expect(pageB.getByTestId('result-card')).toBeVisible({ timeout: 120000 });
 
-    // A opens the ranked view: their history shows the match from THEIR side
-    const pageA = await openRankedView(browser, a.token);
+    // A opens /play: their history shows the match from THEIR side
+    const pageA = await openPlayPage(browser, a.token);
 
-    const row = pageA.getByTestId('ranked-history-row').first();
+    const row = pageA.getByTestId('history-row').first();
     await expect(row).toBeVisible({ timeout: 120000 });
-    await expect(row.getByTestId('ranked-history-opponent')).toHaveText('HistoryWinnerB');
-    await expect(row.getByTestId('ranked-history-tactic')).toHaveText('Idle Formation');
-    await expect(row.getByTestId('ranked-history-score')).toHaveText(/\d+ — \d+/);
-    await expect(row.getByTestId('ranked-history-outcome')).toHaveText('Defeat');
-    await expect(row.getByTestId('ranked-history-points')).toHaveText(/-\d+ elo/);
+    await expect(row.getByTestId('history-outcome')).toHaveText('D');
+    await expect(row.getByTestId('history-score')).toHaveText(/\d+ – \d+/);
+    await expect(row.getByTestId('history-points')).toHaveText(/-\d+/);
 
-    // AC #2: filtering to A's tactic keeps the row (it is that tactic's record)
-    await pageA.getByTestId('ranked-history-filter').selectOption(idleTactic.id);
-    await expect(pageA.getByTestId('ranked-history-row')).toHaveCount(1);
-    await expect(row).toBeVisible();
-
-    // AC #3: watching from history reuses the practice replay pipeline —
-    // the overlay closes and the workspace renders the loaded replay
-    await row.getByTestId('ranked-history-watch-button').click();
-    await expect(pageA.getByTestId('ranked-view')).not.toBeVisible();
+    // Story 7.6 AC #3: the row offers "Revoir" → the match viewer
+    await row.getByTestId('history-watch-button').click();
+    await expect(pageA).toHaveURL(/\/match\/[0-9a-f-]{36}/);
     await expect(pageA.getByTestId('field-canvas')).toBeVisible();
     await expect(pageA.getByTestId('score-display')).toBeVisible({ timeout: 30000 });
     await expect(pageA.getByTestId('score-display')).toHaveText(/\d+ — \d+/);
+
+  });
+
+  test('practice from the lobby: "Test vs Bot" simulates and lands in the viewer', async ({
+    browser,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+    apiContext,
+  }) => {
+    const solo = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
+
+    const page = await openPlayPage(browser, solo.token);
+
+    // The sun button on the hero (best ready tactic = the only one)
+    await page.getByTestId('practice-start-button').click();
+
+    // Simulating veil while the synchronous POST runs
+    await expect(page.getByTestId('practice-simulating-overlay')).toBeVisible();
+
+    await expect(page).toHaveURL(/\/match\/[0-9a-f-]{36}/, { timeout: 120000 });
+    await expect(page.getByTestId('field-canvas')).toBeVisible();
+    await expect(page.getByTestId('score-display')).toBeVisible({ timeout: 30000 });
+
+    // The practice match exists in the history
+    const matches = await apiContext.get('matches', {
+      headers: { Authorization: `Bearer ${solo.token}` },
+    });
+    const body = (await matches.json()) as { data: { mode: string; status: string }[] };
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].mode).toBe('practice');
+    expect(body.data[0].status).toBe('completed');
+  });
+
+  test('no-ready lobby: the hero explains and sends the player to Équipes', async ({
+    browser,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+    apiContext,
+  }) => {
+    // A tactic exists but is NOT ready: the lobby must not offer dead CTAs
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.createStarter(user.token!);
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [script.id, script.id, script.id, script.id, script.id],
+    });
+
+    const page = await openPlayPage(browser, user.token);
+
+    await expect(page.getByTestId('no-ready-state')).toBeVisible();
+    await expect(page.getByTestId('no-ready-text')).toContainText('Aucune équipe prête');
+    await expect(page.getByTestId('ranked-open-button')).toHaveCount(0);
+    await expect(page.getByTestId('practice-start-button')).toHaveCount(0);
+
+    await page.getByTestId('go-to-teams-button').click();
+    await expect(page).toHaveURL(/\/teams/);
   });
 });

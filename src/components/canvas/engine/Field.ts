@@ -3,18 +3,23 @@
  * PROPRIÉTAIRE: Cloud Dragonborn (Game Architect)
  */
 
-import { Assets, Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from 'pixi.js';
 import * as fieldGeometry from './fieldGeometry';
 import watermarkUrl from '@/assets/watermark.png';
 
 /**
- * Pitch palette (UX spec, "Wild Card" arena — values locked by Epic 5.1).
- * Hard law: team/player colors are reserved for players and accents —
- * they never paint the floor beneath them (only half-wash gradients).
+ * Pitch palette (UX spec, "Wild Card" arena — values locked by Epic 5.1,
+ * v4 mockup for the La Ronde habillage, story 7.3). Hard law: team/player
+ * colors are reserved for players and accents — they never paint the floor
+ * beneath them.
  */
 export const FIELD_PALETTE = {
   letterbox: 0x111a24,
   pitchBase: 0x1a2634,
+  pitchStripeLight: 0x3fae62,
+  pitchStripeDark: 0x379c56,
+  wallBand: 0x0a140e,
+  wallLine: 0xffffff,
   homeHalf: 0xff6b1a,
   awayHalf: 0x1a8cff,
   lines: 0xffffff,
@@ -25,24 +30,33 @@ export const FIELD_PALETTE = {
 export class Field {
   public container: Container;
   private background: Graphics;
+  private stripes: Graphics;
+  private stripesMask: Graphics;
   private watermark: Sprite;
   private graphics: Graphics;
   private width: number;
   private height: number;
   private watermarkLoaded = false;
 
-  // Palette "Deep Court" (Epic 5.1) — hardcoded v1, un seul bloc, un seul fichier
+  // Habillage v4 (story 7.3) — un seul bloc, un seul fichier
   private readonly LETTERBOX_COLOR = FIELD_PALETTE.letterbox;
-  private readonly PITCH_BASE_COLOR = FIELD_PALETTE.pitchBase;
-  private readonly HALF_HOME_COLOR = FIELD_PALETTE.homeHalf;
-  private readonly HALF_AWAY_COLOR = FIELD_PALETTE.awayHalf;
-  private readonly HALF_TINT_MAX_ALPHA = 0.32;
-  private readonly HALF_TINT_MID_ALPHA = 0.1;
+  private readonly STRIPE_LIGHT_COLOR = FIELD_PALETTE.pitchStripeLight;
+  private readonly STRIPE_DARK_COLOR = FIELD_PALETTE.pitchStripeDark;
+  private readonly STRIPE_BAND_PX = 78;
+  private readonly WALL_BAND_COLOR = FIELD_PALETTE.wallBand;
+  private readonly WALL_BAND_ALPHA = 0.16;
+  private readonly WALL_BAND_WIDTH = 6;
+  private readonly WALL_LINE_COLOR = FIELD_PALETTE.wallLine;
+  private readonly WALL_LINE_ALPHA = 0.42;
+  private readonly WALL_LINE_WIDTH = 3;
+  private readonly MASCOT_CIRCLE_RATIO = 0.8;
   private readonly BOARD_ALPHA = 0.15;
   private readonly LINE_COLOR = FIELD_PALETTE.lines;
   private readonly LINE_WIDTH = 2;
-  private readonly GOAL_HOME_COLOR = FIELD_PALETTE.goalHome;
-  private readonly GOAL_AWAY_COLOR = FIELD_PALETTE.goalAway;
+  // Goal frame colors (team accents — recolorable per tactic, story 7.4;
+  // the floor NEVER takes team colors)
+  private goalHomeColor: number = FIELD_PALETTE.goalHome;
+  private goalAwayColor: number = FIELD_PALETTE.goalAway;
   private readonly GOAL_FILL_ALPHA = 0.12;
   private readonly GOAL_HALO_ALPHA = 0.18;
   private readonly NET_ALPHA = 0.22;
@@ -50,26 +64,27 @@ export class Field {
   private readonly BOARD_TEXT_ALPHA = 0.16;
   private readonly PITCH_CORNER_RADIUS_RATIO = 0.04;
 
-  private homeWash: FillGradient | null = null;
-  private awayWash: FillGradient | null = null;
   private topBoard: Text | null = null;
   private bottomBoard: Text | null = null;
-  private readonly WATERMARK_ALPHA = 0.3;
-  private readonly WATERMARK_SIZE_RATIO = 0.6;
 
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
     this.container = new Container();
     this.background = new Graphics();
+    this.stripes = new Graphics();
+    this.stripesMask = new Graphics();
+    this.graphics = new Graphics();
     this.watermark = new Sprite();
     this.watermark.anchor.set(0.5);
-    this.watermark.alpha = this.WATERMARK_ALPHA;
     this.watermark.visible = false;
-    this.graphics = new Graphics();
     this.container.addChild(this.background);
-    this.container.addChild(this.watermark);
+    this.container.addChild(this.stripesMask);
+    this.container.addChild(this.stripes);
+    this.stripes.mask = this.stripesMask;
     this.container.addChild(this.graphics);
+    // Blason au-dessus des marquages (mockup : le rond central passe derrière)
+    this.container.addChild(this.watermark);
     this.topBoard = this.createBoardText();
     this.bottomBoard = this.createBoardText();
     this.container.addChild(this.topBoard);
@@ -146,8 +161,10 @@ export class Field {
     if (!this.watermark.visible) {
       return;
     }
+    // Blason sans fond : l'image seule, contain-fit dans 80 % du rond central
     const scale =
-      (pitch.height * this.WATERMARK_SIZE_RATIO) / this.watermark.texture.height;
+      (this.watermarkRadius(pitch) * 2) /
+      Math.max(this.watermark.texture.width, this.watermark.texture.height);
     this.watermark.scale.set(scale);
     this.watermark.position.set(
       pitch.x + pitch.width / 2,
@@ -155,10 +172,18 @@ export class Field {
     );
   }
 
+  /**
+   * Blason central : l'image seule (sans disque), contain-fit dans 80 %
+   * du rond central, comme un blason peint au centre d'un vrai terrain.
+   */
+  private watermarkRadius(pitch: fieldGeometry.PitchRect): number {
+    const circleRadius = Math.min(pitch.width, pitch.height) * 0.15;
+    return circleRadius * this.MASCOT_CIRCLE_RATIO;
+  }
+
   private draw(): void {
     const g = this.background;
     g.clear();
-    this.disposeWashGradients();
 
     const pitch = fieldGeometry.computePitchRect(this.width, this.height);
 
@@ -172,93 +197,84 @@ export class Field {
       return;
     }
 
-    // Base du terrain (coins arrondis — moins d'angles droits, loi Pelo)
+    // Base du terrain = bande foncée des rayures (coins arrondis — loi Pelo)
     const cornerRadius = this.pitchCornerRadius(pitch);
     g.roundRect(pitch.x, pitch.y, pitch.width, pitch.height, cornerRadius);
-    g.fill({ color: this.PITCH_BASE_COLOR });
+    g.fill({ color: this.STRIPE_DARK_COLOR });
 
-    // Lueurs d'équipe : dégradé depuis chaque but, éteint au centre
-    // (jamais de la peinture pleine — le centre reste neutre, le watermark respire)
-    this.homeWash = new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 1, y: 0 },
-      colorStops: [
-        { offset: 0, color: this.rgba(this.HALF_HOME_COLOR, this.HALF_TINT_MAX_ALPHA) },
-        { offset: 0.55, color: this.rgba(this.HALF_HOME_COLOR, this.HALF_TINT_MID_ALPHA) },
-        { offset: 1, color: this.rgba(this.HALF_HOME_COLOR, 0) },
-      ],
-    });
-    this.traceHalfPitch(g, pitch, 'home', cornerRadius);
-    g.fill(this.homeWash);
-
-    this.awayWash = new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 1, y: 0 },
-      colorStops: [
-        { offset: 0, color: this.rgba(this.HALF_AWAY_COLOR, 0) },
-        { offset: 0.45, color: this.rgba(this.HALF_AWAY_COLOR, this.HALF_TINT_MID_ALPHA) },
-        { offset: 1, color: this.rgba(this.HALF_AWAY_COLOR, this.HALF_TINT_MAX_ALPHA) },
-      ],
-    });
-    this.traceHalfPitch(g, pitch, 'away', cornerRadius);
-    g.fill(this.awayWash);
+    this.drawStripes(pitch, cornerRadius);
+    // Les murs passent dans la couche markings (au-dessus des rayures)
+    this.drawWalls(pitch, cornerRadius);
 
     this.layoutBoardTexts(pitch);
+  }
+
+  /**
+   * Rayures verticales (mockup .pitch) : bandes claires de 78px en topes
+   * égales sur la bande foncée, clippées aux coins arrondis par le mask.
+   */
+  private drawStripes(pitch: fieldGeometry.PitchRect, radius: number): void {
+    const mask = this.stripesMask;
+    mask.clear();
+    mask.roundRect(pitch.x, pitch.y, pitch.width, pitch.height, radius);
+    mask.fill({ color: this.STRIPE_DARK_COLOR });
+
+    const stripes = this.stripes;
+    stripes.clear();
+    const band = this.STRIPE_BAND_PX;
+    for (let x = pitch.x; x < pitch.x + pitch.width; x += band * 2) {
+      stripes.rect(x, pitch.y, Math.min(band, pitch.x + pitch.width - x), pitch.height);
+      stripes.fill({ color: this.STRIPE_LIGHT_COLOR });
+    }
+  }
+
+  /**
+   * Murs (mockup .walls) : bande sombre + liseré blanc, l'une dans l'autre,
+   * le long de toute la bordure du terrain. Dessinés dans la couche
+   * markings — les rayures masquées passent dessous.
+   */
+  private drawWalls(pitch: fieldGeometry.PitchRect, radius: number): void {
+    const g = this.graphics;
+    const inset = this.WALL_BAND_WIDTH / 2;
+    g.roundRect(
+      pitch.x + inset,
+      pitch.y + inset,
+      pitch.width - this.WALL_BAND_WIDTH,
+      pitch.height - this.WALL_BAND_WIDTH,
+      Math.max(1, radius - inset)
+    );
+    g.stroke({
+      color: this.WALL_BAND_COLOR,
+      width: this.WALL_BAND_WIDTH,
+      alpha: this.WALL_BAND_ALPHA,
+    });
+
+    const lineInset = this.WALL_BAND_WIDTH + this.WALL_LINE_WIDTH / 2;
+    g.roundRect(
+      pitch.x + lineInset,
+      pitch.y + lineInset,
+      pitch.width - lineInset * 2,
+      pitch.height - lineInset * 2,
+      Math.max(1, radius - lineInset)
+    );
+    g.stroke({
+      color: this.WALL_LINE_COLOR,
+      width: this.WALL_LINE_WIDTH,
+      alpha: this.WALL_LINE_ALPHA,
+    });
   }
 
   private pitchCornerRadius(pitch: fieldGeometry.PitchRect): number {
     return Math.max(8, pitch.height * this.PITCH_CORNER_RADIUS_RATIO);
   }
 
-  private traceHalfPitch(
-    g: Graphics,
-    pitch: fieldGeometry.PitchRect,
-    side: 'home' | 'away',
-    radius: number
-  ): void {
-    // Demi-terrain aux coins extérieurs arrondis (bord droit au centre)
-    const top = pitch.y;
-    const bottom = pitch.y + pitch.height;
-    const centerX = pitch.x + pitch.width / 2;
-
-    if (side === 'home') {
-      const left = pitch.x;
-      g.moveTo(centerX, top);
-      g.lineTo(left + radius, top);
-      g.arc(left + radius, top + radius, radius, -Math.PI / 2, Math.PI, true);
-      g.lineTo(left, bottom - radius);
-      g.arc(left + radius, bottom - radius, radius, Math.PI, Math.PI / 2, true);
-      g.lineTo(centerX, bottom);
-    } else {
-      const right = pitch.x + pitch.width;
-      g.moveTo(centerX, top);
-      g.lineTo(right - radius, top);
-      g.arc(right - radius, top + radius, radius, -Math.PI / 2, 0, false);
-      g.lineTo(right, bottom - radius);
-      g.arc(right - radius, bottom - radius, radius, 0, Math.PI / 2, false);
-      g.lineTo(centerX, bottom);
-    }
-    g.closePath();
-  }
-
-  private rgba(color: number, alpha: number): string {
-    const r = (color >> 16) & 0xff;
-    const g = (color >> 8) & 0xff;
-    const b = color & 0xff;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  private disposeWashGradients(): void {
-    this.homeWash?.destroy();
-    this.awayWash?.destroy();
-    this.homeWash = null;
-    this.awayWash = null;
-  }
-
+  /**
+   * Cycle de vie (appelé par Game.destroy) — plus de gradients à libérer
+   * depuis le 7.3, le hook reste pour l'habillage par équipe (7.4).
+   */
   dispose(): void {
-    this.disposeWashGradients();
+    this.stripes.clear();
+    this.stripesMask.clear();
   }
 
   private drawMarkings(pitch: fieldGeometry.PitchRect): void {
@@ -284,9 +300,8 @@ export class Field {
     );
     g.stroke({ color: this.LINE_COLOR, width: 1, alpha: this.BOARD_ALPHA });
 
-    // Bordure extérieure (coins arrondis)
-    g.roundRect(pitch.x, pitch.y, pitch.width, pitch.height, cornerRadius);
-    g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
+    // La bordure blanche du mockup est le liseré des murs (drawWalls) —
+    // pas de second trait sur le bord du terrain
 
     // Ligne médiane
     const centerX = pitch.x + pitch.width / 2;
@@ -296,13 +311,10 @@ export class Field {
     g.lineTo(centerX, pitch.y + pitch.height);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
 
-    // Rond central (double anneau)
+    // Rond central
     const circleRadius = Math.min(pitch.width, pitch.height) * 0.15;
     g.circle(centerX, centerY, circleRadius);
     g.stroke({ color: this.LINE_COLOR, width: this.LINE_WIDTH });
-
-    g.circle(centerX, centerY, circleRadius * 1.3);
-    g.stroke({ color: this.LINE_COLOR, width: 1, alpha: 0.25 });
 
     // Point central
     g.circle(centerX, centerY, 4);
@@ -328,8 +340,20 @@ export class Field {
     const goalHeight = pitch.height * 0.4;
     const goalY = pitch.y + (pitch.height - goalHeight) / 2;
 
-    this.drawGoal(g, pitch.x, goalY, goalDepth, goalHeight, this.GOAL_HOME_COLOR, -1);
-    this.drawGoal(g, pitch.x + pitch.width, goalY, goalDepth, goalHeight, this.GOAL_AWAY_COLOR, 1);
+    this.drawGoal(g, pitch.x, goalY, goalDepth, goalHeight, this.goalHomeColor, -1);
+    this.drawGoal(g, pitch.x + pitch.width, goalY, goalDepth, goalHeight, this.goalAwayColor, 1);
+  }
+
+  /**
+   * Team customization (story 7.4): recolor the goal frames + accents. A
+   * full redraw keeps the walls and markings layered exactly as built —
+   * the stripes and letterbox stay neutral (no floor hues).
+   */
+  setTeamColors(home: number, away: number): void {
+    if (home === this.goalHomeColor && away === this.goalAwayColor) return;
+    this.goalHomeColor = home;
+    this.goalAwayColor = away;
+    this.draw();
   }
 
   private drawGoal(

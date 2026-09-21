@@ -63,6 +63,9 @@ class TacticController extends Controller
                 $tactic = Auth::user()->tactics()->create([
                     'name' => $validated['name'],
                     'is_ready' => (bool) ($validated['is_ready'] ?? false),
+                    'color_primary' => $validated['color_primary'] ?? '#ff6b1a',
+                    'color_secondary' => $validated['color_secondary'] ?? '#1a8cff',
+                    'crest' => $validated['crest'] ?? null,
                 ]);
 
                 $this->replacePlayers($tactic, $validated['players'] ?? []);
@@ -103,6 +106,18 @@ class TacticController extends Controller
         }
         if ($request->has('is_ready')) {
             $changes['is_ready'] = (bool) ($validated['is_ready'] ?? false);
+        }
+        // Colors have column defaults and are never null: an explicitly sent
+        // null key keeps the current color, a valid hex replaces it.
+        if ($request->has('color_primary')) {
+            $changes['color_primary'] = $validated['color_primary'] ?? $tactic->color_primary;
+        }
+        if ($request->has('color_secondary')) {
+            $changes['color_secondary'] = $validated['color_secondary'] ?? $tactic->color_secondary;
+        }
+        // The crest is nullable: an explicitly sent null clears it.
+        if ($request->has('crest')) {
+            $changes['crest'] = $validated['crest'];
         }
         // An explicitly sent null players key (middleware delivers '' as null)
         // keeps the current lineup; an empty array is a valid full clear.
@@ -177,6 +192,10 @@ class TacticController extends Controller
         return [
             'name' => [$nameRequired ? 'required' : 'nullable', 'string', 'max:100'],
             'is_ready' => ['nullable', 'boolean'],
+            'color_primary' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'color_secondary' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            // Fixed crest list (mockup v4): server-side whitelist
+            'crest' => ['nullable', 'string', 'max:8', 'in:⚽,🦊,🐺,🦁,🐸,🚀,🐙,🔥,👑,🍕'],
             'players' => ['nullable', 'array', 'max:5'],
             'players.*.player_slot' => ['required', 'integer', 'min:1', 'max:5', 'distinct'],
             'players.*.position_x' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -269,6 +288,9 @@ class TacticController extends Controller
             'elo' => $tactic->elo,
             'wins' => $tactic->wins,
             'losses' => $tactic->losses,
+            'colorPrimary' => $tactic->color_primary,
+            'colorSecondary' => $tactic->color_secondary,
+            'crest' => $tactic->crest,
             'players' => $tactic->players
                 ->sortBy('player_slot')
                 ->values()

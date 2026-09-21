@@ -66,6 +66,9 @@ export interface TacticData {
   players: Player[];
   ball: Position;
   scripts: Record<string, Script>;
+  /** Team customization (story 7.4), #rrggbb hex; absent = engine defaults */
+  colorPrimary?: string;
+  colorSecondary?: string;
 }
 
 /**
@@ -80,9 +83,22 @@ export interface TacticPlayerConfig {
 }
 
 /**
+ * Team customization patch (story 7.4): the fields the Équipement modal
+ * edits. Absent keys keep the current value (PUT has() semantics); crest
+ * null clears it.
+ */
+export interface TacticCustomizationPatch {
+  colorPrimary?: string;
+  colorSecondary?: string;
+  crest?: string | null;
+}
+
+/**
  * A saved tactic as exposed by the API (camelCase shape). A tactic is a
  * ranked fighter (Epic 4 v2): isReady marks it challengeable, elo/wins/
  * losses are its own record (server-managed, never client-writable).
+ * Team customization (story 7.4): hex colors + an optional crest emoji
+ * from the server whitelist; colors always exist (server defaults).
  */
 export interface TacticConfig {
   id: string;
@@ -92,6 +108,9 @@ export interface TacticConfig {
   elo: number;
   wins: number;
   losses: number;
+  colorPrimary: string;
+  colorSecondary: string;
+  crest: string | null;
   players: TacticPlayerConfig[];
 }
 
@@ -198,6 +217,13 @@ export interface MatchResult {
   /** Fighter names, not ids (serializer law); practice has no opponent tactic */
   challengerTacticName?: string | null;
   opponentTacticName?: string | null;
+  /** Team customization (story 7.4); absent on practice matches (no opponent tactic) */
+  challengerColorPrimary?: string | null;
+  challengerColorSecondary?: string | null;
+  challengerCrest?: string | null;
+  opponentColorPrimary?: string | null;
+  opponentColorSecondary?: string | null;
+  opponentCrest?: string | null;
   durationFrames: number;
   createdAt: string;
 }
@@ -226,6 +252,11 @@ export interface RankedOpponent {
   elo: number;
   wins: number;
   losses: number;
+  /** Team identity (story 7.4); colors always exist, crest may be null */
+  colorPrimary: string;
+  crest: string | null;
+  /** How many tactics the owner has (census badge, story 7.6) */
+  ownerTacticsCount: number;
 }
 
 /**
@@ -242,6 +273,9 @@ export interface LeaderboardEntry {
   elo: number;
   wins: number;
   losses: number;
+  /** Team identity (story 7.4); colors always exist, crest may be null */
+  colorPrimary: string;
+  crest: string | null;
 }
 
 // ============================================================================

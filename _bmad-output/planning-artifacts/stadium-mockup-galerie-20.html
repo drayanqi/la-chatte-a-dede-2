@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Galerie · 20 territoires</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=Alfa+Slab+One&family=Cormorant+Garamond:wght@700&family=Bangers&family=Zen+Kaku+Gothic+New:wght@700&family=Pixelify+Sans:wght@400;700&family=Fredoka:wght@500;600&family=Space+Grotesk:wght@500;700&family=Cherry+Bomb+One&family=Quicksand:wght@500;700&family=Salsa&family=Bevan&family=Libre+Baskerville:ital@0;1&family=Chewy&family=DM+Sans:wght@500;700&family=Limelight&family=Josefin+Sans:wght@600&family=Orbitron:wght@700&family=Share+Tech+Mono&family=Rye&family=IBM+Plex+Mono:wght@400;700&family=Special+Elite&family=Comfortaa:wght@600&family=Cinzel:wght@700&family=Shadows+Into+Light&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#101014;color:#e9e9f2;font-family:system-ui,sans-serif;padding:0 0 80px}
+.ribbon{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:12px 18px;font-size:14px;font-weight:700;background:#ffd23f;color:#141414;border-bottom:3px solid #141414}
+.ribbon b{background:#141414;color:#ffd23f;padding:2px 10px;border-radius:999px}
+.intro{max-width:1240px;margin:26px auto 8px;padding:0 20px;text-align:center;font-size:15px;color:#9a9aae}
+.gallery{max-width:1240px;margin:22px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(2,1fr);gap:26px}
+@media(max-width:1000px){.gallery{grid-template-columns:1fr}}
+
+/* ---- generic tile anatomy, styled per-territory via CSS vars ---- */
+.style{border-radius:14px;padding:20px 20px 22px;border:2px solid var(--bd);background:var(--pg);color:var(--ink);font-family:var(--fb)}
+.style header{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.idx{font-family:var(--fh);font-size:13px;color:var(--ac1);border:2px solid var(--bd);border-radius:8px;padding:3px 8px;flex:none}
+.style h2{font-family:var(--fh);font-weight:400;font-size:21px;letter-spacing:.5px}
+.tagline{font-size:13px;opacity:.75;margin:-4px 0 12px}
+.chips{display:flex;gap:8px;margin-bottom:14px}
+.chips span{width:24px;height:24px;border-radius:50%;border:2px solid var(--bd)}
+.strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.cta{font-family:var(--fh);font-size:15px;border:2px solid var(--bd);border-radius:var(--rad);background:var(--ac1);color:var(--ctatx,#fff);padding:10px 22px;cursor:pointer}
+.tcard{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--bd);border-radius:var(--rad);background:var(--cb);padding:8px 12px;font-size:13px;font-weight:700}
+.tcard i{font-style:normal;opacity:.65;font-weight:600}
+.tcard .cc{font-size:16px}
+.hrow{display:inline-flex;align-items:center;gap:8px;border:2px dashed var(--bd);border-radius:var(--rad);padding:7px 12px;font-size:12.5px;font-weight:700}
+.hrow b{color:var(--ac1)}
+.hrow i{font-style:normal;opacity:.65;font-weight:600}
+
+/* ---- generic mini pitch ---- */
+.pitch{position:relative;height:160px;border-radius:12px;overflow:hidden;border:2px solid var(--bd)}
+.ln{position:absolute;border:2px solid var(--ln)}
+.ln.mid{left:50%;top:10px;bottom:10px;border-width:0 0 0 2px}
+.ln.cir{left:50%;top:50%;width:60px;height:60px;border-radius:50%;transform:translate(-50%,-50%)}
+.ln.arcl{left:-18px;top:50%;width:36px;height:84px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%)}
+.ln.arcr{right:-18px;top:50%;width:36px;height:84px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0)}
+.gl{position:absolute;top:50%;transform:translateY(-50%);width:12px;height:52px;border:2px solid var(--ln);border-radius:4px}
+.gl.l{left:-6px}.gl.r{right:-6px}
+.pl{position:absolute;width:26px;height:26px;border-radius:50%;transform:translate(-50%,-50%);display:grid;place-items:center;background:var(--pl1);box-shadow:0 3px 0 rgba(0,0,0,.25);z-index:3}
+.pl span{font-weight:800;font-size:12px;color:var(--pln);text-shadow:-1.5px 0 var(--plo),1.5px 0 var(--plo),0 -1.5px var(--plo),0 1.5px var(--plo)}
+.pl.away{background:var(--pl2)}
+.deco{position:absolute;pointer-events:none}
+
+/* ============ per-territory pitches ============ */
+/* 01 COPA 70 */
+.p1{--ln:#f4e3c0;--pl1:#b4552d;--pl2:#d9a441;--pln:#fff;--plo:#2f2416;background:
+ radial-gradient(rgba(47,36,22,.10) 1px,transparent 1.4px) 0 0/7px 7px,
+ repeating-linear-gradient(90deg,#7a9a3f 0 26px,#6f8f38 26px 52px)}
+/* 02 CALCIO STORICO */
+.p2{--ln:#7a1f1f;--pl1:#7a1f1f;--pl2:#b98a2f;--pln:#f3e7cf;--plo:#2a2118;background:
+ repeating-linear-gradient(0deg,rgba(122,31,31,.06) 0 1px,transparent 1px 8px),
+ repeating-linear-gradient(90deg,rgba(122,31,31,.06) 0 1px,transparent 1px 8px),
+ radial-gradient(80px 80px at 50% 50%,rgba(185,138,47,.15),transparent 70%),#efe2c4;border-style:double;border-width:4px}
+/* 03 SHONEN */
+.p3{--ln:#141414;--pl1:#e0311b;--pl2:#141414;--pln:#fff;--plo:#fff;background:
+ repeating-conic-gradient(from 200deg at 108% 115%,rgba(0,0,0,.25) 0 2deg,transparent 2deg 8deg),#39b54a;border-width:3px}
+/* 04 GAMEBOY */
+.p4{--ln:#0f380f;--pl1:#306230;--pl2:#0f380f;--pln:#9bbc0f;--plo:#0f380f;border-radius:0;background:
+ repeating-linear-gradient(45deg,rgba(15,56,15,.18) 0 2px,transparent 2px 6px) 0 0/6px 6px,#8bac0f}
+/* 05 BRIQUE */
+.p5{--ln:#fff;--pl1:#d32222;--pl2:#1f63c4;--pln:#fff;--plo:#1b1b1b;background:
+ radial-gradient(circle at 5px 5px,rgba(255,255,255,.28) 3px,transparent 3.6px) 0 0/22px 22px,#3ab54a;border-width:4px}
+/* 06 BAUHAUS */
+.p6{--ln:#e63329;--pl1:#e63329;--pl2:#111;--pln:#fff;--plo:#111;border-radius:0;background:
+ linear-gradient(rgba(17,17,17,.08) 1px,transparent 1px) 0 0/26px 26px,
+ linear-gradient(90deg,rgba(17,17,17,.08) 1px,transparent 1px) 0 0/26px 26px,#fff}
+/* 07 Y2K BUBBLE */
+.p7{--ln:#fff;--pl1:#ff8ad4;--pl2:#7f6bff;--pln:#fff;--plo:#3a2f55;background:
+ linear-gradient(105deg,transparent 38%,rgba(255,255,255,.6) 45%,transparent 54%),
+ linear-gradient(135deg,#d3c8ff,#b79cff 45%,#9d8fff)}
+/* 08 CARNAVAL */
+.p8{--ln:#fff;--pl1:#00a859;--pl2:#0072ce;--pln:#fff;--plo:#1e1e1e;background:
+ radial-gradient(rgba(249,200,14,.9) 2px,transparent 2.6px) 12% 20%/34px 30px,
+ radial-gradient(rgba(255,122,182,.9) 2px,transparent 2.6px) 30% 70%/40px 26px,
+ radial-gradient(rgba(0,114,206,.9) 2px,transparent 2.6px) 60% 30%/30px 24px,
+ radial-gradient(rgba(255,255,255,.9) 2px,transparent 2.6px) 80% 80%/36px 28px,#2e9e57}
+/* 09 PUB ANGLAIS */
+.p9{--ln:#d9cfb4;--pl1:#d9a441;--pl2:#8a3b2a;--pln:#2b1d12;--plo:#f2ead8;background:
+ radial-gradient(120px 46px at 30% 75%,rgba(48,58,30,.85),transparent 70%),
+ radial-gradient(160px 60px at 75% 30%,rgba(48,58,30,.75),transparent 70%),
+ radial-gradient(90px 40px at 60% 85%,rgba(40,48,26,.9),transparent 70%),
+ linear-gradient(180deg,#56603a,#4a5230)}
+/* 10 PANINI */
+.p10{--ln:#fff;--pl1:#d02a2a;--pl2:#1f63c4;--pln:#fff;--plo:#14351f;background:
+ linear-gradient(115deg,rgba(255,255,255,.5) 0 16%,rgba(255,255,255,0) 30%),
+ radial-gradient(rgba(255,255,255,.14) 2px,transparent 2.6px) 0 0/26px 26px,
+ linear-gradient(135deg,#2e8b57,#1f6f45);border-color:#c9a227;border-width:4px}
+/* 11 ART DECO */
+.p11{--ln:#c9a227;--pl1:#c9a227;--pl2:#f2e8cf;--pln:#0e0e0e;--plo:#c9a227;background:
+ conic-gradient(from 0deg at 50% 50%,rgba(201,162,39,.16) 0 4deg,transparent 4deg 12deg),#123b2f;border-style:double;border-width:4px}
+/* 12 PROVENCE */
+.p12{--ln:#faf6ea;--pl1:#7b6fae;--pl2:#c96f4a;--pln:#fff;--plo:#4a4030;background:
+ radial-gradient(rgba(120,105,75,.4) 1.4px,transparent 1.9px) 0 0/8px 8px,#d8cfb8;border-width:6px;border-radius:18px}
+/* 13 LCD */
+.p13{--ln:#1f241f;--pl1:#1f241f;--pl2:#4d5a4d;--pln:#aeb8ab;--plo:#aeb8ab;border-radius:8px;background:
+ repeating-linear-gradient(90deg,rgba(31,36,31,.08) 0 2px,transparent 2px 9px),
+ repeating-linear-gradient(0deg,rgba(31,36,31,.05) 0 2px,transparent 2px 9px),#aeb8ab}
+/* 14 FORAIN */
+.p14{--ln:#f4e9d8;--pl1:#c0392b;--pl2:#e0b84e;--pln:#fff;--plo:#26150e;background:
+ radial-gradient(circle at 50% 50%,#3f7d3a 0 52%,transparent 53%),
+ repeating-linear-gradient(45deg,#c0392b 0 22px,#f4e9d8 22px 44px)}
+/* 15 BLUEPRINT */
+.p15{--ln:#eef4fb;--pl1:#eef4fb;--pl2:#ffb000;--pln:#1d4e89;--plo:#1d4e89;border-radius:4px;background:
+ linear-gradient(rgba(238,244,251,.12) 1px,transparent 1px) 0 0/24px 24px,
+ linear-gradient(90deg,rgba(238,244,251,.12) 1px,transparent 1px) 0 0/24px 24px,#1d4e89}
+/* 16 ZINE */
+.p16{--ln:#141414;--pl1:#d43d2a;--pl2:#141414;--pln:#fff;--plo:#141414;border-radius:4px;transform:rotate(-.6deg);background:
+ repeating-linear-gradient(115deg,rgba(20,20,20,.06) 0 3px,transparent 3px 10px),#fffdf8}
+/* 17 GLACE */
+.p17{--ln:#fff;--pl1:#2a6f97;--pl2:#5fa8d3;--pln:#fff;--plo:#1c3a4a;background:
+ radial-gradient(rgba(255,255,255,.9) 1.6px,transparent 2.2px) 10% 30%/38px 30px,
+ radial-gradient(rgba(255,255,255,.8) 1.4px,transparent 2px) 50% 75%/44px 34px,
+ radial-gradient(rgba(255,255,255,.7) 1.2px,transparent 1.8px) 80% 20%/36px 28px,
+ linear-gradient(180deg,#bfe0f0,#9fcbe4)}
+/* 18 VELOURS */
+.p18{--ln:#d4af37;--pl1:#d4af37;--pl2:#f4ecd8;--pln:#0f2e22;--plo:#d4af37;background:
+ linear-gradient(115deg,transparent 30%,rgba(255,255,255,.09) 40%,transparent 52%),
+ radial-gradient(130% 130% at 28% 18%,#1c5340,#0f2e22 62%);border-style:double;border-width:4px}
+/* 19 CROQUIS */
+.p19{--ln:#3a3a3a;--pl1:#3a3a3a;--pl2:#b8b2a4;--pln:#f7f5ef;--plo:#3a3a3a;background:
+ repeating-linear-gradient(45deg,rgba(58,58,58,.08) 0 1.5px,transparent 1.5px 8px),#f7f5ef;border-style:dashed}
+/* 20 ECOLE */
+.p20{--ln:rgba(224,82,82,.8);--pl1:#f5c400;--pl2:#3a7bd5;--pln:#23405e;--plo:#fdfcf7;background:
+ linear-gradient(rgba(169,193,232,.5) 1px,transparent 1px) 0 0/100% 9px,#fdfcf7;border-width:3px}
+.gal-footer{max-width:1240px;margin:34px auto 0;padding:0 20px;text-align:center;color:#9a9aae;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="ribbon">GALERIE · <b>20 TERRITOIRES</b> — pour chacun, cite son numéro et ce que tu retiens (tu peux mixer : un terrain d'ici, une UI de là) · la famille Sticker D reste dispo · le néon reste mort</div>
+<p class="intro">Chaque tuile = une direction complète (typo, palette, composants, mini-terrain). Les numéros de joueurs restent au centre des maillots, partout, par loi.</p>
+
+<div class="gallery">
+
+  <!-- 01 -->
+  <article class="style" style="--pg:#f4e3c0;--ink:#2f2416;--ac1:#b4552d;--ac2:#6b7d3c;--bd:#2f2416;--fh:'Righteous';--fb:'DM Sans';--rad:12px;--cb:rgba(255,255,255,.55)">
+    <header><span class="idx">01</span><h2>Copa 70</h2></header>
+    <p class="tagline">Le Mondial doré de 1970 — halftone, gazon jauni, affiche rétro.</p>
+    <div class="chips"><span style="background:#e8b32a"></span><span style="background:#b4552d"></span><span style="background:#6b7d3c"></span><span style="background:#f4e3c0"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p1">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 02 -->
+  <article class="style" style="--pg:#f3e7cf;--ink:#2a2118;--ac1:#7a1f1f;--ac2:#b98a2f;--bd:#7a1f1f;--fh:'Cormorant Garamond';--fb:'Cormorant Garamond';--rad:4px;--cb:rgba(255,255,255,.5)">
+    <header><span class="idx">02</span><h2>Calcio Storico</h2></header>
+    <p class="tagline">Football de Renaissance — parchemin, cire rouge, gravure à l'eau-forte.</p>
+    <div class="chips"><span style="background:#7a1f1f"></span><span style="background:#b98a2f"></span><span style="background:#efe2c4"></span><span style="background:#2a2118"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p2">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="right:8px;top:6px;font-size:15px;color:#b98a2f">✦</span>
+    </div>
+  </article>
+
+  <!-- 03 -->
+  <article class="style" style="--pg:#fff;--ink:#141414;--ac1:#e0311b;--ac2:#141414;--bd:#141414;--fh:'Bangers';--fb:'Zen Kaku Gothic New';--rad:2px;--cb:#fff">
+    <header><span class="idx">03</span><h2>Shonen Speed</h2></header>
+    <p class="tagline">Manga d'action — traits de vitesse, onomatopées, rouge et noir.</p>
+    <div class="chips"><span style="background:#e0311b"></span><span style="background:#141414"></span><span style="background:#39b54a"></span><span style="background:#fff"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER !!</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p3">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="left:8px;bottom:2px;font-family:'Bangers';font-size:20px;color:#141414">ドン!!</span>
+    </div>
+  </article>
+
+  <!-- 04 -->
+  <article class="style" style="--pg:#9bbc0f;--ink:#0f380f;--ac1:#306230;--ac2:#0f380f;--bd:#0f380f;--fh:'Pixelify Sans';--fb:'Pixelify Sans';--rad:0px;--cb:rgba(255,255,255,.16)">
+    <header><span class="idx">04</span><h2>Game Boy</h2></header>
+    <p class="tagline">LCD 4 tons verts — dithering, zéro couleur, batterie en haut à droite.</p>
+    <div class="chips"><span style="background:#0f380f"></span><span style="background:#306230"></span><span style="background:#8bac0f"></span><span style="background:#9bbc0f"></span></div>
+    <div class="strip">
+      <button class="cta">START</button>
+      <div class="tcard"><span class="cc">🔶</span>PRESSING-804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3-1<i>vs GLACIER</i><i>+12</i></div>
+    </div>
+    <div class="pitch p4">
+      <div class="ln mid" style="border-style:dashed"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 05 -->
+  <article class="style" style="--pg:#f5f5f5;--ink:#1b1b1b;--ac1:#d32222;--ac2:#1f63c4;--bd:#1b1b1b;--fh:'Fredoka';--fb:'Fredoka';--rad:16px;--cb:#fff">
+    <header><span class="idx">05</span><h2>Brique</h2></header>
+    <p class="tagline">Tout est construit — baseplate cloutée, couleurs primaires, gros angles ronds.</p>
+    <div class="chips"><span style="background:#d32222"></span><span style="background:#f5c400"></span><span style="background:#1f63c4"></span><span style="background:#3ab54a"></span></div>
+    <div class="strip">
+      <button class="cta">CONSTRUIRE !</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p5">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 06 -->
+  <article class="style" style="--pg:#fff;--ink:#111;--ac1:#e63329;--ac2:#111;--bd:#111;--fh:'Space Grotesk';--fb:'Space Grotesk';--rad:0px;--cb:#fff">
+    <header><span class="idx">06</span><h2>Bauhaus</h2></header>
+    <p class="tagline">Le tacticien suisse — grille, rouge seul, géométrie assumée.</p>
+    <div class="chips"><span style="background:#e63329"></span><span style="background:#111"></span><span style="background:#fff;border:1px solid #ccc"></span><span style="background:#1d4ed8"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER →</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p6">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 07 -->
+  <article class="style" style="--pg:#ece7f6;--ink:#3a2f55;--ac1:#b79cff;--ac2:#ff8ad4;--bd:#b79cff;--fh:'Cherry Bomb One';--fb:'Quicksand';--rad:20px;--cb:#fff">
+    <header><span class="idx">07</span><h2>Y2K Bubble</h2></header>
+    <p class="tagline">An 2000 — chrome bonbon, reflets brillants, lilas iridescent.</p>
+    <div class="chips"><span style="background:#b79cff"></span><span style="background:#ff8ad4"></span><span style="background:#dfe4ee"></span><span style="background:#3a2f55"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER ✦</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p7">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 08 -->
+  <article class="style" style="--pg:#fff6e0;--ink:#1e1e1e;--ac1:#00a859;--ac2:#f9c80e;--bd:#1e1e1e;--fh:'Salsa';--fb:'Salsa';--rad:14px;--cb:#fff">
+    <header><span class="idx">08</span><h2>Carnaval</h2></header>
+    <p class="tagline">Rio — confettis partout, samba sur le gazon, fête permanente.</p>
+    <div class="chips"><span style="background:#00a859"></span><span style="background:#f9c80e"></span><span style="background:#0072ce"></span><span style="background:#ff7ab6"></span></div>
+    <div class="strip">
+      <button class="cta">SAMBAR !</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p8">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 09 -->
+  <article class="style" style="--pg:#2b1d12;--ink:#f2ead8;--ac1:#d9a441;--ac2:#6f4a2a;--bd:#d9a441;--fh:'Bevan';--fb:'Libre Baskerville';--rad:6px;--cb:rgba(242,234,216,.08)">
+    <header><span class="idx">09</span><h2>Pub Anglais</h2></header>
+    <p class="tagline">Match du dimanche — bois sombre, bière dorée, terrain boueux, ardoise à la craie.</p>
+    <div class="chips"><span style="background:#2b1d12"></span><span style="background:#6f4a2a"></span><span style="background:#d9a441"></span><span style="background:#56603a"></span></div>
+    <div class="strip">
+      <button class="cta">KICK OFF</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p9">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="left:8px;bottom:4px;font-family:'Libre Baskerville';font-style:italic;font-size:12px;color:#d9cfb4">match day, rain or shine</span>
+    </div>
+  </article>
+
+  <!-- 10 -->
+  <article class="style" style="--pg:#f5f0e4;--ink:#222;--ac1:#d02a2a;--ac2:#c9a227;--bd:#222;--fh:'Chewy';--fb:'DM Sans';--rad:14px;--cb:#fff">
+    <header><span class="idx">10</span><h2>Panini Album</h2></header>
+    <p class="tagline">Collection — page à points, cartes brillantes, liseré doré holographique.</p>
+    <div class="chips"><span style="background:#d02a2a"></span><span style="background:#c9a227"></span><span style="background:#2e8b57"></span><span style="background:#f5f0e4"></span></div>
+    <div class="strip">
+      <button class="cta">COLLECTIONNER</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p10">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 11 -->
+  <article class="style" style="--pg:#0e0e0e;--ink:#c9a227;--ac1:#c9a227;--ac2:#123b2f;--bd:#c9a227;--fh:'Limelight';--fb:'Josefin Sans';--rad:2px;--cb:rgba(201,162,39,.1)">
+    <header><span class="idx">11</span><h2>Art Déco</h2></header>
+    <p class="tagline">Le stade-monument de 1930 — or sur noir, rayons, double filet.</p>
+    <div class="chips"><span style="background:#0e0e0e"></span><span style="background:#c9a227"></span><span style="background:#123b2f"></span><span style="background:#f2e8cf"></span></div>
+    <div class="strip">
+      <button class="cta">ENTRÉE</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p11">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 12 -->
+  <article class="style" style="--pg:#f7f1e0;--ink:#4a4030;--ac1:#7b6fae;--ac2:#c96f4a;--bd:#c96f4a;--fh:'Quicksand';--fb:'Quicksand';--rad:18px;--cb:#fff">
+    <header><span class="idx">12</span><h2>Provence</h2></header>
+    <p class="tagline">Le boulodrome provençal — gravier clair, pastel lavande, terracotta. (Oui, le terrain est un jeu de boules.)</p>
+    <div class="chips"><span style="background:#7b6fae"></span><span style="background:#c96f4a"></span><span style="background:#8a9a5b"></span><span style="background:#f7f1e0"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p12">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="right:10px;bottom:6px;font-size:14px">🥖</span>
+    </div>
+  </article>
+
+  <!-- 13 -->
+  <article class="style" style="--pg:#dfe3da;--ink:#1f241f;--ac1:#1f241f;--ac2:#8a9088;--bd:#1f241f;--fh:'Orbitron';--fb:'Share Tech Mono';--rad:10px;--cb:rgba(255,255,255,.45)">
+    <header><span class="idx">13</span><h2>LCD Scoreboard</h2></header>
+    <p class="tagline">Afficheur de stade — 7 segments, gris neutrals, chiffres découpés.</p>
+    <div class="chips"><span style="background:#aeb8ab"></span><span style="background:#1f241f"></span><span style="background:#8a9088"></span><span style="background:#ffb000"></span></div>
+    <div class="strip">
+      <button class="cta">RUN</button>
+      <div class="tcard"><span class="cc">🔶</span>PRESSING_804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs GLACIER</i><i>+12</i></div>
+    </div>
+    <div class="pitch p13">
+      <div class="ln mid" style="border-style:dashed"></div><div class="ln cir" style="border-style:dashed"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 14 -->
+  <article class="style" style="--pg:#f4e9d8;--ink:#26150e;--ac1:#c0392b;--ac2:#e0b84e;--bd:#26150e;--fh:'Rye';--fb:'DM Sans';--rad:12px;--cb:#fff">
+    <header><span class="idx">14</span><h2>Forain Cirque</h2></header>
+    <p class="tagline">Le grand chapiteau — rayures rouge/crème, piste verte au centre, fanions.</p>
+    <div class="chips"><span style="background:#c0392b"></span><span style="background:#f4e9d8"></span><span style="background:#e0b84e"></span><span style="background:#3f7d3a"></span></div>
+    <div class="strip">
+      <button class="cta">ENTRÉE !</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p14">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="top:2px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:3px">▼▼▼▼▼</span>
+    </div>
+  </article>
+
+  <!-- 15 -->
+  <article class="style" style="--pg:#1d4e89;--ink:#eef4fb;--ac1:#eef4fb;--ac2:#a9c6e8;--bd:#a9c6e8;--fh:'IBM Plex Mono';--fb:'IBM Plex Mono';--rad:2px;--cb:rgba(238,244,251,.08)">
+    <header><span class="idx">15</span><h2>Blueprint</h2></header>
+    <p class="tagline">Bureau d'études — le terrain comme plan technique coté, annoté au mono.</p>
+    <div class="chips"><span style="background:#1d4e89"></span><span style="background:#eef4fb"></span><span style="background:#a9c6e8"></span><span style="background:#ffb000"></span></div>
+    <div class="strip">
+      <button class="cta">EXÉCUTER</button>
+      <div class="tcard"><span class="cc">🔶</span>pressing_804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p15">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl" style="border-style:dashed"></div><div class="ln arcr" style="border-style:dashed"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="right:10px;top:6px;font-size:10px;color:#a9c6e8">ÉCH. 1:100 — pressing_haut.dwg</span>
+    </div>
+  </article>
+
+  <!-- 16 -->
+  <article class="style" style="--pg:#f2f0eb;--ink:#141414;--ac1:#d43d2a;--ac2:#141414;--bd:#141414;--fh:'Special Elite';--fb:'Special Elite';--rad:2px;--cb:#fffdf8">
+    <header><span class="idx">16</span><h2>Zine Punk</h2></header>
+    <p class="tagline">Photocopie punk — machine à écrire, scotch, marqueur rouge, encre qui bave.</p>
+    <div class="chips"><span style="background:#141414"></span><span style="background:#d43d2a"></span><span style="background:#f2f0eb"></span><span style="background:#fffdf8"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER !</button>
+      <div class="tcard"><span class="cc">🔶</span>PRESSING 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3-1<i>vs glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p16">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 17 -->
+  <article class="style" style="--pg:#eaf4fb;--ink:#1c3a4a;--ac1:#2a6f97;--ac2:#5fa8d3;--bd:#2a6f97;--fh:'Comfortaa';--fb:'Comfortaa';--rad:18px;--cb:#fff">
+    <header><span class="idx">17</span><h2>Stade Glacé</h2></header>
+    <p class="tagline">Coupe d'hiver — givre sur les bords, flocons, bleus froids apaisants.</p>
+    <div class="chips"><span style="background:#2a6f97"></span><span style="background:#5fa8d3"></span><span style="background:#bfe0f0"></span><span style="background:#fff"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER ❄</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p17">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 18 -->
+  <article class="style" style="--pg:#0f2e22;--ink:#d4af37;--ac1:#d4af37;--ac2:#f4ecd8;--bd:#d4af37;--fh:'Cinzel';--fb:'Cormorant Garamond';--rad:4px;--cb:rgba(212,175,55,.08)">
+    <header><span class="idx">18</span><h2>Velours Champion</h2></header>
+    <p class="tagline">Le trophée — velours vert profond, or serif, lauriers. Le luxe du vestiaire d'honneur.</p>
+    <div class="chips"><span style="background:#0f2e22"></span><span style="background:#d4af37"></span><span style="background:#f4ecd8"></span><span style="background:#1c5340"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3–1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p18">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="left:10px;bottom:6px;font-size:13px;color:#d4af37">✦ ✦ ✦</span>
+    </div>
+  </article>
+
+  <!-- 19 -->
+  <article class="style" style="--pg:#f7f5ef;--ink:#3a3a3a;--ac1:#3a3a3a;--ac2:#b8b2a4;--bd:#3a3a3a;--fh:'Shadows Into Light';--fb:'Shadows Into Light';--rad:6px;--cb:#fff">
+    <header><span class="idx">19</span><h2>Croquis</h2></header>
+    <p class="tagline">Le carnet du tacticien — crayon graphite, hachures, tracés hésitants.</p>
+    <div class="chips"><span style="background:#3a3a3a"></span><span style="background:#b8b2a4"></span><span style="background:#f7f5ef"></span><span style="background:#8a8478"></span></div>
+    <div class="strip">
+      <button class="cta">esquisser →</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3-1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p19">
+      <div class="ln mid" style="border-style:dashed"></div><div class="ln cir" style="border-style:dashed"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+    </div>
+  </article>
+
+  <!-- 20 -->
+  <article class="style" style="--pg:#fdfcf7;--ink:#23405e;--ac1:#e05252;--ac2:#3a7bd5;--bd:#23405e;--fh:'Gaegu';--fb:'Gaegu';--rad:8px;--cb:#fff">
+    <header><span class="idx">20</span><h2>École Primaire</h2></header>
+    <p class="tagline">Le cahier Seyès de la récré — gros carreaux bleus, marge rouge, crayons de couleur.</p>
+    <div class="chips"><span style="background:#e05252"></span><span style="background:#3a7bd5"></span><span style="background:#f5c400"></span><span style="background:#a9c1e8"></span></div>
+    <div class="strip">
+      <button class="cta">JOUER ★</button>
+      <div class="tcard"><span class="cc">🔶</span>Pressing 804<i>1004</i></div>
+      <div class="hrow"><b>V</b>3-1<i>vs Glacier</i><i>+12</i></div>
+    </div>
+    <div class="pitch p20">
+      <div class="ln mid"></div><div class="ln cir"></div><div class="ln arcl"></div><div class="ln arcr"></div>
+      <div class="gl l"></div><div class="gl r"></div>
+      <div class="pl" style="left:22%;top:35%"><span>9</span></div>
+      <div class="pl" style="left:22%;top:68%"><span>6</span></div>
+      <div class="pl away" style="left:70%;top:50%"><span>10</span></div>
+      <span class="deco" style="right:8px;top:4px;font-size:13px;color:#e05252">★</span>
+    </div>
+  </article>
+
+</div>
+
+<div class="gal-footer">Réponds par numéro(s) + ce que tu retiens de chacun — on fusionnera tes coups de cœur avec la famille Sticker D si besoin.</div>
+</body>
+</html>

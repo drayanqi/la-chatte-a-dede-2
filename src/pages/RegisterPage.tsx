@@ -17,7 +17,7 @@ export const RegisterPage: React.FC = () => {
 
   const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore();
 
-  const from = (location.state as { from?: string } | null)?.from || '/workspace';
+  const from = (location.state as { from?: string } | null)?.from || '/play';
 
   useEffect(() => {
     clearError();

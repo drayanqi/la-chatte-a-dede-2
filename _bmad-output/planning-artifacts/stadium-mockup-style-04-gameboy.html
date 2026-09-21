@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Style 04 · Game Boy (mockup complet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --dmg:#c8c4bc; --dmg-d:#9c9890; --dmg-l:#e4e0d8;
+  --lcd0:#9bbc0f; --lcd1:#8bac0f; --lcd2:#306230; --lcd3:#0f380f;
+  --ink:#0f380f;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:repeating-conic-gradient(var(--dmg-d) 0 90deg, var(--dmg) 0 180deg) 0 0/28px 28px;
+  color:var(--ink);font-family:'Pixelify Sans',monospace;min-height:100vh;
+  image-rendering:pixelated;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 90px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:13px;background:var(--lcd3);color:var(--lcd0)}
+.ribbon b{color:#fff}
+
+/* ---------- DMG console frame ---------- */
+.dmg{
+  margin-top:22px;background:var(--dmg);border:4px solid var(--ink);
+  border-radius:12px 12px 46px 12px;padding:22px 22px 30px;
+  box-shadow:0 10px 0 var(--dmg-d), 0 14px 0 var(--ink);
+}
+.dmg-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.dmg-brand{font-size:14px;font-weight:700;letter-spacing:2px}
+.dmg-brand i{font-style:normal;background:var(--lcd3);color:var(--lcd0);padding:1px 8px;margin-right:6px}
+.dmg-power{display:flex;align-items:center;gap:6px;font-size:11px}
+.power-led{width:12px;height:12px;background:var(--lcd0);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--lcd2)}
+
+.screen-bezel{
+  position:relative;background:var(--dmg-d);border:4px solid var(--ink);border-radius:8px;
+  padding:26px 42px 30px;
+}
+.screen-bezel::before{
+  content:"DOT MATRIX WITH STEREO SOUND";
+  position:absolute;top:8px;left:0;right:0;text-align:center;font-size:9px;letter-spacing:2px;color:var(--ink);
+}
+.screen-bezel::after{
+  content:"● battery";
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font-size:9px;letter-spacing:1px;
+}
+.screen{
+  position:relative;background:var(--lcd0);border:5px solid var(--ink);overflow:hidden;
+  image-rendering:pixelated;
+}
+.scanlines{position:absolute;inset:0;pointer-events:none;z-index:9;
+  background:repeating-linear-gradient(180deg,rgba(15,56,15,.09) 0 1px,transparent 1px 3px)}
+.screen-inner{padding:18px 20px 26px;min-height:100%}
+
+/* LCD helpers */
+.txt{font-size:16px;line-height:1.5}
+.txt b{font-weight:700}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.menu{list-style:none}
+.menu li{margin-bottom:3px}
+.cursor-row{display:flex;align-items:center;gap:8px}
+.cursor{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:12px solid var(--lcd3)}
+.dim{opacity:.45}
+.inv{background:var(--lcd3);color:var(--lcd0);padding:0 6px}
+.lcd-btn{
+  display:inline-block;font-family:inherit;font-size:14px;color:var(--lcd3);background:var(--lcd0);
+  border:3px solid var(--ink);box-shadow:3px 3px 0 var(--lcd3);padding:6px 16px;cursor:pointer;
+}
+.lcd-btn.primary{background:var(--lcd3);color:var(--lcd0)}
+.lcd-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--lcd3)}
+.lcd-panel{border:3px solid var(--ink);padding:12px 14px;margin-bottom:14px;background:var(--lcd0)}
+.lcd-panel.t{background:var(--lcd2);color:var(--lcd0)}
+.lcd-title{display:inline-block;background:var(--lcd3);color:var(--lcd0);font-size:13px;padding:1px 10px;margin-bottom:8px}
+.blink{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* pixel pitch */
+.pitch{
+  position:relative;height:380px;margin-bottom:0;
+  background:
+    repeating-linear-gradient(90deg,var(--lcd0) 0 48px,var(--lcd1) 48px 96px);
+  border:4px solid var(--ink);
+}
+.px{position:absolute;image-rendering:pixelated}
+.pl{
+  width:34px;height:34px;transform:translate(-50%,-50%);
+  background:var(--lcd3);display:grid;place-items:center;
+  color:var(--lcd0);font-size:15px;box-shadow:4px 4px 0 rgba(15,56,15,.35);
+}
+.pl.opp{background:var(--lcd2);box-shadow:4px 4px 0 rgba(15,56,15,.2)}
+.pl .bdg{position:absolute;top:-10px;left:-10px;width:18px;height:18px;background:var(--lcd0);border:3px solid var(--ink);font-size:10px;display:grid;place-items:center}
+.lbl{
+  position:absolute;transform:translate(-50%,0);font-size:11px;background:var(--lcd3);color:var(--lcd0);
+  padding:1px 8px;white-space:nowrap;
+}
+.ball{width:14px;height:14px;background:var(--lcd3);transform:translate(-50%,-50%) rotate(45deg)}
+.pline{position:absolute;background:var(--lcd3)}
+.goalpx{position:absolute;top:50%;transform:translateY(-50%);width:26px;height:96px;background:repeating-linear-gradient(180deg,var(--lcd3) 0 6px,var(--lcd0) 6px 12px);border:4px solid var(--ink)}
+
+/* team switch as cartridge */
+.cart-row{display:flex;align-items:center;gap:14px;padding:10px 6px;border-bottom:3px dashed var(--lcd2);font-size:15px}
+.cart-row:last-child{border-bottom:none}
+.cart{width:40px;height:30px;background:var(--lcd3);position:relative;flex:none}
+.cart::after{content:"";position:absolute;right:4px;top:6px;bottom:6px;width:8px;background:repeating-linear-gradient(180deg,var(--lcd0) 0 4px,transparent 4px 8px)}
+.cart.you::before{content:"▶";position:absolute;left:-18px;top:4px;font-size:12px}
+.custom-note{font-size:12px;line-height:1.6;margin-top:10px}
+
+/* physical buttons */
+.buttons{display:flex;align-items:flex-end;justify-content:space-between;margin-top:18px;padding:0 8px}
+.ab{display:flex;gap:16px}
+.btn-round{
+  width:52px;height:52px;border-radius:50%;background:var(--dmg-l);border:4px solid var(--ink);
+  box-shadow:0 5px 0 var(--ink);display:grid;place-items:center;font-family:'Pixelify Sans';font-weight:700;font-size:16px;cursor:pointer;
+}
+.btn-round:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.btn-round.a{transform:rotate(-14deg) translateY(-10px)}
+.btn-round.a:active{transform:rotate(-14deg) translateY(-4px)}
+.dpad{display:grid;grid-template:repeat(3,26px)/repeat(3,26px)}
+.dpad div{background:var(--ink)}
+.dpad .u{grid-area:1/2}.dpad .l{grid-area:2/1}.dpad .c{grid-area:2/2;background:radial-gradient(circle,var(--ink) 3px,var(--dmg) 3px)}.dpad .r{grid-area:2/3}.dpad .d{grid-area:3/2}
+.select-start{display:flex;gap:14px}
+.pillbtn{width:52px;height:16px;border-radius:9px;background:var(--dmg-l);border:4px solid var(--ink);box-shadow:0 4px 0 var(--ink);position:relative}
+.pillbtn::after{content:attr(data-l);position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700}
+
+.two-col{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+.stack>*{margin-bottom:14px}
+.stack>*:last-child{margin-bottom:0}
+.footer-note{margin-top:40px;text-align:center;font-size:12px;color:var(--ink)}
+.footer-note b{color:#fff;background:var(--lcd3);padding:1px 8px}
+</style>
+</head>
+<body>
+
+<div class="ribbon">STYLE <b>04 · GAME BOY</b> — mockup complet · vague 1/4 · 4 tons de vert, pixels, palette-swap = customisation</div>
+
+<div class="wrap">
+
+  <!-- ================= PLAY = console 1 ================= -->
+  <div class="dmg">
+    <div class="dmg-top">
+      <div class="dmg-brand"><i>DD</i>LACHATADEDE</div>
+      <div class="dmg-power">POWER <span class="power-led"></span></div>
+    </div>
+    <div class="screen-bezel">
+      <div class="screen">
+        <div class="scanlines"></div>
+        <div class="screen-inner">
+
+          <div class="hdr txt">
+            <span><b>JO</b>UER</span>
+            <span class="dim">EL0 1004 · @PELO</span>
+          </div>
+
+          <div class="lcd-panel">
+            <span class="lcd-title">QUICK MATCH</span>
+            <div class="txt">ADVERSAIRE: <b>ALEATOIRE (PRET)</b></div>
+            <div class="txt">AVEC: <span class="inv">PRESSING 804</span> ▸ [CHOISIR]</div>
+            <div style="margin-top:10px"><button class="lcd-btn primary">► LANCER LE MATCH</button></div>
+          </div>
+
+          <div class="lcd-panel t">
+            <span class="lcd-title" style="background:var(--lcd0);color:var(--lcd3)">ADVERSAIRES PRETS</span>
+            <div class="cart-row"><span class="cart"></span><span><b>KAARIS FC</b> · 1022 · 18V-4D</span><span style="margin-left:auto"><button class="lcd-btn">JOUER</button></span></div>
+            <div class="cart-row"><span class="cart"></span><span><b>GLACIER UNITED</b> · 988 · 9V-11D</span><span style="margin-left:auto"><button class="lcd-btn">JOUER</button></span></div>
+            <div class="cart-row"><span class="cart"></span><span><b>LES BLEUS DE DD</b> · 1187 · 22V-2D</span><span style="margin-left:auto"><button class="lcd-btn">JOUER</button></span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="buttons">
+      <div class="dpad"><div class="u"></div><div class="l"></div><div class="c"></div><div class="r"></div><div class="d"></div></div>
+      <div class="select-start"><div class="pillbtn" data-l="HISTORIQUE"></div><div class="pillbtn" data-l="CLASSEMENT"></div></div>
+      <div class="ab"><div class="btn-round">B</div><div class="btn-round a">A</div></div>
+    </div>
+  </div>
+
+  <!-- ================= PLAY right column = console 2 ================= -->
+  <div class="two-col" style="margin-top:22px">
+    <div class="dmg" style="margin-top:0;border-radius:12px 12px 46px 12px">
+      <div class="screen-bezel">
+        <div class="screen">
+          <div class="scanlines"></div>
+          <div class="screen-inner">
+            <div class="hdr txt"><span><b>PA</b>LMARES</span><span class="dim">10 DERNIERS</span></div>
+            <div class="txt" style="margin-bottom:8px">V 3-1 <b>GLACIER U.</b> <span style="float:right">+12</span></div>
+            <div class="txt dim" style="margin-bottom:8px">D 1-2 KAARIS FC <span style="float:right">-9</span></div>
+            <div class="txt" style="margin-bottom:8px">V 2-0 BLEUS DD <span style="float:right">+18</span></div>
+            <div class="txt dim" style="margin-bottom:8px">D 0-4 KAARIS FC <span style="float:right">-11</span></div>
+            <div class="txt" style="margin-bottom:8px">V 5-3 TIKI-TAKA <span style="float:right">+7</span></div>
+            <div class="txt dim blink">▸ VOIR LE REPLAY ?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dmg" style="margin-top:0">
+      <div class="screen-bezel">
+        <div class="screen">
+          <div class="scanlines"></div>
+          <div class="screen-inner">
+            <div class="hdr txt"><span><b>CL</b>ASSEMENT</span></div>
+            <div class="cart-row you"><span class="cart"></span><span><b>1.</b> BLEUS DD <span class="inv">TOI</span></span><span style="margin-left:auto"><b>1187</b></span></div>
+            <div class="cart-row"><span class="cart"></span><span><b>2.</b> KAARIS FC</span><span style="margin-left:auto"><b>1022</b></span></div>
+            <div class="cart-row you"><span class="cart"></span><span><b>3.</b> PRESSING 804 <span class="inv">TOI</span></span><span style="margin-left:auto"><b>1004</b></span></div>
+            <div class="cart-row"><span class="cart"></span><span><b>4.</b> GLACIER U.</span><span style="margin-left:auto"><b>988</b></span></div>
+            <div class="cart-row"><span class="cart"></span><span><b>5.</b> TIKI-TAKA</span><span style="margin-left:auto"><b>961</b></span></div>
+            <div class="txt dim" style="margin-top:10px">...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TEAMS = console 3 ================= -->
+  <div class="dmg" style="margin-top:26px">
+    <div class="dmg-top">
+      <div class="dmg-brand"><i>DD</i>EQUIPES</div>
+      <div class="dmg-power">SLOT 1 <span class="power-led"></span></div>
+    </div>
+    <div class="screen-bezel">
+      <div class="screen">
+        <div class="scanlines"></div>
+        <div class="screen-inner">
+          <div class="hdr txt">
+            <span><b>EQ</b>UIPES</span>
+            <span class="dim">▸ CHANGER DE CARTOUCHE</span>
+          </div>
+
+          <div class="two-col" style="grid-template-columns:1fr 300px;gap:14px">
+
+            <div>
+              <div class="pitch">
+                <div class="px pl" style="left:8%;top:50%">1<span class="bdg">G</span></div><div class="px lbl" style="left:8%;top:calc(50% + 24px)">gardien.js</div>
+                <div class="px pl" style="left:24%;top:22%">2<span class="bdg">P</span></div><div class="px lbl" style="left:24%;top:calc(22% + 24px)">pressing.js</div>
+                <div class="px pl" style="left:24%;top:78%">3<span class="bdg">P</span></div><div class="px lbl" style="left:24%;top:calc(78% + 24px)">pressing.js</div>
+                <div class="px pl" style="left:40%;top:38%">4<span class="bdg">T</span></div><div class="px lbl" style="left:40%;top:calc(38% + 24px)">tiki-taka.js</div>
+                <div class="px pl" style="left:40%;top:62%">5<span class="bdg">T</span></div><div class="px lbl" style="left:40%;top:calc(62% + 24px)">tiki-taka.js</div>
+                <div class="px pl opp" style="left:92%;top:50%">1</div>
+                <div class="px pl opp" style="left:76%;top:24%">8</div>
+                <div class="px pl opp" style="left:76%;top:76%">10</div>
+                <div class="px pl opp" style="left:58%;top:36%">7</div>
+                <div class="px pl opp" style="left:58%;top:64%">9</div>
+                <div class="px ball" style="left:49%;top:49%"></div>
+                <div class="pline" style="left:50%;top:6px;bottom:6px;width:4px"></div>
+                <div class="pline" style="left:50%;top:50%;width:120px;height:4px;transform:translate(-50%,-50%)"></div>
+                <div class="goalpx" style="left:2px"></div>
+                <div class="goalpx" style="right:2px"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="lcd-panel t">
+                <span class="lcd-title" style="background:var(--lcd0);color:var(--lcd3)">CARTOUCHES (EQUIPES)</span>
+                <div class="cart-row you"><span class="cart"></span><span><b>PRESSING 804</b><br><span class="dim">PRAT ▸ 12V-3L</span></span></div>
+                <div class="cart-row"><span class="cart"></span><span><b>GLACIER U.</b><br><span class="dim">4V-8L</span></span></div>
+                <div class="cart-row"><span class="cart"></span><span style="color:var(--lcd3)">+ NOUVELLE</span></div>
+              </div>
+
+              <div class="lcd-panel">
+                <span class="lcd-title">SCRIPTS</span>
+                <div class="txt" style="margin-bottom:6px">pressing.js .... <b>2J</b></div>
+                <div class="txt" style="margin-bottom:6px">tiki-taka.js ... <b>2J</b></div>
+                <div class="txt" style="margin-bottom:6px">gardien.js ..... <b>1J</b></div>
+                <div class="txt">catenaccio.js .. <span class="inv">ERREUR</span></div>
+              </div>
+
+              <div class="lcd-panel">
+                <span class="lcd-title">EDITEUR</span>
+                <div class="txt" style="font-size:12px;line-height:1.7">
+                  // pressing.js<br>
+                  const onTick = (ctx) =&gt; {<br>
+                  &nbsp;&nbsp;if (ctx.me.canTackle)<br>
+                  &nbsp;&nbsp;&nbsp;&nbsp;return ctx.tackle();<br>
+                  &nbsp;&nbsp;return ctx.chase(ball);<br>
+                  }
+                </div>
+              </div>
+
+              <div class="lcd-panel">
+                <span class="lcd-title">PALETTE (CUSTOM)</span>
+                <div class="txt" style="font-size:12px;line-height:1.7">
+                  Le swap de palette Game Boy<br>
+                  remplace exactement tes 2<br>
+                  couleurs d'équipe.<br><br>
+                  MAQUILLE: <span class="inv">SOMBRE</span> / <span class="dim">CLAIRE</span><br>
+                  BLASON: <span class="inv">P</span> (pixel-art)<br><br>
+                  <button class="lcd-btn">► TEST VS BOT</button>
+                  <button class="lcd-btn primary" style="margin-left:8px">PRAT !</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="buttons">
+      <div class="dpad"><div class="u"></div><div class="l"></div><div class="c"></div><div class="r"></div><div class="d"></div></div>
+      <div class="select-start"><div class="pillbtn" data-l="SELECT"></div><div class="pillbtn" data-l="START"></div></div>
+      <div class="ab"><div class="btn-round">B</div><div class="btn-round a">A</div></div>
+    </div>
+  </div>
+
+  <div class="footer-note">STYLE 04 — <b>game boy</b> · le terrain change (LCD vert), le shell DMG reste · numéro au centre du maillot, blason en badge · comparez avec 11, 15, 03, 10 (vague 1)</div>
+</div>
+</body>
+</html>

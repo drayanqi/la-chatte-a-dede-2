@@ -10,4 +10,5 @@ export { useAuthStore } from './authStore';
 export { useTacticsStore } from './tacticsStore';
 export { useMatchStore } from './matchStore';
 export { useRankedStore } from './rankedStore';
+export { useThemeStore } from './themeStore';
 export type { User } from './authStore';

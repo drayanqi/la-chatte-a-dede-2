@@ -144,6 +144,33 @@ class RankedMatchmakingTest extends TestCase
         $this->assertSame('weakling', $response->json('1.owner'));
     }
 
+    public function test_opponents_expose_the_team_identity_and_owner_census_7_6(): void
+    {
+        $me = User::factory()->create();
+        $rival = User::factory()->create(['username' => 'rivalarm']);
+
+        // Two tactics for the rival: the census counts them
+        $pool = $this->createUserTactic($rival, 'Strong Fighter', [
+            'elo' => 1300,
+            'crest' => '🦊',
+            'color_primary' => '#31c48d',
+        ]);
+        $pool->update(['is_ready' => true]);
+        $this->createUserTactic($rival, 'Bench Fighter');
+
+        $response = $this->actingAs($me, 'sanctum')
+            ->getJson('/api/matchmaking/opponents')
+            ->assertOk()
+            ->assertJsonCount(1);
+
+        // The lobby cards (story 7.6): crest + team color + owner's census
+        $this->assertSame('Strong Fighter', $response->json('0.name'));
+        $this->assertSame('🦊', $response->json('0.crest'));
+        $this->assertSame('#31c48d', $response->json('0.colorPrimary'));
+        $this->assertSame(2, $response->json('0.ownerTacticsCount'));
+        $this->assertSame('rivalarm', $response->json('0.owner'));
+    }
+
     public function test_quick_match_rejects_a_tactic_that_is_not_ready(): void
     {
         $me = User::factory()->create();

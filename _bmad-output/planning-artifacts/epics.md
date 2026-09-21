@@ -1262,3 +1262,175 @@ So that forward-only migrations have a real undo and the box is operable without
 **Given** the health check
 **When** the deploy finishes
 **Then** it hits `GET /api/health` (new public route exercising PHP→MySQL), not nginx's static 200
+
+---
+
+## Epic 7: La Ronde UI Refonte — Play, Équipes & Match (design final v4)
+
+The app chrome is rebuilt to the **La Ronde v4** design validated by Pelo (source of truth: `planning-artifacts/stadium-mockup-prototype-ronde-v4.html` — light AND dark themes): soft green/sun halos background, floating rounded panels (18px) with 8px gaps, Sora font, corail/sun/mint/sky accents, **zero decorative emojis** (emoji = crest data only). Three real routes replace the overlay anatomy: `/play` (lobby), `/teams` (the atelier — scripts | code | terrain), `/match/:id` (broadcast replay). **Canvas hard constraint (Pelo): the existing Pixi canvas is ADAPTED, not rebuilt** — only background treatment, walls, center mascot and player visuals change; cages, lines, geometry, interactions and engine architecture stay as-is.
+
+**FRs covered:** None (UI re-architecture + light API extension for team identity)
+
+**User Outcome:** A PC-first game that opens into a friendly lobby, an atelier where scripts, code and pitch sit side by side with no wasted space, and replays that watch like a match, not a debug session.
+
+**Implementation note (decisions locked with Pelo):**
+- Design system: light (`#e9f5ee`) + dark (`#0e1a13`) themes with sun/mint halo gradients; floating rounded panels; buttons 13px radius, modals 24px; Sora + JetBrains Mono (code, elo, frames); status colors mint/sun/corail
+- Routes: `/` redirects to `/play`; nav = appbar slim (logo DD → `/play`, Jouer, Équipes, Palmarès, Classement, theme toggle, avatar)
+- Teams page layout: **Scripts | Code | Terrain** (scripts and Monaco adjacent on the left, pitch owns the right side); teambar with team pills (status dot + caret → menu: Renommer, Équipement, Dupliquer, Supprimer), "+ Nouvelle équipe", Brouillon/Prêt pill, ready button, Test vs Bot
+- Script assignment: click a player → picker list on the pitch (NO drag-and-drop of scripts); script name tagged under each player; players keep positional drag
+- Match view: full-bleed pitch + floating score pill, logs/stats drawer (ex-debugger), video-editor timeline (play/pause, speed, goal ticks, frame counter), exit chip; Simulating overlay; goal celebration; result card
+- Team customization v1: name + 2 colors (paint players/goals/accents) + emoji crest (fixed list); API defaults `#ff6b1a` / `#1a8cff`
+- Canvas law: `Field.ts` palette centralized; team colors stay reserved for players/goals/accents, never the floor (Epic 5.1 law kept)
+- DD mascot (`src/assets/watermark.png`, Deschamps + chat) = site logo + favicon + pitch center mark
+
+### Story 7.1: Design Tokens & App Shell La Ronde
+
+As a player,
+I want the whole app wearing the La Ronde identity (light + dark),
+So that the game feels like one warm world instead of a code editor with a field inside.
+
+**Acceptance Criteria:**
+
+**Given** the v4 mockup tokens (halos bg, panel/surface colors, corail/sun/mint/sky, radii, shadows, Sora)
+**When** implemented
+**Then** a shared tokens file (CSS variables + theme switch) drives all surfaces, with a working light/dark toggle persisted per user
+
+**Given** the app shell
+**When** any page renders
+**Then** the old VSCode-gray workspace chrome is gone; the appbar is a floating rounded capsule (logo DD = `watermark.png` + favicon, nav links, theme toggle, avatar) and the DD watermark clicking returns to `/play`
+
+### Story 7.2: Navigation & Three Routes
+
+As a player,
+I want real routes for playing, preparing and watching,
+So that each activity is a place I can reach, bookmark and leave cleanly.
+
+**Acceptance Criteria:**
+
+**Given** an authenticated player
+**When** they open the app
+**Then** `/` redirects to `/play`, and Jouer / Équipes highlight the active route (Palmarès and Classement included in the nav)
+
+**Given** any navigation between routes
+**When** the view unmounts
+**Then** the overlay anatomy (RankedView/LeaderboardView above a hidden workspace) is removed — each route owns its view, and deep links like `/match/:id` work on refresh
+
+### Story 7.3: Canvas — Habillage léger du terrain existant (adapt, don't rebuild)
+
+As a player,
+I want the real pitch to look like the mockups' arena (vertical stripes, visible walls, Deschamps at center) without changing how it plays or how it's built,
+So that the game gains charm with zero regression risk on the canvas.
+
+**Acceptance Criteria:**
+
+**Given** the existing `Field.ts` (palette `FIELD_PALETTE`, watermark sprite, half-washes, boards) and `PlayerSprite`
+**When** the story ships
+**Then** ONLY these visuals change: pitch background becomes vertical green stripes (two green tones replacing the navy `pitchBase`), pitch walls are visible (a dark band + white line running the full border), the DD mascot sits at the center circle, and players get the polished circle treatment (subtle gradient, white ring, ground shadow, bold number)
+
+**Given** everything else in the canvas
+**When** reviewed
+**Then** goals/cages, lines, surfaces, letterbox boards, `fieldGeometry`, ball, trails, drag interactions and the Game loop are untouched — no re-architecture, palette stays centralized in `FIELD_PALETTE` and ready to receive per-team colors (7.4)
+
+**Given** light and dark app themes
+**When** the pitch renders
+**Then** the green tones stay readable in both (stripes are theme-stable; the letterbox keeps the boards' current behavior)
+
+### Story 7.4: Team Customization — Colors & Crest (API + Engine + Modal)
+
+As a player,
+I want to name my team's colors and crest,
+So that my team looks like mine on the pitch, in lists and in replays.
+
+**Acceptance Criteria:**
+
+**Given** the tactics table
+**When** the migration runs (forward-only)
+**Then** `color_primary` (default `#ff6b1a`), `color_secondary` (default `#1a8cff`) and `crest` (nullable emoji from a fixed list) exist and are validated (hex format) through the API
+
+**Given** the Équipement modal (opened from the team caret menu)
+**When** the player edits name, color swatches or crest
+**Then** changes save through the API and the team's players, goal frames and accents recolor live in the canvas — both sides of a match stay distinguishable (per-team colors, never floor hues)
+
+### Story 7.5: Teams Page — Scripts, Code & Terrain
+
+As a player,
+I want scripts, the code editor and the pitch side by side in the order Scripts | Code | Terrain,
+So that clicking a script opens its code right next to it and the pitch keeps the most space.
+
+**Acceptance Criteria:**
+
+**Given** the teambar (floating rounded capsule)
+**When** the player manages teams
+**Then** team pills show status dot (mint ready / sun draft) and a caret menu (Renommer, Équipement, Dupliquer, Supprimer with confirm), "+ Nouvelle équipe" opens the creation modal, and the ready toggle + Test vs Bot actions sit on the right
+
+**Given** the scripts panel (left, 255px)
+**When** the player selects a script
+**Then** its code opens in the adjacent Monaco panel (row shows status dot + assignment count), scripts are creatable/renamable/deletable, and errors are visible at a glance
+
+**Given** the pitch (right, fills remaining width)
+**When** the player clicks a player
+**Then** a rounded picker opens on the pitch listing scripts (status + usage count) with "Retirer le script" — replacing drag-and-drop assignment; the script name shows as a tag under each player; positional drag of players still works with auto-save
+
+**Given** a practice match
+**When** launched from the teambar or its result is watched
+**Then** it lands in `/match/:id`
+
+### Story 7.6: Play Page — Lobby, Adversaires, Historique & Rail Classement
+
+As a player,
+I want the app to open on a lobby with the ranked CTA, opponents, my history and the leaderboard rail,
+So that playing is one obvious click away and I never lose the pulse of the ladder.
+
+**Acceptance Criteria:**
+
+**Given** the Play page
+**When** it renders
+**Then** the hero card shows greeting + elo + rank with "Match classé", "Test vs Bot" and "Revoir le dernier match"; opponents cards show crest + tactics count + elo with "Affronter"; history rows show V/D badges with score and elo delta; the right rail shows the top leaderboard with the player's own row highlighted
+
+**Given** no team is ready
+**When** the player lands on Play
+**Then** an explanatory state replaces the dead UI and a one-click CTA takes them to Équipes
+
+**Given** a settled match
+**When** the result arrives
+**Then** it lands in the history immediately and offers "watch replay" → `/match/:id`
+
+### Story 7.7: Match View — Broadcast Replay
+
+As a player,
+I want a dedicated full-screen match view with scoreboard, timeline and logs,
+So that watching a replay feels like a broadcast, not a debug session.
+
+**Acceptance Criteria:**
+
+**Given** `/match/:id`
+**When** it loads
+**Then** the pitch fills the stage with a floating score pill (team names in their colors, score, minute, frame counter), a "Quitter" chip, and the video-editor timeline below (play/pause, skip, speed, scrubber with sun goal ticks, frame X/Y)
+
+**Given** the right drawer
+**When** the player opens Logs or Stats
+**Then** match events render as rounded rows with badges (BUT / TIR / MT / carton) linked to frames — the old debugger panel's data lives here, and clicking a goal tick jumps to its frame
+
+**Given** simulation and its outcome
+**When** a match runs or ends
+**Then** the Simulating overlay (spinner + frame count) covers the pitch, goals trigger the celebration overlay (confetti, scorer line), and the result card shows V/D with elo delta and "Revoir le match"
+
+**Given** a missing or failed replay
+**When** the load errors
+**Then** a friendly state with retry shows instead of a blank screen
+
+### Story 7.8: La Ronde Polish & Cleanup
+
+As a player,
+I want every remaining screen (login, register, modals, empty states) wearing the La Ronde identity,
+So that no screen still looks like the old IDE.
+
+**Acceptance Criteria:**
+
+**Given** all pages after 7.1-7.7
+**When** reviewed
+**Then** auth pages, creation/assignment modals and empty states use the tokens (rounded cards, halos, light/dark), and dead code (old header, tab bar, overlay anatomy, debugger remnants) is removed
+
+**Given** the full test suite
+**When** the end-of-epic sweep runs (lint, tsc, unit, e2e × 3 browsers)
+**Then** it passes, with e2e traversal rewritten for the new routes and a test covering the no-ready-team → Équipes → ready → back-to-Play flow

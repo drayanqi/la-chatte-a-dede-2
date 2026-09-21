@@ -2,14 +2,15 @@
  * MonacoEditor - Professional code editor component
  * OWNER: Dev Team
  *
- * Wraps @monaco-editor/react with VSCode Dark theme and JavaScript support.
- * Used for editing AI scripts in the workspace.
+ * Wraps @monaco-editor/react with the La Ronde themes (light/dark, mockup
+ * palette) and JavaScript support. Used for editing AI scripts.
  * Includes Game API autocomplete for AI script development.
  * Includes JavaScript validation with syntax error detection.
  *
  * @see Story 2.2: Monaco Editor Integration
  * @see Story 2.4: Game API Autocomplete
  * @see Story 2.5: Code Error Detection
+ * @see Story 7.5: La Ronde theme
  */
 
 import { useRef, useEffect } from 'react';
@@ -20,6 +21,12 @@ import type * as Monaco from 'monaco-editor';
 // resolves the local instance instead of the CDN default. Must stay a static
 // import to avoid racing @monaco-editor/react's own internal loader.init().
 import '@/lib/monacoSetup';
+import { useThemeStore } from '@/stores/themeStore';
+import {
+  defineLaRondeThemes,
+  LA_RONDE_DARK_THEME,
+  LA_RONDE_LIGHT_THEME,
+} from '@/styles/monacoTheme';
 
 interface MonacoEditorProps {
   /** Current code content */
@@ -46,12 +53,17 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onSave,
 }) => {
   const monacoRef = useRef<typeof Monaco | null>(null);
+  const theme = useThemeStore((state) => state.theme);
+  const monacoTheme = theme === 'dark' ? LA_RONDE_DARK_THEME : LA_RONDE_LIGHT_THEME;
 
   // Configure Monaco features once when available (singleton pattern)
   useEffect(() => {
     // Use Monaco loader to get the instance (local bundle via monacoSetup)
     loader.init().then((monaco) => {
         monacoRef.current = monaco;
+
+        // La Ronde themes (story 7.5): define once, idempotent on re-runs
+        defineLaRondeThemes(monaco);
 
         // Story 2.5: Configure JavaScript validation for syntax error detection (singleton)
         if (!validationConfigured) {
@@ -153,7 +165,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       <Editor
         height="100%"
         defaultLanguage="javascript"
-        theme="vs-dark"
+        theme={monacoTheme}
         value={value}
         onChange={handleEditorChange}
         onMount={handleEditorMount}
@@ -168,7 +180,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace',
           lineNumbers: 'on',
           scrollBeyondLastLine: false,
-          wordWrap: 'on',
+          wordWrap: 'off',
           automaticLayout: true,
           tabSize: 2,
           insertSpaces: true,
@@ -194,15 +206,15 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: 'var(--panel)',
   },
   loading: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    color: '#888888',
+    color: 'var(--muted)',
     fontSize: '13px',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: 'var(--panel)',
   },
 };

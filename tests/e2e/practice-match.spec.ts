@@ -1,16 +1,15 @@
 /**
- * Practice Match E2E Tests (stories 3.5, 3.7 and 3.8)
+ * Practice Match E2E Tests (stories 3.5, 3.7, 3.8 — 7.5 handoff update)
  *
  * The core value proposition: Code -> Test -> Watch. A user with a complete
  * lineup clicks "Test vs Bot" and sees the simulation run synchronously —
- * no queue, no polling (FR21) — then the final score and a Watch Replay
- * button (AC #1, #2). A failed engine run surfaces an error message with a
- * retry affordance instead of a broken match (AC #4).
+ * no queue, no polling (FR21) — then lands in the /match/:id viewer (story
+ * 7.5 AC #4). A failed engine run surfaces an error message with a retry
+ * affordance instead of a broken match (AC #4).
  *
- * The replay section (story 3.8) drives the full Watch loop against the
- * real stack: the finished match's frames load from the API, playback
- * autoplays at 60fps, pause/Space control it (AC #2, #3) and the most
- * recent match is one click away after a reload (AC #4).
+ * The replay-interaction sections (3.8-3.11) drive the full Watch loop
+ * against the real stack from the teams page: until the 7.7 cutover the
+ * "watch last match" path still renders in-place (timeline + debug panel).
  *
  * Runs against the real stack: Laravel API + Node game engine (third
  * webServer in playwright.config.ts).
@@ -60,7 +59,7 @@ test.describe('Practice Match', () => {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // NFR2 evidence: time the synchronous POST /api/matches — for practice
     // it IS the simulation (AC #3, zero queue). Budget: < 2s for reasonable
@@ -79,26 +78,25 @@ test.describe('Practice Match', () => {
 
     await startButton.click();
 
-    // AC #1: loading state, shown immediately (synchronous request)
+    // AC #1: loading state, shown immediately (synchronous request) —
+    // pinned to the pitch with the spinner + frames-estimate chip (7.5)
     const overlay = page.getByTestId('simulating-overlay');
     await expect(overlay).toBeVisible();
     await expect(overlay).toContainText('Simulating...');
+    await expect(overlay).toContainText(/frames/);
 
-    // AC #2: the synchronous request resolves with the final score. Allow
+    // AC #2 + story 7.5 AC #4: the synchronous request resolves with the
+    // final score and the app lands in the /match/:id viewer. Allow
     // several queued simulations: the engine runs /simulate on a single
     // event loop, so parallel E2E workers queue behind each other (each
     // capped at 30s by the engine).
-    const banner = page.getByTestId('match-result-banner');
-    await expect(banner).toBeVisible({ timeout: 90000 });
-    await expect(page.getByTestId('match-result-score')).toContainText(
-      /You \d+ — \d+ Easy Bot/
-    );
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
 
-    // AC #2: Watch Replay button present (frame loading wired in 3.8)
-    await expect(page.getByTestId('watch-replay-button')).toBeVisible();
-
-    // The overlay is gone once the request resolved
-    await expect(overlay).toBeHidden();
+    // The viewer loads the frames and shows the score pill
+    const canvas = page.getByTestId('field-canvas');
+    await expect(canvas).toHaveAttribute('data-match-players', '10', { timeout: 90000 });
+    await expect(canvas).toHaveAttribute('data-match-ball', 'true');
+    await expect(page.getByTestId('score-display')).toBeVisible();
 
     // NFR2: attach the measured duration to every report (budget: 2s for
     // reasonable scripts). The hard assert pins the engine's 30s ceiling —
@@ -119,12 +117,12 @@ test.describe('Practice Match', () => {
     const user = await userFactory.createAuthenticated();
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // The app auto-creates a default tactic whose 5 slots have no scripts
     await expect(page.getByTestId('lineup-incomplete-message')).toBeVisible();
     await expect(page.getByTestId('test-vs-bot-button')).toBeDisabled();
-    await expect(page.getByTestId('test-vs-bot-button')).toHaveText('▶ Test vs Bot');
+    await expect(page.getByTestId('test-vs-bot-button')).toHaveText('Test vs Bot');
   });
 
   // Story 3.7 (AC #1, #2, #3): the canvas rendering pipeline. Replay LOAD is
@@ -137,9 +135,9 @@ test.describe('Practice Match', () => {
   }) => {
     const user = await userFactory.createAuthenticated();
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
-    // Deferred-work guard: the canvas mounts on /workspace
+    // Deferred-work guard: the canvas mounts on /teams
     const canvas = page.getByTestId('field-canvas');
     await expect(canvas).toBeVisible();
 
@@ -206,7 +204,7 @@ test.describe('Practice Match', () => {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // The workspace auto-loads the default tactic (5 edit sprites) first
     const canvas = page.getByTestId('field-canvas');
@@ -217,14 +215,21 @@ test.describe('Practice Match', () => {
     const startButton = page.getByTestId('test-vs-bot-button');
     await expect(startButton).toBeEnabled();
     await startButton.click();
-    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
 
-    // AC #1: Watch Replay -> loading overlay while the ~5-8MB frame file
+    // Story 7.5 AC #4: the match lands in the /match/:id viewer
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
+
+    // Back on the teams page, the in-place watch path (kept until the 7.7
+    // cutover) loads the finished match with the full playback UI
+    await page.goto('/teams');
+    await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
+
+    // AC #1: Watch last match -> loading overlay while the ~5-8MB frame file
     // fetches, then the match loads and playback begins. The response
     // listener makes the overlay window deterministic: the fetch has
     // started but not settled while we assert visibility.
     const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
-    await page.getByTestId('watch-replay-button').click();
+    await page.getByTestId('watch-last-match-button').click();
     await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
@@ -321,7 +326,7 @@ test.describe('Practice Match', () => {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     const canvas = page.getByTestId('field-canvas');
     await expect(canvas).toHaveAttribute('data-match-players', '5');
@@ -330,10 +335,15 @@ test.describe('Practice Match', () => {
     const startButton = page.getByTestId('test-vs-bot-button');
     await expect(startButton).toBeEnabled();
     await startButton.click();
-    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    // Story 7.5 AC #4 handoff, then back to the teams page for the
+    // in-place watch (kept until 7.7)
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
+    await page.goto('/teams');
+    await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
 
     const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
-    await page.getByTestId('watch-replay-button').click();
+    await page.getByTestId('watch-last-match-button').click();
     await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
@@ -437,7 +447,7 @@ function update(game) {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     const canvas = page.getByTestId('field-canvas');
     await expect(canvas).toHaveAttribute('data-match-players', '5');
@@ -446,10 +456,15 @@ function update(game) {
     const startButton = page.getByTestId('test-vs-bot-button');
     await expect(startButton).toBeEnabled();
     await startButton.click();
-    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    // Story 7.5 AC #4 handoff, then back to the teams page for the
+    // in-place watch (kept until 7.7)
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
+    await page.goto('/teams');
+    await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
 
     const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
-    await page.getByTestId('watch-replay-button').click();
+    await page.getByTestId('watch-last-match-button').click();
     await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
@@ -564,7 +579,7 @@ function update(game) {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // Fail the match start the way an unreachable engine does (AC #4: the
     // API answers 502 and the row is marked failed, never watchable).
@@ -592,10 +607,12 @@ function update(game) {
     // Deliberately faked — a second real simulation would queue on the
     // engine's single event loop and the single PHP worker, starving every
     // parallel E2E test (the real engine path is covered by the happy-path
-    // test above and the API contract by the feature tests).
+    // test above and the API contract by the feature tests). Only the POST
+    // is faked: the viewer's follow-up GETs fall through to the real API.
     await page.unroute('**/api/matches');
-    await page.route('**/api/matches', (route) =>
-      route.fulfill({
+    await page.route('**/api/matches', (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      return route.fulfill({
         status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
@@ -608,12 +625,15 @@ function update(game) {
           durationFrames: 10800,
           createdAt: new Date().toISOString(),
         }),
-      })
-    );
+      });
+    });
     await retryButton.click();
 
-    const banner = page.getByTestId('match-result-banner');
-    await expect(banner).toBeVisible({ timeout: 90000 });
+    // Story 7.5 AC #4: the retry lands in the /match/:id viewer. The faked
+    // match id has no frames file, so the viewer shows its friendly error
+    // state (the viewer's own retry path is covered in 7.7).
+    await page.waitForURL(/\/match\/00000000-0000-4000-8000-000000000000/, { timeout: 90000 });
+    await expect(page.getByTestId('replay-error-overlay')).toBeVisible({ timeout: 30000 });
     await expect(page.getByTestId('match-error-message')).toBeHidden();
     await expect(page.getByTestId('simulating-overlay')).toBeHidden();
   });
@@ -661,7 +681,7 @@ function update(game) {
     });
 
     await seedAuthToken(page, user.token!);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     const canvas = page.getByTestId('field-canvas');
     await expect(canvas).toHaveAttribute('data-match-players', '5');
@@ -670,10 +690,15 @@ function update(game) {
     const startButton = page.getByTestId('test-vs-bot-button');
     await expect(startButton).toBeEnabled();
     await startButton.click();
-    await expect(page.getByTestId('match-result-banner')).toBeVisible({ timeout: 90000 });
+
+    // Story 7.5 AC #4 handoff, then back to the teams page for the
+    // in-place watch (kept until 7.7)
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
+    await page.goto('/teams');
+    await expect(page.getByTestId('watch-last-match-button')).toBeVisible();
 
     const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'));
-    await page.getByTestId('watch-replay-button').click();
+    await page.getByTestId('watch-last-match-button').click();
     await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();

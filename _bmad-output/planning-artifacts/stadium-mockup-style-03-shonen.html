@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Style 03 · Shonen Speed (mockup complet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#ffffff; --ink:#141414; --red:#e0311b; --grass:#39b54a; --grass2:#2fa03f;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;min-height:100vh}
+body::before{content:"";position:fixed;top:0;right:0;width:340px;height:340px;pointer-events:none;z-index:0;
+  background:radial-gradient(circle at 100% 0, rgba(20,20,20,.12) 1.5px, transparent 2px) 0 0/9px 9px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 90px;position:relative;z-index:1}
+h1,h2,h3{font-family:'Bangers',cursive;font-weight:400;letter-spacing:1.5px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:14px;font-weight:900;background:var(--ink);color:#fff}
+.ribbon b{color:#ffd400}
+
+/* ---------- nav ---------- */
+.appnav{display:flex;align-items:center;gap:16px;padding:14px 20px;margin-top:20px;border:4px solid var(--ink);background:#fff;box-shadow:7px 7px 0 var(--ink);transform:rotate(-.4deg)}
+.brand{display:flex;align-items:center;gap:12px}
+.crest{
+  width:48px;height:48px;border-radius:50%;overflow:hidden;position:relative;display:grid;place-items:center;
+  border:3px solid var(--ink);background:#fff;box-shadow:3px 3px 0 var(--ink);
+}
+.crest img{width:82%;height:82%;object-fit:contain;position:relative;z-index:1}
+.crest-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:23px;z-index:0}
+.brand-name{font-family:'Bangers';font-size:22px}
+.brand-name .dd{color:var(--red)}
+.nav-pills{display:flex;gap:10px;margin-left:8px}
+.nav-pill{
+  font-family:'Bangers';font-size:15px;letter-spacing:1.5px;padding:8px 20px;cursor:pointer;
+  color:var(--ink);background:#fff;border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
+}
+.nav-pill.active{background:var(--red);color:#fff;transform:rotate(-1.5deg)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;font-weight:900}
+.avatar{
+  width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-family:'Bangers';font-size:16px;
+  background:#ffd400;border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink)
+}
+
+.sec-label{display:inline-block;margin:40px 0 16px;font-family:'Bangers';font-size:16px;letter-spacing:2px;
+  background:var(--ink);color:#fff;padding:6px 20px;transform:rotate(-1deg);box-shadow:4px 4px 0 rgba(20,20,20,.25)}
+.sec-label b{color:#ffd400}
+
+/* ---------- play ---------- */
+.play-grid{display:grid;grid-template-columns:1fr 350px;gap:26px;align-items:start}
+.col{display:flex;flex-direction:column;gap:26px}
+
+.hero{position:relative;overflow:hidden;padding:38px 36px;border:4px solid var(--ink);background:#fff;box-shadow:9px 9px 0 var(--ink);transform:rotate(-.6deg)}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-conic-gradient(from 210deg at 108% 118%,rgba(20,20,20,.10) 0 2deg,transparent 2deg 7deg)}
+.kicker{display:inline-block;font-weight:900;font-size:13px;letter-spacing:3px;background:var(--ink);color:#ffd400;padding:4px 16px;transform:rotate(-2deg)}
+.hero h1{font-size:64px;line-height:.95;margin:14px 0 8px;transform:rotate(-1.5deg)}
+.hero h1 .hl{color:var(--red);text-shadow:4px 4px 0 var(--ink)}
+.hero .sub{font-weight:700;font-size:15px;max-width:420px;position:relative}
+.fighting-as{display:flex;align-items:center;gap:12px;margin-top:18px;font-weight:900;position:relative}
+.team-chip{
+  display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border:3px solid var(--ink);
+  background:#fff;font-weight:900;font-size:14px;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'Zen Kaku Gothic New';
+}
+.team-dot{width:13px;height:13px;border-radius:50%;background:var(--red);border:2px solid var(--ink)}
+.cta{
+  position:absolute;right:30px;bottom:30px;font-family:'Bangers';font-size:34px;letter-spacing:2px;color:#fff;
+  background:var(--red);border:4px solid var(--ink);padding:20px 44px;cursor:pointer;
+  transform:rotate(3deg);box-shadow:7px 7px 0 var(--ink);text-shadow:2px 2px 0 rgba(0,0,0,.35);
+}
+.cta:hover{transform:rotate(3deg) translate(-2px,-2px);box-shadow:9px 9px 0 var(--ink)}
+.cta:active{transform:rotate(3deg) translate(3px,3px);box-shadow:3px 3px 0 var(--ink)}
+.burst{
+  position:absolute;top:-18px;right:210px;width:76px;height:76px;display:grid;place-items:center;z-index:2;
+  background:#ffd400;border:3px solid var(--ink);font-family:'Bangers';font-size:15px;transform:rotate(12deg);
+  clip-path:polygon(50% 0%,61% 12%,77% 6%,80% 23%,97% 25%,90% 40%,100% 50%,90% 60%,97% 75%,80% 77%,77% 94%,61% 88%,50% 100%,39% 88%,23% 94%,20% 77%,3% 75%,10% 60%,0% 50%,10% 40%,3% 25%,20% 23%,23% 6%,39% 12%);
+}
+.burst span{transform:rotate(-12deg)}
+
+.panel{padding:18px 20px 20px;border:4px solid var(--ink);background:#fff;box-shadow:7px 7px 0 var(--ink)}
+.panel h3{font-size:19px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.panel h3 .hint{margin-left:auto;font-family:'Zen Kaku Gothic New';font-weight:700;font-size:11px;color:#8a8a8a}
+.opp-row{
+  display:flex;align-items:center;gap:14px;padding:12px 14px;margin-bottom:12px;
+  border:3px solid var(--ink);background:#fff;box-shadow:4px 4px 0 var(--ink);
+}
+.opp-row:last-child{margin-bottom:0}
+.opp-emoji{width:46px;height:46px;display:grid;place-items:center;font-size:22px;border:3px solid var(--ink);background:#ffd400;flex:none}
+.opp-name{font-family:'Bangers';font-size:19px;letter-spacing:1px}
+.opp-wl{font-size:12px;font-weight:700;color:#8a8a8a}
+.opp-elo{margin-left:auto;font-weight:900;font-size:14px;background:#ffd400;border:2px solid var(--ink);padding:2px 10px}
+.vs-tag{
+  font-family:'Bangers';font-size:15px;color:#fff;background:var(--red);border:2px solid var(--ink);
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;
+}
+.play-sm{
+  font-family:'Bangers';font-size:14px;letter-spacing:1px;color:#fff;background:var(--ink);
+  border:3px solid var(--ink);padding:7px 18px;cursor:pointer;box-shadow:3px 3px 0 rgba(20,20,20,.35);
+}
+.play-sm:hover{background:var(--red)}
+
+.hist-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:3px dotted #d4d4d4;font-size:14px;font-weight:900}
+.hist-row:last-child{border-bottom:none}
+.res-badge{
+  width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-family:'Bangers';font-size:15px;border:3px solid var(--ink);background:#fff;
+}
+.res-badge.win{color:var(--red)}
+.res-badge.loss{color:#8a8a8a}
+.hist-vs{flex:1;font-weight:700;color:#555}
+.hist-elo{font-weight:900}
+.hist-elo.plus{color:var(--red)}.hist-elo.minus{color:#8a8a8a}
+.hist-time{color:#aaa;font-size:11px;font-weight:700}
+
+.lb-row{display:flex;align-items:center;gap:12px;padding:9px 4px;font-weight:900}
+.lb-rank{width:34px;height:34px;display:grid;place-items:center;font-family:'Bangers';font-size:16px;border:3px solid var(--ink);background:#fff}
+.lb-row.r1 .lb-rank{background:#ffd400}
+.lb-row.r2 .lb-rank{background:#e6e6e6}
+.lb-row.r3 .lb-rank{background:#ffb38a}
+.lb-name{flex:1}
+.lb-name .you{font-size:10px;font-weight:900;color:#fff;background:var(--red);padding:2px 8px;margin-left:6px;border:2px solid var(--ink)}
+.lb-elo{font-weight:900}
+
+/* ---------- teams ---------- */
+.teambar{display:flex;align-items:center;gap:16px;padding:14px 18px;margin-bottom:26px;border:4px solid var(--ink);background:#fff;box-shadow:7px 7px 0 var(--ink);transform:rotate(.4deg)}
+.casier-btn{
+  display:inline-flex;align-items:center;gap:12px;padding:7px 16px 7px 8px;cursor:pointer;position:relative;
+  border:3px solid var(--ink);background:#fff;font-weight:900;font-size:15px;box-shadow:4px 4px 0 var(--ink);
+}
+.casier-crest{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:18px;border:3px solid var(--ink);background:radial-gradient(circle at 30% 30%,#ffb3a0,var(--red))}
+.casier-chev{font-size:12px}
+.casier-pop{
+  position:absolute;top:calc(100% + 12px);left:0;z-index:30;width:320px;
+  background:#fff;border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink);
+  padding:16px;transform:rotate(-.6deg);
+}
+.casier-title{font-family:'Bangers';font-size:17px;text-align:center;margin-bottom:10px}
+.casier-card{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:10px;cursor:pointer;border:3px solid var(--ink)}
+.casier-card.active{background:#ffe8e4;box-shadow:4px 4px 0 var(--red)}
+.cc-crest{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;border:3px solid var(--ink)}
+.casier-card b{font-family:'Bangers';font-size:16px;font-weight:400;letter-spacing:1px}
+.casier-card .wl{margin-left:auto;font-size:11px;font-weight:900;color:#8a8a8a}
+.casier-card .rdy{font-size:10px;font-weight:900;color:#fff;background:var(--red);border:2px solid var(--ink);padding:2px 8px}
+.casier-card.new{justify-content:center;color:var(--red);font-family:'Bangers';font-size:15px;border-style:dashed}
+.ready-toggle{
+  font-family:'Bangers';font-size:15px;letter-spacing:1px;color:#fff;background:var(--red);
+  border:3px solid var(--ink);padding:9px 20px;cursor:pointer;box-shadow:4px 4px 0 var(--ink);transform:rotate(-2deg);
+}
+.btn-ghost{
+  font-weight:900;font-size:13px;color:var(--ink);background:#fff;
+  border:3px solid var(--ink);padding:9px 18px;cursor:pointer;box-shadow:4px 4px 0 var(--ink);
+}
+.spacer{flex:1}
+.teams-grid{display:grid;grid-template-columns:1fr 330px;gap:26px;align-items:start}
+
+/* ---------- pitch shonen ---------- */
+.stadium{position:relative;padding:22px;border:4px solid var(--ink);background:#fff;box-shadow:9px 9px 0 var(--ink);transform:rotate(-.5deg)}
+.field-d{
+  position:relative;margin:0 auto;width:100%;max-width:640px;height:400px;
+  background:
+    repeating-conic-gradient(from 190deg at -10% 50%,rgba(20,20,20,.16) 0 1.5deg,transparent 1.5deg 6deg),
+    repeating-linear-gradient(90deg,var(--grass) 0 56px,var(--grass2) 56px 112px);
+  border:5px solid var(--ink);
+}
+.ln{position:absolute;border:4px solid var(--ink)}
+.ln.mid{left:50%;top:6px;bottom:6px;border-width:0 0 0 4px}
+.ln.cir{left:50%;top:50%;width:130px;height:130px;border-radius:50%;transform:translate(-50%,-50%)}
+.ln.arcl{left:-40px;top:50%;width:80px;height:160px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%)}
+.ln.arcr{right:-40px;top:50%;width:80px;height:160px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0)}
+.spot{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:var(--ink);transform:translate(-50%,-50%)}
+.goal-d{
+  position:absolute;top:50%;transform:translateY(-50%);width:28px;height:100px;z-index:2;
+  background:#fff;border:4px solid var(--ink);
+  box-shadow:-5px 0 0 var(--red);
+}
+.goal-d.away{box-shadow:5px 0 0 var(--ink)}
+.don{
+  position:absolute;right:16px;bottom:10px;z-index:3;font-family:'Bangers';font-size:34px;color:var(--red);
+  text-shadow:3px 3px 0 var(--ink);transform:rotate(-6deg);pointer-events:none;
+}
+.dplayer{position:absolute;z-index:4;transform:translate(-50%,-50%);text-align:center}
+.d-body{
+  width:38px;height:38px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;
+  background:radial-gradient(circle at 32% 28%,#ff8a7a,var(--red));
+  border:3px solid var(--ink);box-shadow:0 5px 0 rgba(0,0,0,.3);
+}
+.d-body.away{background:radial-gradient(circle at 32% 28%,#6b6b6b,#141414)}
+.d-num{font-family:'Bangers';font-size:17px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.d-badge{
+  position:absolute;top:-9px;left:-9px;width:19px;height:19px;border-radius:50%;
+  display:grid;place-items:center;font-size:10px;background:#fff;border:2px solid var(--ink);
+}
+.d-shadow{width:30px;height:8px;margin:6px auto 0;border-radius:50%;background:rgba(0,0,0,.3)}
+.d-label{
+  display:inline-block;margin-top:7px;padding:2px 12px;background:#fff;border:3px solid var(--ink);
+  font-weight:900;font-size:11px;box-shadow:2px 2px 0 var(--ink);transform:rotate(-1deg);
+}
+
+.side{display:flex;flex-direction:column;gap:26px}
+.script-row{display:flex;align-items:center;gap:12px;padding:10px 6px;border-bottom:3px dotted #d4d4d4;font-weight:900}
+.script-row:last-child{border-bottom:none}
+.script-ico{width:34px;height:34px;display:grid;place-items:center;border:3px solid var(--ink);font-size:15px;background:#ffd400}
+.script-name{font-family:'Bangers';font-size:16px;letter-spacing:1px}
+.badge{margin-left:auto;font-size:10px;font-weight:900;border:2px solid var(--ink);padding:2px 10px;background:#fff}
+.badge.ok{background:#c8f7d0}
+.badge.err{background:#ffd6d6;color:var(--red)}
+.code{
+  margin:2px 2px 4px;padding:18px;border:3px solid var(--ink);background:var(--ink);
+  font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;line-height:1.8;white-space:pre;color:#fff;overflow:hidden;
+}
+.code .kw{color:#ffd400}.code .fn{color:#7ad0ff}.code .cm{color:#8a8a8a;font-style:italic}
+.custom-body{padding:2px 4px}
+.custom-row{display:flex;align-items:center;gap:12px;margin-top:14px;font-weight:900;font-size:13px}
+.custom-row .k{width:80px;color:#8a8a8a}
+.swatch{width:36px;height:36px;border-radius:50%;border:3px solid var(--ink);cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.swatch.sel{outline:4px solid var(--red);outline-offset:1px}
+.emoji-opt{width:38px;height:38px;display:grid;place-items:center;font-size:18px;background:#fff;border:3px solid var(--ink);cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+.emoji-opt.sel{background:#ffd400;transform:rotate(-6deg)}
+.custom-note{margin-top:16px;font-size:12px;font-weight:700;color:#8a8a8a}
+.footer-note{margin-top:56px;text-align:center;font-weight:900;color:#8a8a8a}
+.footer-note b{color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="ribbon">STYLE <b>03 · SHONEN SPEED</b> — mockup complet · vague 1/4 · traits de vitesse, impact, rouge et noir</div>
+
+<div class="wrap">
+
+  <header class="appnav">
+    <div class="brand">
+      <span class="crest"><span class="crest-fallback">🐱</span><img src="../../src/assets/watermark.png" alt="DD"></span>
+      <span class="brand-name">LACHATA<span class="dd">DEDE !!</span></span>
+    </div>
+    <nav class="nav-pills">
+      <button class="nav-pill">ÉQUIPES</button>
+      <button class="nav-pill active">JOUER</button>
+    </nav>
+    <div class="nav-right">
+      <span>@Pelo</span>
+      <span class="avatar">P</span>
+    </div>
+  </header>
+
+  <div><span class="sec-label">PAGE <b>JOUER</b> — L'ACCUEIL</span></div>
+
+  <div class="play-grid">
+    <div class="col">
+
+      <section class="hero">
+        <div class="burst"><span>BUT!!</span></div>
+        <span class="kicker">QUICK MATCH</span>
+        <h1>ON <span class="hl">JOUE</span> ?!</h1>
+        <p class="sub">Un adversaire prêt au combat, tiré au sort. Ton elo se joue à chaque match — pas de pitié.</p>
+        <div class="fighting-as">
+          avec
+          <button class="team-chip"><span class="team-dot"></span> 🔶 PRESSING 804 <small style="color:#8a8a8a">1004</small> <small>▾</small></button>
+        </div>
+        <button class="cta">GO !!</button>
+      </section>
+
+      <section class="panel">
+        <h3>⚔ ADVERSAIRES PRÊTS <span class="hint">la simu tourne même s'ils dorment</span></h3>
+        <div class="opp-row">
+          <span class="opp-emoji">🦁</span>
+          <span class="vs-tag">VS</span>
+          <div><div class="opp-name">KAARIS FC</div><div class="opp-wl">18 victoires · 4 défaites</div></div>
+          <span class="opp-elo">1022</span>
+          <button class="play-sm">JOUER</button>
+        </div>
+        <div class="opp-row" style="transform:rotate(.5deg)">
+          <span class="opp-emoji" style="background:#bfe3ff">🧊</span>
+          <span class="vs-tag" style="background:var(--ink)">VS</span>
+          <div><div class="opp-name">GLACIER UNITED</div><div class="opp-wl">9 victoires · 11 défaites</div></div>
+          <span class="opp-elo">988</span>
+          <button class="play-sm">JOUER</button>
+        </div>
+        <div class="opp-row" style="transform:rotate(-.4deg)">
+          <span class="opp-emoji" style="background:#ffd6e8">👑</span>
+          <span class="vs-tag">VS</span>
+          <div><div class="opp-name">LES BLEUS DE DD</div><div class="opp-wl">22 victoires · 2 défaites</div></div>
+          <span class="opp-elo">1187</span>
+          <button class="play-sm">JOUER</button>
+        </div>
+      </section>
+
+    </div>
+
+    <aside class="col">
+      <section class="panel" style="transform:rotate(.5deg)">
+        <h3>📜 PALMARÈS <span class="hint">derniers matchs</span></h3>
+        <div class="hist-row"><span class="res-badge win">V</span><span>3 – 1</span><span class="hist-vs">vs Glacier United</span><span class="hist-elo plus">+12</span><span class="hist-time">2 h</span></div>
+        <div class="hist-row"><span class="res-badge loss">D</span><span>1 – 2</span><span class="hist-vs">vs Kaaris FC</span><span class="hist-elo minus">−9</span><span class="hist-time">hier</span></div>
+        <div class="hist-row"><span class="res-badge win">V</span><span>2 – 0</span><span class="hist-vs">vs Bleus de DD</span><span class="hist-elo plus">+18</span><span class="hist-time">hier</span></div>
+        <div class="hist-row"><span class="res-badge loss">D</span><span>0 – 4</span><span class="hist-vs">vs Kaaris FC</span><span class="hist-elo minus">−11</span><span class="hist-time">mar.</span></div>
+      </section>
+
+      <section class="panel" style="transform:rotate(-.4deg)">
+        <h3>🏆 CLASSEMENT <span class="hint">top tactiques</span></h3>
+        <div class="lb-row r1"><span class="lb-rank">1</span><span class="lb-name">Les Bleus de DD<span class="you">TOI</span></span><span class="lb-elo">1187</span></div>
+        <div class="lb-row r2"><span class="lb-rank">2</span><span class="lb-name">Kaaris FC</span><span class="lb-elo">1022</span></div>
+        <div class="lb-row r3"><span class="lb-rank">3</span><span class="lb-name">Pressing 804<span class="you">TOI</span></span><span class="lb-elo">1004</span></div>
+        <div class="lb-row"><span class="lb-rank">4</span><span class="lb-name">Glacier United</span><span class="lb-elo">988</span></div>
+        <div class="lb-row"><span class="lb-rank">5</span><span class="lb-name">Tiki-taka 2009</span><span class="lb-elo">961</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <div><span class="sec-label" style="transform:rotate(.6deg)">PAGE <b>ÉQUIPES</b> — LE VESTIAIRE</span></div>
+
+  <section class="teambar">
+    <button class="casier-btn">
+      <span class="casier-crest">🔶</span> PRESSING 804 <span class="casier-chev">▾</span>
+      <div class="casier-pop">
+        <div class="casier-title">SÉLECTION D'ÉQUIPE</div>
+        <div class="casier-card active">
+          <span class="cc-crest" style="background:radial-gradient(circle at 30% 30%,#ff8a7a,#e0311b)">🔶</span>
+          <b>PRESSING 804</b><span class="wl">12W·3L</span><span class="rdy">PRÊT !</span>
+        </div>
+        <div class="casier-card">
+          <span class="cc-crest" style="background:#bfe3ff">🧊</span>
+          <b>GLACIER U.</b><span class="wl">4W·8L</span>
+        </div>
+        <div class="casier-card new">＋ NOUVELLE ÉQUIPE</div>
+      </div>
+    </button>
+    <button class="ready-toggle">⚔ PRÊT !</button>
+    <span class="spacer"></span>
+    <button class="btn-ghost">▶ TEST VS BOT</button>
+  </section>
+
+  <div class="teams-grid">
+
+    <section class="stadium">
+      <div class="field-d">
+        <div class="ln arcl"></div><div class="ln arcr"></div>
+        <div class="ln cir"></div>
+        <div class="ln mid"></div>
+        <div class="spot"></div>
+        <div class="goal-d home"></div><div class="goal-d away"></div>
+        <div class="don">ドン!!</div>
+        <div class="dplayer" style="left:8%;top:50%"><div class="d-body"><span class="d-badge">🧤</span><span class="d-num">1</span></div><div class="d-shadow"></div><div class="d-label">gardien.js</div></div>
+        <div class="dplayer" style="left:24%;top:22%"><div class="d-body"><span class="d-badge">🔶</span><span class="d-num">2</span></div><div class="d-shadow"></div><div class="d-label">pressing.js</div></div>
+        <div class="dplayer" style="left:24%;top:78%"><div class="d-body"><span class="d-badge">🔶</span><span class="d-num">3</span></div><div class="d-shadow"></div><div class="d-label">pressing.js</div></div>
+        <div class="dplayer" style="left:40%;top:38%"><div class="d-body"><span class="d-badge">⚡</span><span class="d-num">4</span></div><div class="d-shadow"></div><div class="d-label">tiki-taka.js</div></div>
+        <div class="dplayer" style="left:40%;top:62%"><div class="d-body"><span class="d-badge">⚡</span><span class="d-num">5</span></div><div class="d-shadow"></div><div class="d-label">tiki-taka.js</div></div>
+        <div class="dplayer" style="left:92%;top:50%"><div class="d-body away"><span class="d-badge">🧊</span><span class="d-num">1</span></div><div class="d-shadow"></div></div>
+        <div class="dplayer" style="left:76%;top:24%"><div class="d-body away"><span class="d-badge">🧊</span><span class="d-num">8</span></div><div class="d-shadow"></div></div>
+        <div class="dplayer" style="left:76%;top:76%"><div class="d-body away"><span class="d-badge">🧊</span><span class="d-num">10</span></div><div class="d-shadow"></div></div>
+        <div class="dplayer" style="left:58%;top:36%"><div class="d-body away"><span class="d-badge">🦁</span><span class="d-num">7</span></div><div class="d-shadow"></div></div>
+        <div class="dplayer" style="left:58%;top:64%"><div class="d-body away"><span class="d-badge">🦁</span><span class="d-num">9</span></div><div class="d-shadow"></div></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h3>📜 TECHNIQUES <span class="hint">＋ nouveau</span></h3>
+        <div class="script-row active"><span class="script-ico">🔶</span><span class="script-name">pressing.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#bfe3ff">⚡</span><span class="script-name">tiki-taka.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#ffd6e8">🧤</span><span class="script-name">gardien.js</span><span class="badge ok">1 joueur</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#e8e0d0">🕳</span><span class="script-name">catenaccio.js</span><span class="badge err">HS !</span></div>
+      </section>
+
+      <section class="panel" style="transform:rotate(.4deg)">
+        <h3>⌨ L'ÉDITEUR</h3>
+        <pre class="code"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </section>
+
+      <section class="panel" style="transform:rotate(-.3deg)">
+        <h3>🎨 ÉQUIPEMENT</h3>
+        <div class="custom-body">
+          <div class="custom-row"><span class="k">Couleurs</span>
+            <span class="swatch sel" style="background:var(--red)"></span>
+            <span class="swatch" style="background:#ffd400"></span>
+            <span class="swatch" style="background:#39b54a"></span>
+            <span class="swatch" style="background:#141414"></span>
+          </div>
+          <div class="custom-row"><span class="k">Blason</span>
+            <span class="emoji-opt sel">🔶</span><span class="emoji-opt">🦁</span><span class="emoji-opt">⚡</span><span class="emoji-opt">🐱</span><span class="emoji-opt">👑</span>
+          </div>
+          <div class="custom-note">Tes couleurs = tes maillots sur le terrain. Le numéro reste au centre.</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footer-note">STYLE 03 — <b>shonen</b> · vitesse, impact, ドン!! · comparez avec les styles 11, 15, 04, 10 (même vague)</div>
+</div>
+</body>
+</html>

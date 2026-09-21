@@ -31,7 +31,7 @@ class RankedMatchService
      * lineup still complete (re-validated live — a ready flag can go stale
      * when its owner breaks the lineup after toggling). Ranked by elo.
      *
-     * @return list<array{id: string, name: string, owner: string|null, elo: int, wins: int, losses: int}>
+     * @return list<array{id: string, name: string, owner: string|null, elo: int, wins: int, losses: int, crest: string|null, colorPrimary: string, ownerTacticsCount: int}>
      */
     public function opponents(User $user): array
     {
@@ -43,6 +43,10 @@ class RankedMatchService
                 'elo' => $tactic->elo,
                 'wins' => $tactic->wins,
                 'losses' => $tactic->losses,
+                'crest' => $tactic->crest,
+                'colorPrimary' => $tactic->color_primary,
+                // How many tactics the owner fields (lobby display, 7.6)
+                'ownerTacticsCount' => $tactic->user?->tactics->count() ?? 0,
             ])
             ->all();
     }
@@ -114,7 +118,11 @@ class RankedMatchService
     private function poolTactics(User $user): Collection
     {
         return Tactic::query()
-            ->with(['players.script', 'user'])
+            ->with([
+                'players.script',
+                'user',
+                'user.tactics' => fn ($query) => $query->select(['user_id', 'id']),
+            ])
             ->where('is_ready', true)
             ->where('is_system', false)
             ->where('user_id', '!=', $user->id)

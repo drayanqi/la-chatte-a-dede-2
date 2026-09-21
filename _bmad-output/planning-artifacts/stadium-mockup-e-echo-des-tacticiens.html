@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Direction E · L'Écho des Tacticiens (presse &amp; ardoise)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700;1,900&family=Libre+Franklin:wght@400;500;600;700;800&family=Caveat:wght@500;700&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f6efe2; --paper2:#fbf6ea; --ink:#191510; --soft:#4a4234; --faint:#8d8270;
+  --red:#c8102e; --rule:#c9bda5; --rule-dark:#191510;
+  --slate:#263830; --chalk:#f2eee4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'Libre Franklin',sans-serif;font-size:15px;line-height:1.5;min-height:100vh;
+  background-image:radial-gradient(rgba(25,21,16,.035) 1px, transparent 1px);
+  background-size:5px 5px;
+}
+.wrap{max-width:1240px;margin:0 auto;padding:0 24px 90px}
+.serif{font-family:'Playfair Display',serif}
+.hand{font-family:'Caveat',cursive}
+.small-caps{font-variant:small-caps;letter-spacing:2px}
+
+/* paper cards: NO radius (print), thin rules, NO shadows — the paper is the card */
+.sheet{background:var(--paper2);border:1px solid var(--rule)}
+.sheet-head{
+  border-bottom:2px solid var(--rule-dark);
+  padding:14px 20px 10px;display:flex;align-items:baseline;gap:10px;
+}
+.sheet-head h3{font-family:'Playfair Display';font-weight:900;font-size:19px;letter-spacing:.5px}
+.sheet-head .hint{margin-left:auto;font-size:11px;color:var(--faint);font-variant:small-caps;letter-spacing:1.5px}
+
+.ribbon{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:9px 16px;font-size:12px;font-weight:700;letter-spacing:1px;color:#fff;background:var(--ink);
+}
+.ribbon b{color:#ffd9a0}
+
+/* ---------- masthead ---------- */
+.masthead{margin-top:22px;text-align:center;padding:18px 0 0}
+.over-title{font-size:11px;letter-spacing:3px;font-variant:small-caps;color:var(--soft)}
+.masthead h1{
+  font-family:'Playfair Display';font-weight:900;font-size:52px;letter-spacing:2px;line-height:1;
+  display:inline-flex;align-items:center;gap:16px;
+}
+.masthead h1 .crest-mini{
+  width:58px;height:58px;border-radius:50%;overflow:hidden;position:relative;display:grid;place-items:center;
+  border:2.5px solid var(--ink);background:#efe4c8;
+}
+.masthead h1 .crest-mini img{width:84%;height:84%;object-fit:contain;position:relative;z-index:1}
+.crest-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:26px;z-index:0}
+.dateline{
+  margin-top:10px;padding:8px 0;border-top:3px double var(--rule-dark);border-bottom:3px double var(--rule-dark);
+  display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;font-variant:small-caps;color:var(--soft);
+}
+.dateline .red{color:var(--red);font-weight:700}
+
+/* ---------- nav ---------- */
+.nav-row{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.nav-item{
+  font-variant:small-caps;letter-spacing:2px;font-weight:700;font-size:14px;color:var(--soft);
+  padding:6px 18px;cursor:pointer;border:none;background:none;font-family:'Libre Franklin';
+}
+.nav-item.active{color:var(--red);border-bottom:3px solid var(--red)}
+.nav-item:hover{color:var(--ink)}
+.nav-user{position:absolute;right:24px;top:10px;font-size:12px;color:var(--faint);font-variant:small-caps;letter-spacing:1px}
+
+/* ---------- play page ---------- */
+.headline-zone{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;padding:30px 0 24px;border-bottom:1px solid var(--rule)}
+.kicker{color:var(--red);font-weight:800;font-size:12px;letter-spacing:3px;font-variant:small-caps}
+.headline-zone h2{font-family:'Playfair Display';font-weight:900;font-size:46px;line-height:1.05;margin-top:6px}
+.headline-zone h2 em{font-style:italic;color:var(--red)}
+.lede{margin-top:10px;color:var(--soft);font-size:15px;max-width:460px}
+.fighting-as{margin-top:14px;font-size:13px;color:var(--soft)}
+.fighting-as b{border-bottom:2px dotted var(--ink);padding-bottom:1px}
+.fighting-as .change{color:var(--red);font-weight:700;cursor:pointer}
+
+.stamp{
+  font-family:'Playfair Display';font-weight:900;font-size:26px;letter-spacing:3px;color:var(--red);
+  border:4px solid var(--red);border-radius:6px;background:transparent;
+  padding:20px 44px;cursor:pointer;transform:rotate(-3deg);
+  box-shadow:0 0 0 2px var(--paper), 0 0 0 3px var(--red);
+  font-variant:small-caps;
+}
+.stamp:hover{background:var(--red);color:var(--paper2)}
+
+.play-grid{display:grid;grid-template-columns:1fr 1.15fr 0.9fr;gap:0;margin-top:6px}
+.rule-col{border-right:1px solid var(--rule)}
+.zone{padding:20px 22px}
+.zone-title{
+  font-family:'Playfair Display';font-weight:900;font-size:17px;padding-bottom:8px;margin-bottom:4px;
+  border-bottom:3px double var(--rule-dark);display:flex;gap:8px;align-items:baseline;
+}
+.zone-title small{font-family:'Libre Franklin';font-weight:500;font-size:11px;color:var(--faint);margin-left:auto;letter-spacing:1px}
+
+/* bulletins (adversaires) */
+.bulletin{padding:13px 0;border-bottom:1px solid var(--rule)}
+.bulletin:last-child{border-bottom:none}
+.bulletin .b-head{display:flex;align-items:baseline;gap:8px}
+.bulletin .b-emoji{font-size:17px}
+.bulletin b{font-family:'Playfair Display';font-size:16px}
+.bulletin .b-elo{margin-left:auto;font-weight:700;color:var(--red);font-size:13px}
+.bulletin .b-sub{font-size:12px;color:var(--faint);font-variant:small-caps;letter-spacing:1px;margin-top:2px}
+.bulletin .defier{
+  margin-top:6px;font-size:12px;font-weight:800;letter-spacing:2px;font-variant:small-caps;
+  color:var(--red);cursor:pointer;background:none;border:none;padding:0;font-family:'Libre Franklin';
+}
+.bulletin .defier:hover{text-decoration:underline}
+.bulletin.lead{background:rgba(200,16,46,.045);margin:0 -10px;padding:13px 10px;border:1px dashed var(--red);border-radius:2px}
+
+/* résultats */
+.res-row{display:flex;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.res-row:last-child{border-bottom:none}
+.res-tag{font-variant:small-caps;font-weight:800;font-size:12px;letter-spacing:1px;width:26px}
+.res-tag.v{color:#1d7a43}.res-tag.d{color:var(--red)}
+.res-score{font-family:'Playfair Display';font-weight:700;font-size:17px;width:52px}
+.res-vs{color:var(--soft);flex:1}
+.res-elo{font-size:12px;font-weight:700}
+.res-elo.plus{color:#1d7a43}.res-elo.minus{color:var(--red)}
+.res-date{font-size:11px;color:var(--faint);font-variant:small-caps;width:44px;text-align:right}
+
+/* classement */
+.class-row{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.class-row:last-child{border-bottom:none}
+.class-n{font-family:'Playfair Display';font-weight:900;width:22px;color:var(--soft)}
+.class-row.r1 .class-n{color:var(--red)}
+.class-name{flex:1;font-weight:600}
+.class-name .you{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--paper2);background:var(--ink);border-radius:2px;padding:2px 6px;margin-left:6px;vertical-align:2px}
+.class-elo{font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ---------- teams ---------- */
+.teams-head{display:flex;align-items:center;gap:18px;padding:26px 0 18px;border-bottom:1px solid var(--rule);margin-top:34px;position:relative}
+.casier-btn{
+  display:inline-flex;align-items:baseline;gap:10px;background:none;border:none;cursor:pointer;
+  font-family:'Playfair Display';font-weight:900;font-size:24px;color:var(--ink);position:relative;
+  border-bottom:2px dotted var(--ink);padding-bottom:2px;
+}
+.casier-crest{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px;align-self:center;
+  border:2px solid var(--ink);background:radial-gradient(circle at 30% 30%,#ffc861,#ff9f1c);
+}
+.casier-chev{font-size:12px;color:var(--soft)}
+.ready-stamp{
+  font-family:'Playfair Display';font-weight:900;font-size:15px;letter-spacing:2px;color:var(--red);
+  border:3px solid var(--red);border-radius:4px;padding:6px 14px;transform:rotate(-4deg);
+  cursor:pointer;background:transparent;font-variant:small-caps;opacity:.9;
+}
+.btn-ghost{
+  font-family:'Libre Franklin';font-weight:700;font-size:13px;letter-spacing:1px;font-variant:small-caps;
+  color:var(--ink);background:none;border:1.5px solid var(--ink);border-radius:2px;
+  padding:9px 18px;cursor:pointer;
+}
+.btn-ghost:hover{background:var(--ink);color:var(--paper2)}
+.spacer{flex:1}
+
+/* casier = fiches du carnet */
+.casier-pop{
+  position:absolute;top:calc(100% + 10px);left:0;z-index:30;width:330px;
+  background:var(--paper2);border:1px solid var(--ink);padding:14px 16px;
+  box-shadow:0 14px 34px rgba(25,21,16,.22);transform:rotate(-.4deg);
+}
+.casier-pop::before{content:"";position:absolute;top:-7px;left:30px;width:12px;height:12px;transform:rotate(45deg);background:var(--paper2);border-left:1px solid var(--ink);border-top:1px solid var(--ink)}
+.casier-title{font-family:'Playfair Display';font-weight:900;font-size:15px;border-bottom:3px double var(--rule-dark);padding-bottom:6px;margin-bottom:8px}
+.casier-card{
+  display:flex;align-items:center;gap:12px;padding:11px 8px;cursor:pointer;border-bottom:1px solid var(--rule);
+}
+.casier-card:last-of-type{border-bottom:none}
+.casier-card.active{background:rgba(200,16,46,.05)}
+.cc-crest{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;border:1.5px solid var(--ink);flex:none}
+.casier-card b{font-family:'Playfair Display';font-size:15px}
+.casier-card .wl{margin-left:auto;font-size:11px;color:var(--faint);font-variant:small-caps;letter-spacing:1px}
+.casier-card .rdy{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--red);border:1.5px solid var(--red);border-radius:2px;padding:1px 6px;font-variant:small-caps}
+.casier-card.new{justify-content:center;color:var(--red);font-weight:800;font-size:13px;font-variant:small-caps;letter-spacing:2px}
+.casier-note{position:absolute;top:calc(100% + 188px);left:2px;font-size:12px;color:var(--faint);font-style:italic}
+
+.teams-grid{display:grid;grid-template-columns:1fr 330px;gap:30px;align-items:start;margin-top:22px}
+
+/* ---------- l'ardoise ---------- */
+.slate-frame{
+  padding:14px;border-radius:6px;
+  background:linear-gradient(160deg,#8a5f38,#6e4a2a);
+  box-shadow:inset 0 2px 4px rgba(255,255,255,.25), inset 0 -3px 6px rgba(0,0,0,.35), 0 16px 40px rgba(25,21,16,.25);
+}
+.slate{
+  position:relative;background:
+    radial-gradient(500px 240px at 20% 10%, rgba(255,255,255,.045), transparent 70%),
+    radial-gradient(420px 260px at 85% 90%, rgba(255,255,255,.04), transparent 70%),
+    var(--slate);
+  border-radius:4px;box-shadow:inset 0 0 40px rgba(0,0,0,.55), inset 0 0 4px rgba(0,0,0,.8);
+}
+.chalk-title{
+  position:absolute;top:10px;left:18px;z-index:6;font-family:'Caveat';font-weight:700;font-size:22px;
+  color:var(--chalk);opacity:.85;transform:rotate(-1.2deg);
+}
+.chalk-title .u{text-decoration:underline;text-decoration-style:wavy;text-underline-offset:5px;text-decoration-thickness:1.5px;opacity:.7}
+.field-e{position:relative;height:430px;margin:0 auto;width:min(640px,94%)}
+.cline{position:absolute;border:2.5px solid rgba(242,238,228,.75)}
+.cline.mid{left:50%;top:10px;bottom:10px;border-width:0 0 0 2.5px}
+.cline.circle{left:50%;top:50%;width:128px;height:128px;border-radius:50%;transform:translate(-50%,-50%)}
+.cline.circle.inner{width:98px;height:98px;opacity:.5}
+.cline.arc-l{left:-50px;top:50%;width:100px;height:200px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%);border-style:dashed}
+.cline.arc-r{right:-50px;top:50%;width:100px;height:200px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0);border-style:dashed}
+.cspot{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:rgba(242,238,228,.8);transform:translate(-50%,-50%)}
+.cgoal{position:absolute;top:50%;transform:translateY(-50%);width:24px;height:98px;z-index:2;border-radius:8px;border:2.5px solid rgba(242,238,228,.8)}
+.cgoal.home{left:-34px;border-color:rgba(255,170,110,.85);box-shadow:-6px 0 18px rgba(255,150,80,.25)}
+.cgoal.away{right:-34px;border-color:rgba(150,205,255,.85);box-shadow:6px 0 18px rgba(120,190,255,.25)}
+.eplayer{position:absolute;z-index:4;transform:translate(-50%,-50%);text-align:center}
+.e-body{
+  width:30px;height:30px;border-radius:50%;margin:0 auto;position:relative;
+  border:2.5px dashed rgba(242,238,228,.85);display:grid;place-items:center;
+  font-family:'Playfair Display';font-weight:900;font-size:13px;color:var(--chalk);
+}
+.e-body.home{background:radial-gradient(circle, rgba(255,150,80,.28), transparent 72%)}
+.e-body.away{background:radial-gradient(circle, rgba(120,190,255,.28), transparent 72%)}
+.e-label{font-family:'Caveat';font-weight:600;font-size:17px;color:var(--chalk);opacity:.8;margin-top:4px;white-space:nowrap}
+.crest-chalk{position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:11px;filter:grayscale(35%) brightness(1.9);opacity:.9}
+.arrows{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.55}
+.watermark-e{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:150px;opacity:.14;z-index:1;filter:grayscale(60%) brightness(2.2)}
+
+/* side: consignes + code machine à écrire + palette */
+.side{display:flex;flex-direction:column;gap:26px}
+.consigne{display:flex;align-items:baseline;gap:12px;padding:11px 2px;border-bottom:1px solid var(--rule)}
+.consigne:last-child{border-bottom:none}
+.consigne .hand-name{font-family:'Caveat';font-weight:700;font-size:22px;line-height:1}
+.consigne .c-status{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:1.5px;font-variant:small-caps}
+.consigne .c-status.ok{color:#1d7a43}
+.consigne .c-status.err{color:var(--red)}
+.consigne .c-count{font-size:11px;color:var(--faint);font-variant:small-caps;letter-spacing:1px}
+.typewriter{
+  margin:14px 18px 18px;padding:16px 18px;background:#fffdf6;border:1px solid var(--rule);
+  font-family:'Courier Prime',monospace;font-size:12.5px;line-height:1.7;white-space:pre;color:#33302a;
+  box-shadow:2px 3px 0 rgba(25,21,16,.12);
+}
+.typewriter .kw{color:var(--red);font-weight:700}.typewriter .fn{color:#1a5fb4}.typewriter .cm{color:#9b9284;font-style:italic}
+.custom-body{padding:6px 20px 18px}
+.custom-row{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:var(--soft);font-variant:small-caps;letter-spacing:1.5px;font-weight:700}
+.swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--ink);cursor:pointer}
+.swatch.sel{outline:3px solid var(--red);outline-offset:2px}
+.emoji-opt{width:32px;height:32px;display:grid;place-items:center;font-size:15px;cursor:pointer;border:1.5px solid var(--rule);border-radius:2px;background:var(--paper2)}
+.emoji-opt.sel{border-color:var(--red);box-shadow:0 0 0 1.5px var(--red)}
+.custom-note{margin-top:14px;font-size:12px;color:var(--faint);font-style:italic}
+.footer-note{margin-top:56px;text-align:center;font-size:12px;color:var(--faint);font-variant:small-caps;letter-spacing:2px}
+.footer-note b{color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="ribbon">DIRECTION <b>E</b> · L'ÉCHO DES TACTICIENS — presse sportive &amp; ardoise de coach · le journal du soir rencontre le tableau du vestiaire</div>
+
+<div class="wrap" style="position:relative">
+
+  <div class="nav-user">@Pelo · 1004 pts</div>
+
+  <!-- MASTHEAD -->
+  <header class="masthead">
+    <div class="over-title">Le quotidien des tacticiens depuis 2026</div>
+    <h1><span class="crest-mini"><span class="crest-fallback">🐱</span><img src="../../src/assets/watermark.png" alt="DD"></span>LACHATADEDE</h1>
+    <div class="dateline">
+      <span>Édition du soir</span>
+      <span class="red">N° 127 — Quick Match ouvert</span>
+      <span>venanciohugo.fr</span>
+    </div>
+    <nav class="nav-row">
+      <button class="nav-item">Équipes</button>
+      <button class="nav-item active">Jouer</button>
+    </nav>
+  </header>
+
+  <!-- PAGE JOUER -->
+  <section class="headline-zone">
+    <div>
+      <div class="kicker">En 5 contre 5 · Quick match</div>
+      <h2>Le terrain attend <em>onze</em> décisions.</h2>
+      <p class="lede">Un adversaire prêt au combat, tiré au sort. Ton elo se joue à chaque rencontre — et la presse ne pardonne rien.</p>
+      <div class="fighting-as">Vous alignez <b>🔶 Pressing 804</b> — 1004 pts <span class="change">changer ▾</span></div>
+    </div>
+    <button class="stamp">Jouer ▸</button>
+  </section>
+
+  <div class="play-grid">
+
+    <div class="zone rule-col">
+      <div class="zone-title">Les bulletins <small>adversaires prêts</small></div>
+      <div class="bulletin lead">
+        <div class="b-head"><span class="b-emoji">⚡</span><b>Quick Match</b><span class="b-elo">elo ±25</span></div>
+        <div class="b-sub">adversaire prêt au hasard</div>
+        <button class="defier">Défier ▸</button>
+      </div>
+      <div class="bulletin">
+        <div class="b-head"><span class="b-emoji">🦁</span><b>Kaaris FC</b><span class="b-elo">1022</span></div>
+        <div class="b-sub">18 victoires · 4 défaites</div>
+        <button class="defier">Défier ▸</button>
+      </div>
+      <div class="bulletin">
+        <div class="b-head"><span class="b-emoji">🧊</span><b>Glacier United</b><span class="b-elo">988</span></div>
+        <div class="b-sub">9 victoires · 11 défaites</div>
+        <button class="defier">Défier ▸</button>
+      </div>
+      <div class="bulletin">
+        <div class="b-head"><span class="b-emoji">👑</span><b>Les Bleus de DD</b><span class="b-elo">1187</span></div>
+        <div class="b-sub">22 victoires · 2 défaites</div>
+        <button class="defier">Défier ▸</button>
+      </div>
+    </div>
+
+    <div class="zone rule-col">
+      <div class="zone-title">Les résultats <small>tes derniers matchs</small></div>
+      <div class="res-row"><span class="res-tag v">V</span><span class="res-score">3 – 1</span><span class="res-vs">vs Glacier United</span><span class="res-elo plus">+12</span><span class="res-date">2 h</span></div>
+      <div class="res-row"><span class="res-tag d">D</span><span class="res-score">1 – 2</span><span class="res-vs">vs Kaaris FC</span><span class="res-elo minus">−9</span><span class="res-date">hier</span></div>
+      <div class="res-row"><span class="res-tag v">V</span><span class="res-score">2 – 0</span><span class="res-vs">vs Bleus de DD</span><span class="res-elo plus">+18</span><span class="res-date">hier</span></div>
+      <div class="res-row"><span class="res-tag d">D</span><span class="res-score">0 – 4</span><span class="res-vs">vs Kaaris FC</span><span class="res-elo minus">−11</span><span class="res-date">mar.</span></div>
+
+      <div class="zone-title" style="margin-top:22px">Le classement <small>top tactiques</small></div>
+      <div class="class-row r1"><span class="class-n">1.</span><span class="class-name">Les Bleus de DD<span class="you">TOI</span></span><span class="class-elo">1187</span></div>
+      <div class="class-row"><span class="class-n">2.</span><span class="class-name">Kaaris FC</span><span class="class-elo">1022</span></div>
+      <div class="class-row"><span class="class-n">3.</span><span class="class-name">Pressing 804<span class="you">TOI</span></span><span class="class-elo">1004</span></div>
+      <div class="class-row"><span class="class-n">4.</span><span class="class-name">Glacier United</span><span class="class-elo">988</span></div>
+      <div class="class-row"><span class="class-n">5.</span><span class="class-name">Tiki-taka 2009</span><span class="class-elo">961</span></div>
+    </div>
+
+    <div class="zone">
+      <div class="zone-title">L'édito du jour</div>
+      <p style="font-family:'Playfair Display';font-size:16px;font-style:italic;line-height:1.7;color:var(--soft)">
+        « Le pressing haut est mort, disaient-ils. Pourtant, chaque soir, cinq scripts remontent le ballon
+        comme en 1998. Ce n'est pas une tactique, c'est une conviction. »
+      </p>
+      <p class="hand" style="font-size:24px;margin-top:16px;color:var(--soft);transform:rotate(-1deg)">— le chat, correspondant des vestiaires</p>
+    </div>
+  </div>
+
+  <!-- PAGE ÉQUIPES -->
+  <section class="teams-head">
+    <button class="casier-btn">
+      <span class="casier-crest">🔶</span> Pressing 804 <span class="casier-chev">▾</span>
+      <div class="casier-pop">
+        <div class="casier-title">Mes fiches d'équipe</div>
+        <div class="casier-card active">
+          <span class="cc-crest" style="background:radial-gradient(circle at 30% 30%,#ffc861,#ff9f1c)">🔶</span>
+          <b>Pressing 804</b><span class="wl">12W · 3L</span><span class="rdy">Prête</span>
+        </div>
+        <div class="casier-card">
+          <span class="cc-crest" style="background:radial-gradient(circle at 30% 30%,#7fb8ff,#2f80ed)">🧊</span>
+          <b>Glacier United</b><span class="wl">4W · 8L</span>
+        </div>
+        <div class="casier-card new">＋ Nouvelle fiche</div>
+      </div>
+    </button>
+    <span class="casier-note">← les fiches du carnet, chacune à ses couleurs</span>
+    <button class="ready-stamp">Prête ⚔</button>
+    <span class="spacer"></span>
+    <button class="btn-ghost">▶ Match d'essai</button>
+  </section>
+
+  <div class="teams-grid">
+
+    <section class="slate-frame">
+      <div class="slate">
+        <div class="chalk-title">le plan du soir : <span class="u">pressing haut</span></div>
+        <div class="field-e">
+          <div class="watermark-e"><img src="../../src/assets/watermark.png" alt=""></div>
+          <svg class="arrows" viewBox="0 0 640 430" preserveAspectRatio="none">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(242,238,228,.75)"/>
+              </marker>
+            </defs>
+            <path d="M 160 95 Q 250 60 300 150" fill="none" stroke="rgba(242,238,228,.7)" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#ah)"/>
+            <path d="M 160 335 Q 250 372 300 282" fill="none" stroke="rgba(242,238,228,.7)" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#ah)"/>
+            <path d="M 265 170 Q 330 215 300 262" fill="none" stroke="rgba(242,238,228,.7)" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#ah)"/>
+          </svg>
+          <div class="cline arc-l"></div><div class="cline arc-r"></div>
+          <div class="cline circle"></div><div class="cline circle inner"></div>
+          <div class="cline mid"></div>
+          <div class="cspot"></div>
+          <div class="cgoal home"></div><div class="cgoal away"></div>
+          <div class="eplayer" style="left:8%;top:50%"><div class="e-body home"><span class="crest-chalk">🧤</span>1</div><div class="e-label">gardien.js</div></div>
+          <div class="eplayer" style="left:24%;top:22%"><div class="e-body home"><span class="crest-chalk">🔶</span>2</div><div class="e-label">pressing.js</div></div>
+          <div class="eplayer" style="left:24%;top:78%"><div class="e-body home"><span class="crest-chalk">🔶</span>3</div><div class="e-label">pressing.js</div></div>
+          <div class="eplayer" style="left:40%;top:38%"><div class="e-body home"><span class="crest-chalk">⚡</span>4</div><div class="e-label">tiki-taka.js</div></div>
+          <div class="eplayer" style="left:40%;top:62%"><div class="e-body home"><span class="crest-chalk">⚡</span>5</div><div class="e-label">tiki-taka.js</div></div>
+          <div class="eplayer" style="left:92%;top:50%"><div class="e-body away">1</div></div>
+          <div class="eplayer" style="left:76%;top:24%"><div class="e-body away">8</div></div>
+          <div class="eplayer" style="left:76%;top:76%"><div class="e-body away">10</div></div>
+          <div class="eplayer" style="left:58%;top:36%"><div class="e-body away">7</div></div>
+          <div class="eplayer" style="left:58%;top:64%"><div class="e-body away">9</div></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="sheet">
+        <div class="sheet-head"><h3>Consignes</h3><span class="hint">＋ nouvelle consigne</span></div>
+        <div class="zone" style="padding-top:6px">
+          <div class="consigne"><span class="hand-name" style="color:var(--red)">pressing.js</span><span class="c-count">2 joueurs</span><span class="c-status ok">validée</span></div>
+          <div class="consigne"><span class="hand-name">tiki-taka.js</span><span class="c-count">2 joueurs</span><span class="c-status ok">validée</span></div>
+          <div class="consigne"><span class="hand-name">gardien.js</span><span class="c-count">1 joueur</span><span class="c-status ok">validée</span></div>
+          <div class="consigne"><span class="hand-name">catenaccio.js</span><span class="c-status err">à revoir</span></div>
+        </div>
+      </section>
+
+      <section class="sheet">
+        <div class="sheet-head"><h3>La machine à écrire</h3><span class="hint">éditeur</span></div>
+        <pre class="typewriter"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </section>
+
+      <section class="sheet">
+        <div class="sheet-head"><h3>La palette du club</h3></div>
+        <div class="custom-body">
+          <div class="custom-row">Couleurs
+            <span class="swatch sel" style="background:#ff9f1c"></span>
+            <span class="swatch" style="background:#ffd23f"></span>
+            <span class="swatch" style="background:#3ecf6a"></span>
+            <span class="swatch" style="background:#c8102e"></span>
+          </div>
+          <div class="custom-row">Blason
+            <span class="emoji-opt sel">🔶</span><span class="emoji-opt">🦁</span><span class="emoji-opt">⚡</span><span class="emoji-opt">🐱</span><span class="emoji-opt">👑</span>
+          </div>
+          <div class="custom-note">Tes couleurs passent sur les maillots — et sur l'ardoise, en fusain.</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footer-note">DIRECTION E — <b>presse &amp; ardoise</b> · le journal du soir pour l'UI, le tableau du coach pour le terrain · serif, filets, craie</div>
+</div>
+</body>
+</html>

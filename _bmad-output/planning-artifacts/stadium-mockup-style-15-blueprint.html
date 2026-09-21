@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Style 15 · Blueprint (mockup complet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bp:#1d4e89; --bp2:#173e6e; --ln:#eef4fb; --ann:#a9c6e8; --amber:#ffb000;
+  --ink:#eef4fb; --dim:#7fa3cf;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bp);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:13.5px;min-height:100vh}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 90px}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* technical frame with corner ticks */
+.tframe{position:relative;border:1.5px solid var(--ln);background:rgba(238,244,251,.03)}
+.tframe::before,.tframe::after,.tframe .tk::before,.tframe .tk::after{
+  content:"";position:absolute;width:10px;height:10px;border-color:var(--ln);border-style:solid;z-index:2;
+}
+.tframe::before{top:-2px;left:-2px;border-width:3px 0 0 3px}
+.tframe::after{top:-2px;right:-2px;border-width:3px 3px 0 0}
+.tframe .tk::before{bottom:-2px;left:-2px;border-width:0 0 3px 3px}
+.tframe .tk::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:12px;letter-spacing:1px;background:#123761;border-bottom:1.5px solid var(--ln)}
+.ribbon b{color:var(--amber)}
+
+/* ---------- nav ---------- */
+.appnav{display:flex;align-items:center;gap:14px;padding:12px 20px;margin-top:20px}
+.brand{display:flex;align-items:center;gap:12px}
+.crest{
+  width:44px;height:44px;border-radius:50%;overflow:hidden;position:relative;display:grid;place-items:center;
+  border:1.5px solid var(--ln);background:rgba(238,244,251,.06);
+}
+.crest img{width:80%;height:80%;object-fit:contain;position:relative;z-index:1;filter:grayscale(100%) brightness(2.2)}
+.crest-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;z-index:0}
+.brand-name{font-weight:700;letter-spacing:3px}
+.brand-name small{display:block;font-size:9px;font-weight:400;color:var(--ann);letter-spacing:2px}
+.nav-pills{display:flex;gap:2px;margin-left:8px}
+.nav-pill{
+  font-family:'IBM Plex Mono';font-size:12.5px;letter-spacing:2px;color:var(--ann);background:none;
+  border:none;padding:9px 16px;cursor:pointer;
+}
+.nav-pill.active{color:var(--bp);background:var(--ln)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ann)}
+.avatar{width:32px;height:32px;display:grid;place-items:center;border:1.5px solid var(--ln);font-weight:700}
+
+.sec-label{display:flex;align-items:center;gap:12px;margin:36px 0 14px;color:var(--ann);font-size:12px;letter-spacing:2px}
+.sec-label::before{content:"FIG.";}
+.sec-label b{color:var(--ln)}
+.sec-label .rl{margin-left:auto;color:var(--dim)}
+
+/* ---------- play ---------- */
+.play-grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
+.col{display:flex;flex-direction:column;gap:18px}
+
+.hero{padding:30px 32px}
+.doc-no{font-size:10.5px;color:var(--ann);letter-spacing:2px;display:flex;justify-content:space-between;border-bottom:1px dashed var(--ann);padding-bottom:8px;margin-bottom:16px}
+.hero h1{font-size:24px;letter-spacing:1px;margin-bottom:8px}
+.hero h1 .fn{color:var(--amber)}
+.hero .spec{color:var(--ann);font-size:13px;line-height:1.7;max-width:520px}
+.param{margin-top:16px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ann)}
+.param .k{color:var(--dim)}
+.team-chip{
+  display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:1.5px solid var(--ln);
+  color:var(--ln);cursor:pointer;background:none;font-family:'IBM Plex Mono';font-size:12.5px;
+}
+.cta{
+  display:inline-block;margin-top:18px;font-family:'IBM Plex Mono';font-weight:700;font-size:16px;letter-spacing:2px;
+  color:#161616;background:var(--amber);border:none;padding:16px 44px;cursor:pointer;
+  box-shadow:4px 4px 0 rgba(0,0,0,.35);
+}
+.cta:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 rgba(0,0,0,.35)}
+
+.panel{padding:0}
+.panel h3{font-size:12px;letter-spacing:2px;color:var(--ln);padding:12px 18px;border-bottom:1.5px solid var(--ln);display:flex;align-items:center;gap:8px;background:rgba(238,244,251,.05)}
+.panel h3 .hint{margin-left:auto;font-weight:400;color:var(--ann);font-size:10.5px}
+
+.opp-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px dashed rgba(238,244,251,.25);font-size:12.5px}
+.opp-row:last-child{border-bottom:none}
+.opp-idx{color:var(--ann);width:26px}
+.opp-emoji{font-size:16px}
+.opp-name{font-weight:700}
+.opp-wl{color:var(--ann);font-size:11.5px}
+.opp-elo{margin-left:auto;color:var(--amber);font-weight:700}
+.btn-sm{
+  font-family:'IBM Plex Mono';font-size:11px;letter-spacing:1px;font-weight:700;
+  color:var(--bp);background:var(--ln);border:none;padding:6px 12px;cursor:pointer;
+}
+.btn-sm:hover{background:var(--amber)}
+
+.log-row{display:flex;align-items:baseline;gap:10px;padding:9px 18px;border-bottom:1px dashed rgba(238,244,251,.25);font-size:12px}
+.log-row:last-child{border-bottom:none}
+.log-row .t{color:var(--dim);font-size:10.5px}
+.log-row .r{width:18px;font-weight:700}
+.log-row .r.v{color:#7ee2a8}.log-row .r.d{color:#ff8a7a}
+.log-row .sc{font-weight:700;min-width:44px}
+.log-row .vs{color:var(--ann);flex:1}
+.log-row .el{font-weight:700}
+.log-row .el.plus{color:#7ee2a8}.log-row .el.minus{color:#ff8a7a}
+.lb-row{display:flex;align-items:baseline;gap:12px;padding:9px 18px;border-bottom:1px dashed rgba(238,244,251,.25);font-size:12.5px}
+.lb-row:last-child{border-bottom:none}
+.lb-n{color:var(--ann);width:24px}
+.lb-name{font-weight:700;flex:1}
+.lb-name .you{font-size:9px;color:var(--bp);background:var(--ln);padding:1px 6px;margin-left:6px}
+.lb-elo{color:var(--amber);font-weight:700}
+
+/* ---------- teams ---------- */
+.teambar{display:flex;align-items:center;gap:12px;padding:12px 18px;margin-bottom:18px}
+.casier-btn{
+  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 8px;cursor:pointer;position:relative;
+  border:1.5px solid var(--ln);background:none;color:var(--ln);
+  font-family:'IBM Plex Mono';font-weight:700;font-size:13px;
+}
+.casier-crest{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;border:1px solid var(--ln);background:rgba(238,244,251,.1)}
+.casier-chev{color:var(--ann);font-size:10px}
+.casier-pop{
+  position:absolute;top:calc(100% + 8px);left:0;z-index:30;width:330px;
+  background:var(--bp2);border:1.5px solid var(--ln);padding:14px;
+  box-shadow:6px 6px 0 rgba(0,0,0,.3);
+}
+.casier-title{font-size:11px;letter-spacing:2px;color:var(--ann);border-bottom:1px dashed var(--ann);padding-bottom:8px;margin-bottom:8px}
+.casier-card{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;border:1.5px solid transparent}
+.casier-card:hover{border-color:var(--ln)}
+.casier-card.active{border-color:var(--amber);background:rgba(255,176,0,.08)}
+.cc-crest{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;border:1px solid var(--ln)}
+.casier-card b{font-size:12.5px}
+.casier-card .wl{margin-left:auto;font-size:11px;color:var(--ann)}
+.casier-card .rdy{font-size:9px;color:var(--bp);background:var(--amber);padding:1px 6px;font-weight:700}
+.casier-card.new{justify-content:center;color:var(--amber);font-size:12px;border-style:dashed}
+.ready-toggle{
+  font-family:'IBM Plex Mono';font-weight:700;font-size:12px;letter-spacing:1px;
+  color:#161616;background:var(--amber);border:none;padding:9px 16px;cursor:pointer;
+  transform:rotate(-2deg);box-shadow:3px 3px 0 rgba(0,0,0,.35);
+}
+.btn-ghost{
+  font-family:'IBM Plex Mono';font-size:12px;letter-spacing:1px;color:var(--ln);
+  background:none;border:1.5px solid var(--ln);padding:9px 16px;cursor:pointer;
+}
+.spacer{flex:1}
+.teams-grid{display:grid;grid-template-columns:1fr 350px;gap:18px;align-items:start}
+
+/* ---------- pitch blueprint ---------- */
+.stadium{padding:24px;position:relative}
+.fig-label{position:absolute;top:10px;left:14px;font-size:10.5px;color:var(--ann);letter-spacing:2px}
+.field-d{
+  position:relative;margin:14px auto 0;width:100%;max-width:640px;height:400px;
+  background:
+    linear-gradient(rgba(238,244,251,.09) 1px,transparent 1px) 0 0/32px 32px,
+    linear-gradient(90deg,rgba(238,244,251,.09) 1px,transparent 1px) 0 0/32px 32px,
+    var(--bp);
+  border:1.5px solid var(--ln);
+}
+.ln{position:absolute;border:1.5px solid var(--ln)}
+.ln.mid{left:50%;top:0;bottom:0;border-width:0 0 0 1.5px}
+.ln.cir{left:50%;top:50%;width:120px;height:120px;border-radius:50%;transform:translate(-50%,-50%)}
+.ln.arcl{left:-44px;top:50%;width:88px;height:170px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%);border-style:dashed}
+.ln.arcr{right:-44px;top:50%;width:88px;height:170px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0);border-style:dashed}
+.spot{position:absolute;left:50%;top:50%;width:6px;height:6px;background:var(--ln);transform:translate(-50%,-50%)}
+.goal-d{position:absolute;top:50%;transform:translateY(-50%);width:24px;height:92px;border:1.5px solid var(--ln);z-index:2;
+  background:repeating-linear-gradient(0deg,rgba(238,244,251,.4) 0 1px,transparent 1px 6px),repeating-linear-gradient(90deg,rgba(238,244,251,.4) 0 1px,transparent 1px 6px)}
+.goal-d.home{left:-30px}
+.goal-d.away{right:-30px}
+.dim-arrow{position:absolute;pointer-events:none;z-index:3}
+.dim-arrow text{font-family:'IBM Plex Mono';font-size:10px;fill:var(--amber)}
+.dplayer{position:absolute;z-index:4;transform:translate(-50%,-50%);text-align:center}
+.d-body{
+  width:30px;height:30px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
+  background:var(--ln);border:none;box-shadow:0 3px 0 rgba(0,0,0,.35);
+}
+.d-body.away{background:var(--amber)}
+.d-num{font-weight:700;font-size:13px;color:var(--bp)}
+.d-shadow{display:none}
+.d-label{display:block;margin-top:5px;font-size:10px;color:var(--ann)}
+.coord{position:absolute;font-size:9px;color:var(--amber);z-index:5}
+
+.side{display:flex;flex-direction:column;gap:18px}
+.script-row{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:12.5px;border-bottom:1px dashed rgba(238,244,251,.25)}
+.script-row:last-child{border-bottom:none}
+.script-row .n{color:var(--ann);width:24px}
+.script-name{font-weight:700}
+.badge{margin-left:auto;font-size:10px;padding:1px 8px;border:1px solid var(--dim);color:var(--dim)}
+.badge.ok{color:var(--bp);background:var(--ln);border-color:var(--ln)}
+.badge.err{color:#161616;background:#ff8a7a;border-color:#ff8a7a}
+.code{
+  margin:12px 16px 16px;padding:14px;font-size:12px;line-height:1.75;white-space:pre;
+  font-family:'IBM Plex Mono',monospace;background:#0f2c50;border:1.5px solid var(--ln);color:var(--ink);overflow:hidden;
+}
+.code .kw{color:var(--amber)}.code .fn{color:#7ee2a8}.code .cm{color:#7fa3cf;font-style:italic}
+.custom-body{padding:4px 18px 18px}
+.custom-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:var(--ann)}
+.custom-row .k{color:var(--dim);width:120px}
+.swatch{width:28px;height:28px;border:1.5px solid var(--ln);cursor:pointer}
+.swatch.sel{outline:2px solid var(--amber);outline-offset:2px}
+.emoji-opt{width:30px;height:30px;display:grid;place-items:center;font-size:14px;border:1px solid var(--dim);cursor:pointer}
+.emoji-opt.sel{border-color:var(--amber);background:rgba(255,176,0,.15)}
+.custom-note{margin-top:12px;font-size:11px;color:var(--dim);font-style:italic}
+.titleblock{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border:1.5px solid var(--ln);margin-top:44px}
+.titleblock div{padding:10px 14px;font-size:10.5px;color:var(--ann);border-right:1.5px solid var(--ln)}
+.titleblock div:last-child{border-right:none}
+.titleblock b{display:block;color:var(--ln);font-size:11.5px;margin-bottom:2px}
+.footer-note{margin-top:16px;text-align:center;color:var(--dim);font-size:11px;letter-spacing:2px}
+.footer-note b{color:var(--amber)}
+</style>
+</head>
+<body>
+
+<div class="ribbon">STYLE <b>15 · BLUEPRINT</b> — mockup complet · vague 1/4 · le terrain comme plan d'exécution coté</div>
+
+<div class="wrap">
+
+  <header class="tframe appnav"><span class="tk"></span>
+    <div class="brand">
+      <span class="crest"><span class="crest-fallback">🐱</span><img src="../../src/assets/watermark.png" alt="DD"></span>
+      <span class="brand-name">LACHATADEDE<small> bureau d'études tactique</small></span>
+    </div>
+    <nav class="nav-pills">
+      <button class="nav-pill">[ EQUIPES ]</button>
+      <button class="nav-pill active">[ JOUER ]</button>
+    </nav>
+    <div class="nav-right">
+      <span>user: pelo // pts: 1004</span>
+      <span class="avatar">P</span>
+    </div>
+  </header>
+
+  <div class="sec-label"><b>1 — PAGE JOUER</b> (vue d'accueil) <span class="rl">rév. C</span></div>
+
+  <div class="play-grid">
+    <div class="col">
+
+      <section class="tframe hero"><span class="tk"></span>
+        <div class="doc-no"><span>DOC: QM-2026-09</span><span>ÉCH. 1:1</span><span>FEUILLE 1/2</span></div>
+        <h1>PROCÉDURE: <span class="fn">quick_match()</span></h1>
+        <p class="spec">// Un adversaire prêt au combat, tiré au sort.<br>// Le elo varie à chaque exécution. Simu hors-ligne autorisée.</p>
+        <div class="param"><span class="k">avec:</span>
+          <button class="team-chip">🔶 pressing_804 [1004] ▾</button>
+        </div>
+        <button class="cta">▶ EXÉCUTER</button>
+      </section>
+
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>2.1 — ADVERSAIRES_PRÊTS <span class="hint">simu hors-ligne: true</span></h3>
+        <div class="opp-row"><span class="opp-idx">01</span><span class="opp-emoji">🦁</span><span class="opp-name">kaaris_fc</span><span class="opp-wl">18V·4D</span><span class="opp-elo">1022</span><button class="btn-sm">DÉFIER</button></div>
+        <div class="opp-row"><span class="opp-idx">02</span><span class="opp-emoji">🧊</span><span class="opp-name">glacier_united</span><span class="opp-wl">9V·11D</span><span class="opp-elo">988</span><button class="btn-sm">DÉFIER</button></div>
+        <div class="opp-row"><span class="opp-idx">03</span><span class="opp-emoji">👑</span><span class="opp-name">bleus_de_dd</span><span class="opp-wl">22V·2D</span><span class="opp-elo">1187</span><button class="btn-sm">DÉFIER</button></div>
+      </section>
+
+    </div>
+
+    <aside class="col">
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>2.2 — JOURNAL_MATCHS <span class="hint">derniers</span></h3>
+        <div class="log-row"><span class="t">21/09 14:32</span><span class="r v">V</span><span class="sc">3–1</span><span class="vs">vs glacier_united</span><span class="el plus">+12</span></div>
+        <div class="log-row"><span class="t">20/09 20:15</span><span class="r d">D</span><span class="sc">1–2</span><span class="vs">vs kaaris_fc</span><span class="el minus">−9</span></div>
+        <div class="log-row"><span class="t">20/09 19:02</span><span class="r v">V</span><span class="sc">2–0</span><span class="vs">vs bleus_de_dd</span><span class="el plus">+18</span></div>
+        <div class="log-row"><span class="t">17/09 21:44</span><span class="r d">D</span><span class="sc">0–4</span><span class="vs">vs kaaris_fc</span><span class="el minus">−11</span></div>
+      </section>
+
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>2.3 — CLASSEMENT <span class="hint">top 5</span></h3>
+        <div class="lb-row"><span class="lb-n">1.</span><span class="lb-name">bleus_de_dd<span class="you">VOUS</span></span><span class="lb-elo">1187</span></div>
+        <div class="lb-row"><span class="lb-n">2.</span><span class="lb-name">kaaris_fc</span><span class="lb-elo">1022</span></div>
+        <div class="lb-row"><span class="lb-n">3.</span><span class="lb-name">pressing_804<span class="you">VOUS</span></span><span class="lb-elo">1004</span></div>
+        <div class="lb-row"><span class="lb-n">4.</span><span class="lb-name">glacier_united</span><span class="lb-elo">988</span></div>
+        <div class="lb-row"><span class="lb-n">5.</span><span class="lb-name">tiki-taka_2009</span><span class="lb-elo">961</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="sec-label"><b>3 — PAGE ÉQUIPES</b> (atelier) <span class="rl">rév. C</span></div>
+
+  <section class="tframe teambar"><span class="tk"></span>
+    <button class="casier-btn">
+      <span class="casier-crest">🔶</span> pressing_804 <span class="casier-chev">▼</span>
+      <div class="casier-pop">
+        <div class="casier-title">REGISTRE DES ÉQUIPES</div>
+        <div class="casier-card active">
+          <span class="cc-crest">🔶</span><b>pressing_804</b><span class="wl">12V·3D</span><span class="rdy">PRÊT</span>
+        </div>
+        <div class="casier-card">
+          <span class="cc-crest">🧊</span><b>glacier_united</b><span class="wl">4V·8D</span>
+        </div>
+        <div class="casier-card new">＋ nouvelle_fiche()</div>
+      </div>
+    </button>
+    <button class="ready-toggle">⚔ PRÊT ✔</button>
+    <span class="spacer"></span>
+    <button class="btn-ghost">▶ match_essai()</button>
+  </section>
+
+  <div class="teams-grid">
+
+    <section class="tframe stadium"><span class="tk"></span>
+      <div class="fig-label">FIG. 3.1 — TERRAIN_5V5 · plan d'exécution · tolérances ±0.5m</div>
+      <div class="field-d">
+        <svg class="dim-arrow" style="left:0;top:0;width:100%;height:100%" viewBox="0 0 640 400" preserveAspectRatio="none">
+          <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ffb000"/></marker></defs>
+          <line x1="80" y1="372" x2="560" y2="372" stroke="#ffb000" stroke-width="1" stroke-dasharray="4 3" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <text x="300" y="390" text-anchor="middle">L = 68.0 m</text>
+          <line x1="612" y1="60" x2="612" y2="340" stroke="#ffb000" stroke-width="1" stroke-dasharray="4 3" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <text x="600" y="200" transform="rotate(90 600 200)" text-anchor="middle">H = 40.0 m</text>
+        </svg>
+        <div class="ln arcl"></div><div class="ln arcr"></div>
+        <div class="ln cir"></div>
+        <div class="ln mid"></div>
+        <div class="spot"></div>
+        <div class="goal-d home"></div><div class="goal-d away"></div>
+        <div class="dplayer" style="left:8%;top:50%"><div class="d-body"><span class="d-num">1</span></div><div class="d-label">gardien.js</div></div>
+        <div class="dplayer" style="left:24%;top:22%"><div class="d-body"><span class="d-num">2</span></div><div class="d-label">pressing.js</div></div>
+        <div class="dplayer" style="left:24%;top:78%"><div class="d-body"><span class="d-num">3</span></div><div class="d-label">pressing.js</div></div>
+        <div class="dplayer" style="left:40%;top:38%"><div class="d-body"><span class="d-num">4</span></div><div class="d-label">tiki.js</div></div>
+        <div class="dplayer" style="left:40%;top:62%"><div class="d-body"><span class="d-num">5</span></div><div class="d-label">tiki.js</div></div>
+        <div class="dplayer" style="left:92%;top:50%"><div class="d-body away"><span class="d-num">1</span></div></div>
+        <div class="dplayer" style="left:76%;top:24%"><div class="d-body away"><span class="d-num">8</span></div></div>
+        <div class="dplayer" style="left:76%;top:76%"><div class="d-body away"><span class="d-num">10</span></div></div>
+        <div class="dplayer" style="left:58%;top:36%"><div class="d-body away"><span class="d-num">7</span></div></div>
+        <div class="dplayer" style="left:58%;top:64%"><div class="d-body away"><span class="d-num">9</span></div></div>
+        <span class="coord" style="left:26.5%;top:16%">P2 (0.24, 0.22)</span>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>3.1 — SCRIPTS <span class="hint">＋ nouveau</span></h3>
+        <div class="script-row"><span class="n">01</span><span class="script-name">pressing.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="n">02</span><span class="script-name">tiki-taka.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="n">03</span><span class="script-name">gardien.js</span><span class="badge ok">1 joueur</span></div>
+        <div class="script-row"><span class="n">04</span><span class="script-name">catenaccio.js</span><span class="badge err">ERREUR</span></div>
+      </section>
+
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>3.2 — ÉDITEUR</h3>
+        <pre class="code"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </section>
+
+      <section class="tframe panel"><span class="tk"></span>
+        <h3>3.3 — PARAMÈTRES ÉQUIPE</h3>
+        <div class="custom-body">
+          <div class="custom-row"><span class="k">color_primary</span>
+            <span class="swatch sel" style="background:#eef4fb"></span>
+            <span class="swatch" style="background:#ffb000"></span>
+            <span class="swatch" style="background:#7ee2a8"></span>
+            <span class="swatch" style="background:#ff8a7a"></span>
+          </div>
+          <div class="custom-row"><span class="k">crest</span>
+            <span class="emoji-opt sel">🔶</span><span class="emoji-opt">🦁</span><span class="emoji-opt">⚡</span><span class="emoji-opt">🐱</span><span class="emoji-opt">👑</span>
+          </div>
+          <div class="custom-note">// les couleurs se propagent aux joueurs — numéro au centre du maillot</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="titleblock">
+    <div><b>LACHATADEDE — PLATEAU DE JEU</b>projet: arcade 5v5 · statut: mockup</div>
+    <div><b>DESSINÉ PAR</b>la salle (party-mode)</div>
+    <div><b>ÉCHELLE</b>1:1</div>
+    <div><b>RÉVISION</b>C — vague 1/4</div>
+  </div>
+
+  <div class="footer-note">STYLE 15 — <b>blueprint</b> · tout est coté, tout est mono · comparez avec les styles 11, 03, 04, 10 (même vague)</div>
+</div>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { Field } from './Field';
 import { PlayerSprite, PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from './Player';
 import { BallSprite } from './Ball';
 import { computePitchRect, screenToPercent } from './fieldGeometry';
+import { hexToTeamColor } from '@/lib/teamColors';
 import { teamIdFromMatchTeam, matchPlayerKey } from '@/lib/teamMapping';
 import { normalizeMatchFrames } from '@/lib/matchFrames';
 import type {
@@ -45,6 +46,8 @@ export interface GameCallbacks {
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
   /** Fired when a player drag-move completes (pointerup ends the move) */
   onPlayerMoved?: (playerId: string, position: Position) => void;
+  /** Fired once per drag session when the pointer first moves the player */
+  onPlayerDragStart?: () => void;
   /** Fired when the selection is cleared by clicking empty pitch */
   onPlayerDeselected?: () => void;
 }
@@ -104,6 +107,17 @@ export class Game {
   // Persistently selected player (mirrors canvasStore.selectedPlayerId)
   private selectedPlayerId: string | null = null;
 
+  // Team customization (story 7.4): per-instance player + goal colors,
+  // applied to the field and every sprite; defaults are the UX constants
+  private teamColors: { home: number; away: number } = {
+    home: PLAYER_HOME_COLOR,
+    away: PLAYER_AWAY_COLOR,
+  };
+
+  // Script tags (story 7.5): engine player id -> script name (null =
+  // "non assigné"). Applied to edit-mode sprites on creation.
+  private scriptLabels: Map<string, string | null> = new Map();
+
   constructor(callbacks: GameCallbacks, config: Partial<GameConfig> = {}) {
     const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -144,6 +158,10 @@ export class Game {
     // Create the field
     this.field = new Field(this.app.screen.width, this.app.screen.height);
     this.gameContainer.addChild(this.field.container);
+
+    // Re-assert the team colors that may have been set pre-init (queued
+    // tactic loads apply them again below)
+    this.field.setTeamColors(this.teamColors.home, this.teamColors.away);
 
     // Démarrer la game loop
     this.app.ticker.add(this.gameLoop.bind(this));
@@ -391,6 +409,8 @@ export class Game {
     // Drop the editing tactic sprites: the replay owns the pitch now
     this.destroyAllPlayerSprites();
     this.createMatchPlayers(firstFrame);
+    // Replay sides keep the loaded team colors (set from the match payload)
+    this.applyTeamColors();
     this.ensureBallSprite();
     this.ballSprite?.setVisible(true);
     this.restackLayers();
@@ -487,6 +507,16 @@ export class Game {
     this.currentTacticId = tactic.id;
     this.currentTacticName = tactic.name;
 
+    // Team customization (story 7.4): the tactic's colors own the pitch;
+    // absent fields fall back to the UX constants (bot/legacy payloads)
+    this.teamColors = {
+      home: hexToTeamColor(tactic.colorPrimary, PLAYER_HOME_COLOR),
+      away: hexToTeamColor(tactic.colorSecondary, PLAYER_AWAY_COLOR),
+    };
+
+    // Edit-mode sprites carry the script tag (story 7.5)
+    this.dropScriptLabels();
+
     // Create the new players
     for (const playerData of tactic.players) {
       const sprite = new PlayerSprite(
@@ -509,16 +539,82 @@ export class Game {
           onHover: (id, pos) => {
             this.callbacks.onPlayerHovered(id, pos);
           },
-        }
+        },
+        { showScriptLabel: true }
       );
       this.players.set(playerData.id, sprite);
       this.gameContainer.addChild(sprite.container);
     }
 
+    // Recolor sprites + goal frames (sprites are freshly created, the
+    // field must re-run its goal draw pass); apply the known script tags
+    this.applyTeamColors();
+    this.applyScriptLabels();
+
     // Reset playback
     this.currentFrame = 0;
     this.isPlaying = false;
     this.restackLayers();
+  }
+
+  /**
+   * Team customization (story 7.4): apply the current colors to the field
+   * (goal frames) and every player sprite. Safe pre-init: the init path
+   * re-asserts the colors after the field exists.
+   */
+  setTeamColors(home: number, away: number): void {
+    this.teamColors = { home, away };
+    this.applyTeamColors();
+  }
+
+  private applyTeamColors(): void {
+    this.field?.setTeamColors(this.teamColors.home, this.teamColors.away);
+    for (const sprite of this.players.values()) {
+      sprite.setTeamColors(this.teamColors.home, this.teamColors.away);
+    }
+  }
+
+  // ==========================================================================
+  // Script tags (story 7.5) — edit-mode sprites show the assigned script
+  // name under the circle; replay sprites never do.
+  // ==========================================================================
+
+  /**
+   * Merge the given labels (engine player id -> script name | null) into
+   * the engine state and apply them to any existing sprite. Safe pre-init
+   * (loadTacticInternal re-applies on creation).
+   */
+  setScriptLabels(labels: Record<string, string | null>): void {
+    for (const [playerId, label] of Object.entries(labels)) {
+      this.scriptLabels.set(playerId, label);
+    }
+    this.applyScriptLabels();
+  }
+
+  private applyScriptLabels(): void {
+    for (const [playerId, sprite] of this.players) {
+      if (this.scriptLabels.has(playerId)) {
+        sprite.setScriptLabel(this.scriptLabels.get(playerId) ?? null);
+      }
+    }
+  }
+
+  /** A tactic load resets the tag map (the new tactic re-labels itself) */
+  private dropScriptLabels(): void {
+    this.scriptLabels.clear();
+  }
+
+  /**
+   * Remove the script of ONE player (story 7.5 picker "Retirer le script").
+   * Silent like detachScript: the caller persists the lineup explicitly.
+   */
+  detachPlayerScript(playerId: string): void {
+    // Replay mode: the pitch is read-only
+    if (this.matchFrames.length > 0) return;
+    const player = this.players.get(playerId);
+    if (player && player.getScriptId() !== null) {
+      player.setScript(null);
+    }
   }
 
   /**
@@ -569,6 +665,11 @@ export class Game {
 
     const previous = player.getPosition();
     if (clamped.x !== previous.x || clamped.y !== previous.y) {
+      if (!this.dragMoved) {
+        // First actual movement of the session (story 7.5): the picker that
+        // opened on pointerdown must not follow a drag — the shell hides it
+        this.callbacks.onPlayerDragStart?.();
+      }
       player.setPosition(clamped);
       this.dragMoved = true;
     }

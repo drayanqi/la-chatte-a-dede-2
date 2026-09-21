@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — La Ronde v4 · Praticité + charme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e9f5ee; --panel:#ffffff; --panel2:#f4faf6; --ink:#12241b; --muted:#5b7265;
+  --line:rgba(18,36,27,.12); --corail:#ff6b57; --sun:#ffc244; --mint:#31c48d;
+  --sky:#4aa8e8; --pitch:#3fae62; --pitch-dark:#379c56; --mark:rgba(255,255,255,.4);
+  --shadow:0 8px 24px rgba(18,36,27,.09); --shadow-lg:0 18px 48px rgba(18,36,27,.16);
+  --r:18px; --r-sm:12px;
+}
+[data-theme="dark"]{
+  --bg:#0e1a13; --panel:#182a1f; --panel2:#13221a; --ink:#eaf6ee; --muted:#8fa89a;
+  --line:rgba(234,246,238,.12); --pitch:#2e7d4f; --pitch-dark:#286e45;
+  --shadow:0 8px 24px rgba(0,0,0,.4); --shadow-lg:0 18px 48px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:Sora,system-ui,sans-serif;background:
+    radial-gradient(900px 500px at 10% -6%, rgba(255,194,68,.16), transparent 60%),
+    radial-gradient(800px 500px at 92% 108%, rgba(49,196,141,.13), transparent 60%),
+    var(--bg);
+  color:var(--ink);font-size:14px}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+
+/* ===== NAV PROTOTYPE ===== */
+#proto{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;gap:4px;align-items:center;
+  padding:5px 10px;background:#12241b;color:#eaf6ee;font-size:11px;overflow-x:auto}
+#proto b{margin-right:8px;color:var(--sun);font-size:10px;letter-spacing:.08em}
+#proto button{color:#cfe3d6;padding:3px 8px;border-radius:8px;font-size:11px;white-space:nowrap}
+#proto button.on{background:var(--corail);color:#fff}
+#proto .sep{width:1px;height:14px;background:rgba(255,255,255,.2);margin:0 4px}
+
+/* ===== SCREENS ===== */
+.screen{display:none;flex-direction:column;height:100vh;padding-top:34px}
+.screen.on{display:flex}
+
+/* ===== APP BAR flottante arrondie ===== */
+.appbar{flex:none;display:flex;align-items:center;gap:10px;margin:8px 8px 0;height:52px;padding:0 14px;
+  background:var(--panel);border-radius:16px;box-shadow:var(--shadow)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px;letter-spacing:.06em}
+.crest{width:24px;height:26px}
+.navlink{font-size:12px;font-weight:600;color:var(--muted);padding:7px 13px;border-radius:11px}
+.navlink.on{color:var(--ink);background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.spacer{flex:1}
+.iconbtn{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;font-size:14px;color:var(--muted)}
+.iconbtn:hover{background:var(--panel2)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-weight:700;font-size:12px;color:#12241b}
+
+/* ===== BOUTONS ===== */
+.btn{padding:9px 16px;border-radius:13px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.btn.primary{background:var(--corail);color:#fff;box-shadow:0 4px 14px rgba(255,107,87,.35)}
+.btn.sun{background:var(--sun);color:#12241b;box-shadow:0 4px 14px rgba(255,194,68,.3)}
+.btn.ghost{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.btn.mint{background:var(--mint);color:#fff;box-shadow:0 4px 14px rgba(49,196,141,.3)}
+.btn.sm{padding:6px 11px;font-size:12px;border-radius:11px}
+.pill{padding:4px 11px;border-radius:99px;font-size:11px;font-weight:700}
+.pill.ready{background:var(--mint);color:#fff}
+.pill.draft{background:var(--sun);color:#12241b}
+
+/* ===== BARRE ÉQUIPE ===== */
+.teambar{flex:none;display:flex;align-items:center;gap:7px;margin:8px 8px 0;height:48px;padding:0 10px;
+  background:var(--panel);border-radius:16px;box-shadow:var(--shadow)}
+.tab{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:12px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tab .dot{width:8px;height:8px;border-radius:50%}
+.tab.on{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);font-weight:700}
+.tab .caret{font-size:9px;opacity:.5}
+.newtab{font-size:12.5px;font-weight:700;color:var(--corail);padding:8px 12px;border-radius:12px}
+.newtab:hover{background:var(--panel2)}
+
+/* ===== ÉDITEUR : panneaux flottants arrondis ===== */
+.work{flex:1;display:flex;min-height:0;gap:8px;padding:8px;position:relative}
+.panel{background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.panel.scripts{width:255px;flex:none}
+.panel.code{width:430px;flex:none}
+.panel.pitchpanel{flex:1}
+.colhead{height:44px;flex:none;display:flex;align-items:center;gap:9px;padding:0 14px;font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.colhead .plus{margin-left:auto;width:26px;height:26px;border-radius:10px;background:var(--corail);color:#fff;font-size:15px;display:grid;place-items:center}
+.scriptlist{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:4px}
+.srow{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--r-sm);font-size:12.5px}
+.srow:hover{background:var(--panel2)}
+.srow.on{background:var(--panel2);box-shadow:inset 0 0 0 1.5px var(--corail);font-weight:700}
+.st{width:8px;height:8px;border-radius:50%;flex:none}
+.st.ok{background:var(--mint)} .st.err{background:var(--corail)} .st.warn{background:var(--sun)}
+.srow .as{margin-left:auto;font-size:10px;font-weight:700;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:99px}
+.scripthint{flex:none;margin:8px;padding:9px 12px;border-radius:var(--r-sm);background:var(--panel2);font-size:11px;color:var(--muted);line-height:1.5}
+
+/* terrain */
+.pitchpanel{position:relative}
+.pitch{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--pitch) 0 78px,var(--pitch-dark) 78px 156px)}
+.pmark{position:absolute;inset:0}
+.pmark .midline{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--mark)}
+.pmark .mid{position:absolute;width:120px;height:120px;left:50%;top:50%;transform:translate(-50%,-50%);border:2px solid var(--mark);border-radius:50%}
+.pmark .boxL,.pmark .boxR{position:absolute;top:50%;transform:translateY(-50%);width:110px;height:300px;border:2px solid var(--mark)}
+.pmark .boxL{left:0;border-left:none;border-radius:0 12px 12px 0}
+.pmark .boxR{right:0;border-right:none;border-radius:12px 0 0 12px}
+.pmark .goalL,.pmark .goalR{position:absolute;top:50%;transform:translateY(-50%);width:8px;height:200px;background:var(--mark)}
+.pmark .goalL{left:0;border-radius:0 6px 6px 0}
+.pmark .goalR{right:0;border-radius:6px 0 0 6px}
+.walls{position:absolute;inset:0;box-shadow:inset 0 0 0 6px rgba(10,20,14,.16),inset 0 0 0 9px rgba(255,255,255,.42);pointer-events:none}
+.blason{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:104px;height:104px;border-radius:50%;
+  background:rgba(255,255,255,.94);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.2);pointer-events:none}
+.blason img{width:86px;height:86px;object-fit:contain}
+.player{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;z-index:2}
+.player::before{content:'';position:absolute;top:24px;left:50%;transform:translateX(-50%);width:30px;height:10px;border-radius:50%;background:rgba(0,0,0,.2);filter:blur(3px);z-index:0}
+.pnum{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;position:relative;z-index:1;
+  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.38), rgba(255,255,255,0) 45%);
+  box-shadow:0 3px 7px rgba(0,0,0,.3), inset 0 -4px 8px rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,255,255,.85);
+  text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.player.sel .pnum{transform:scale(1.08)}
+.t-red .pnum{background:#e4573f}.t-blue .pnum{background:#3d8fd1}
+.player.sel .pnum{outline:3px solid var(--sun);outline-offset:2px}
+.ptag{font-size:10px;font-weight:700;background:rgba(10,20,14,.55);color:#fff;padding:2px 9px;border-radius:99px;white-space:nowrap;backdrop-filter:blur(3px)}
+.ptag.none{opacity:.6;font-style:italic}
+.ball{position:absolute;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 2px rgba(0,0,0,.18);z-index:3}
+.chip{position:absolute;z-index:5;background:rgba(10,20,14,.55);color:#fff;font-size:11px;font-weight:700;
+  padding:6px 12px;border-radius:11px;backdrop-filter:blur(4px)}
+.chip.tl{top:12px;left:12px}
+.chip.play{top:12px;left:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.zoomctl{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:5px;z-index:5}
+.zoomctl button{width:30px;height:30px;border-radius:10px;background:rgba(10,20,14,.55);color:#fff;font-size:13px;backdrop-filter:blur(4px)}
+
+/* code */
+.codebody{flex:1;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.75;padding:10px 0}
+.cl{display:flex;gap:14px;padding:0 14px;white-space:pre}
+.cl .ln{color:var(--muted);opacity:.45;width:22px;text-align:right;flex:none;user-select:none}
+.cl .no{color:var(--corail)} .cl .kw{color:#b06cd9} .cl .str{color:#4caf6d} .cl .fn{color:#3d8fd1} .cl .cm{color:var(--muted);font-style:italic}
+[data-theme="dark"] .cl .kw{color:#c98ae8}[data-theme="dark"] .cl .str{color:#7fd39a}[data-theme="dark"] .cl .fn{color:#6db3ef}
+.codefoot{flex:none;height:36px;display:flex;align-items:center;gap:10px;padding:0 14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.codefoot .savedot{width:7px;height:7px;border-radius:50%;background:var(--mint)}
+
+/* ===== MATCH ===== */
+.mstage{flex:1;display:flex;min-height:0;gap:8px;padding:8px 8px 0;position:relative}
+.mstage .pitchpanel{flex:1}
+.drawer{width:300px;flex:none}
+.drawtabs{height:44px;flex:none;display:flex;border-bottom:1px solid var(--line)}
+.drawtabs button{flex:1;font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;border-radius:0}
+.drawtabs button.on{color:var(--ink);box-shadow:inset 0 -2.5px 0 var(--corail)}
+.loglist{flex:1;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:4px}
+.logrow{display:flex;gap:10px;padding:9px 11px;border-radius:var(--r-sm);font-size:12px;line-height:1.5;align-items:flex-start}
+.logrow:hover{background:var(--panel2)}
+.logrow .min{flex:none;font-weight:800;color:var(--muted);font-size:11px;width:26px;padding-top:1px}
+.logrow.goal{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.badge{flex:none;font-size:9px;font-weight:800;padding:2px 7px;border-radius:7px;letter-spacing:.05em}
+.badge.but{background:var(--sun);color:#12241b}
+.badge.card{background:#f6c344;color:#12241b;width:12px;height:15px;padding:0;border-radius:4px;align-self:center}
+.badge.tir{background:var(--panel);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.scorepill{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:11px;
+  background:rgba(10,20,14,.6);color:#fff;padding:8px 18px;border-radius:14px;font-weight:800;font-size:13px;backdrop-filter:blur(5px);box-shadow:var(--shadow-lg)}
+.scorepill .sc{font-size:17px;color:var(--sun)}
+.scorepill .frm{font-weight:400;font-size:11px;opacity:.75}
+.exit{position:absolute;top:12px;left:12px;z-index:6;background:rgba(10,20,14,.6);color:#fff;font-weight:700;font-size:12px;
+  padding:7px 13px;border-radius:11px;backdrop-filter:blur(4px)}
+.mtimeline{flex:none;margin:8px;height:56px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow)}
+.tpbtn{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:13px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.tpbtn.play{background:var(--corail);color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(255,107,87,.35)}
+.scrub{flex:1;height:9px;border-radius:99px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);position:relative}
+.scrub .fill{position:absolute;left:0;top:0;bottom:0;width:35%;border-radius:99px;background:var(--corail)}
+.gmark{position:absolute;top:50%;transform:translate(-50%,-50%);width:15px;height:15px;border-radius:50%;background:var(--sun);
+  border:2.5px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:2}
+.tinfo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* overlays */
+.ovl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:10;
+  background:rgba(10,20,14,.55);backdrop-filter:blur(3px);border-radius:inherit}
+.ovl .big{font-size:34px;font-weight:800;color:#fff;letter-spacing:.04em}
+.spin{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:var(--sun);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.conf{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:9}
+.conf i{position:absolute;top:-16px;width:9px;height:15px;border-radius:3px;animation:fall linear infinite}
+@keyframes fall{to{transform:translateY(110vh) rotate(680deg)}}
+
+/* ===== MOMENTS (cartes Ronde) ===== */
+.moments{flex:1;overflow:auto;padding:12px 8px 8px;display:flex;gap:12px;align-items:flex-start}
+.flow{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.fcard{background:var(--panel);border-radius:22px;box-shadow:var(--shadow);padding:20px}
+.h1{font-size:22px;font-weight:800}
+.h2{font-size:14px;font-weight:700}
+.sub{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.5}
+.rail{width:235px;flex:none;background:var(--panel);border-radius:22px;box-shadow:var(--shadow);padding:15px}
+.rrow{display:flex;align-items:center;gap:9px;padding:8px 7px;border-radius:12px;font-size:12.5px}
+.rrow .rk{width:22px;font-weight:800;color:var(--muted);font-size:12px}
+.rrow .elo{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.rrow.you{background:var(--sun);color:#12241b;font-weight:700;box-shadow:0 4px 12px rgba(255,194,68,.4)}
+.rrow.you .rk,.rrow.you .elo{color:#12241b}
+.opp{display:flex;align-items:center;gap:12px;background:var(--panel2);border-radius:16px;padding:13px}
+.opp .bl{font-size:22px}
+.opp .elo{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+table.tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.tb th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line)}
+.tb td{padding:10px 12px;border-bottom:1px solid var(--line)}
+.tb tr:last-child td{border-bottom:none}
+.tb tr.you td{background:rgba(255,194,68,.16);font-weight:700}
+.tb td:first-child{border-radius:10px 0 0 10px}.tb td:last-child{border-radius:0 10px 10px 0}
+
+/* auth */
+.auth{flex:1;display:grid;place-items:center;padding:20px}
+.acard{width:410px;background:var(--panel);border-radius:26px;box-shadow:var(--shadow-lg);padding:32px;display:flex;flex-direction:column;gap:13px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.field input{border:1.5px solid var(--line);background:var(--panel2);border-radius:13px;padding:11px 14px;font-size:13px;color:var(--ink);outline:none}
+.field input:focus{border-color:var(--corail)}
+
+/* modals */
+.veil{position:absolute;inset:0;z-index:20;background:rgba(10,20,14,.45);display:grid;place-items:center;backdrop-filter:blur(3px)}
+.modal{width:440px;background:var(--panel);border-radius:24px;box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:14px}
+.swatches{display:flex;gap:10px}
+.sw{width:52px;height:52px;border-radius:16px;position:relative;box-shadow:var(--shadow)}
+.sw.on::after{content:'';position:absolute;inset:-5px;border-radius:20px;border:3px solid var(--ink)}
+.emojirow{display:flex;gap:7px;flex-wrap:wrap}
+.emojirow button{width:40px;height:40px;border-radius:13px;background:var(--panel2);font-size:19px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--line)}
+.emojirow button.on{outline:3px solid var(--corail);outline-offset:1px}
+.ctx{width:195px;background:var(--panel);border-radius:16px;box-shadow:var(--shadow-lg);padding:7px;display:flex;flex-direction:column;gap:2px;position:absolute;z-index:30}
+.ctx button{text-align:left;padding:9px 12px;border-radius:11px;font-size:12.5px;font-weight:600}
+.ctx button:hover{background:var(--panel2)}
+.ctx .danger{color:var(--corail)}
+.picker{position:absolute;z-index:30;width:235px;background:var(--panel);border-radius:17px;box-shadow:var(--shadow-lg);padding:8px;display:flex;flex-direction:column;gap:3px}
+.picker .ph{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:5px 9px 7px}
+.picker button{text-align:left;padding:9px 11px;border-radius:11px;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.picker button:hover{background:var(--panel2)}
+.picker button .st{width:7px;height:7px;border-radius:50%}
+.picker .remove{color:var(--corail);font-weight:700;border-top:1px solid var(--line);border-radius:0;margin-top:3px;padding-top:10px}
+
+/* historique */
+.hrow{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:12.5px}
+.hrow:last-child{border-bottom:none}
+.res{width:26px;height:26px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:11px;color:#fff}
+.res.W{background:var(--mint)}.res.L{background:var(--corail)}.res.D{background:var(--muted)}
+.hrow .sc{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700}
+</style>
+</head>
+<body>
+
+<nav id="proto">
+  <b>LA RONDE v4</b>
+  <button onclick="go('s-login')">Login</button>
+  <button onclick="go('s-register')">Register</button>
+  <button onclick="go('s-jouer')">Jouer</button>
+  <button onclick="go('s-equipes')">Équipes</button>
+  <button onclick="go('s-picker')">Assigner</button>
+  <button onclick="go('s-equip')">Équipement</button>
+  <button onclick="go('s-newteam')">+ Équipe</button>
+  <button onclick="go('s-menu')">Menu onglet</button>
+  <span class="sep"></span>
+  <button onclick="go('s-match')">Match</button>
+  <button onclick="go('s-but')">But</button>
+  <button onclick="go('s-sim')">Simulating</button>
+  <button onclick="go('s-result')">Résultat</button>
+  <span class="sep"></span>
+  <button onclick="go('s-ranked')">Ranked</button>
+  <button onclick="go('s-palmares')">Palmarès</button>
+  <button onclick="go('s-classement')">Classement</button>
+  <span class="sep"></span>
+  <button onclick="toggleTheme()">Thème</button>
+</nav>
+
+<!-- ============ LOGIN ============ -->
+<section class="screen" id="s-login">
+  <div class="auth">
+    <div class="acard">
+      <div class="logo" style="justify-content:center;font-size:16px">
+        <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+        LACHATADEDE
+      </div>
+      <div class="sub" style="text-align:center">Le 5v5 où tes scripts jouent le match.</div>
+      <div class="field">Email<input type="email" placeholder="pelo@exemple.fr"></div>
+      <div class="field">Mot de passe<input type="password" value="••••••••"></div>
+      <button class="btn primary" onclick="go('s-jouer')">Se connecter</button>
+      <button class="btn ghost sm" style="align-self:center" onclick="go('s-register')">Pas de compte ? S'inscrire</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REGISTER ============ -->
+<section class="screen" id="s-register">
+  <div class="auth">
+    <div class="acard">
+      <div class="h1">Rejoindre le stade</div>
+      <div class="sub">Crée ton compte, recrute tes scripts, monte au classement.</div>
+      <div class="field">Nom d'utilisateur<input value="Pelo"></div>
+      <div class="field">Email<input type="email" placeholder="pelo@exemple.fr"></div>
+      <div class="field">Mot de passe<input type="password" value="••••••••"></div>
+      <button class="btn primary" onclick="go('s-jouer')">Créer mon compte</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ JOUER ============ -->
+<section class="screen" id="s-jouer">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink on">Jouer</button>
+    <button class="navlink" onclick="go('s-equipes')">Équipes</button>
+    <button class="navlink" onclick="go('s-palmares')">Palmarès</button>
+    <button class="navlink" onclick="go('s-classement')">Classement</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="moments">
+    <div class="flow">
+      <div class="fcard" style="display:flex;align-items:center;gap:14px">
+        <div style="flex:1">
+          <div class="h1">Salut Pelo</div>
+          <div class="sub">« Les Roulants » est prête. Elo <b>1242</b> · 34e du classement.</div>
+        </div>
+        <button class="btn primary" onclick="go('s-ranked')">Match classé</button>
+        <button class="btn sun" onclick="go('s-sim')">Test vs Bot</button>
+        <button class="btn ghost" onclick="go('s-match')">Revoir le dernier match</button>
+      </div>
+      <div class="fcard">
+        <div class="h2" style="margin-bottom:11px">Adversaires du moment</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="opp"><span class="bl">🦊</span><div><b style="font-size:12.5px">Gégé FC</b><div class="sub">5 tactiques</div></div><div class="elo">1302</div></div>
+          <div class="opp"><span class="bl">🦁</span><div><b style="font-size:12.5px">Thib's Team</b><div class="sub">3 tactiques</div></div><div class="elo">1187</div></div>
+          <div class="opp"><span class="bl">🐺</span><div><b style="font-size:12.5px">Kev League</b><div class="sub">1 tactique</div></div><div class="elo">1298</div></div>
+        </div>
+      </div>
+      <div class="fcard">
+        <div class="h2" style="margin-bottom:6px">Historique</div>
+        <div class="hrow"><div class="res W">V</div> vs Gégé FC <span class="pill ready" style="margin-left:8px">+21</span><span class="sc">2 – 0</span></div>
+        <div class="hrow"><div class="res L">D</div> vs Move United <span class="pill draft" style="margin-left:8px">−12</span><span class="sc">1 – 2</span></div>
+        <div class="hrow"><div class="res W">V</div> vs Thib's Team <span class="pill ready" style="margin-left:8px">+18</span><span class="sc">3 – 1</span></div>
+      </div>
+    </div>
+    <aside class="rail">
+      <div class="h2" style="margin-bottom:8px">Top classement</div>
+      <div class="rrow"><span class="rk">1</span> ⚽ MoveUnited <span class="elo">1410</span></div>
+      <div class="rrow"><span class="rk">2</span> 🦊 GégéFC <span class="elo">1355</span></div>
+      <div class="rrow"><span class="rk">3</span> 🐺 Kevleague <span class="elo">1298</span></div>
+      <div class="rrow"><span class="rk">4</span> 🦁 ThibsTeam <span class="elo">1187</span></div>
+      <div class="rrow you"><span class="rk">34</span> Pelo <span class="elo">1242</span></div>
+      <button class="btn ghost sm" style="width:100%;margin-top:9px" onclick="go('s-classement')">Voir tout le classement</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ ÉQUIPES — scripts | code | terrain ============ -->
+<section class="screen" id="s-equipes">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink on">Équipes</button>
+    <button class="navlink" onclick="go('s-palmares')">Palmarès</button>
+    <button class="navlink" onclick="go('s-classement')">Classement</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="go('s-equip')" title="Équipement">✦</button>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="teambar">
+    <button class="tab on"><span class="dot" style="background:var(--mint)"></span> Les Roulants <span class="caret">▾</span></button>
+    <button class="tab" onclick="go('s-menu')"><span class="dot" style="background:var(--sun)"></span> Barca 2.0 <span class="caret">▾</span></button>
+    <button class="newtab" onclick="go('s-newteam')">+ Nouvelle équipe</button>
+    <div class="spacer"></div>
+    <span class="pill draft">Brouillon</span>
+    <button class="btn mint sm">Prêt pour le match</button>
+    <button class="btn sun sm" onclick="go('s-sim')">Test vs Bot</button>
+  </div>
+  <div class="work">
+    <div class="panel scripts">
+      <div class="colhead">Scripts<span class="plus">+</span></div>
+      <div class="scriptlist">
+        <div class="srow on"><span class="st ok"></span> pressing.js <span class="as">3</span></div>
+        <div class="srow"><span class="st ok"></span> gardien.js <span class="as">1</span></div>
+        <div class="srow"><span class="st warn"></span> aile-gauche.js <span class="as">1</span></div>
+        <div class="srow"><span class="st err"></span> ataque.js <span class="as">0</span></div>
+        <div class="srow"><span class="st ok"></span> pivot.js <span class="as">0</span></div>
+      </div>
+      <div class="scripthint">Clique un joueur du terrain pour lui assigner un script. Un script peut être partagé par plusieurs joueurs.</div>
+    </div>
+    <div class="panel code">
+      <div class="colhead"><span class="st ok"></span> pressing.js</div>
+      <div class="codebody">
+<div class="cl"><span class="ln">1</span><span class="cm">// pressing agressif à 3</span></div>
+<div class="cl"><span class="ln">2</span><span class="kw">const</span> <span class="fn">onTick</span> = ({ <span class="no">me</span>, ball, mates }) <span class="kw">=></span> {</div>
+<div class="cl"><span class="ln">3</span>  <span class="kw">const</span> nearest = <span class="fn">closest</span>(mates, ball);</div>
+<div class="cl"><span class="ln">4</span>  <span class="kw">if</span> (me === nearest) {</div>
+<div class="cl"><span class="ln">5</span>    <span class="kw">return</span> <span class="fn">chase</span>(ball, { <span class="no">sprint</span>: <span class="str">true</span> });</div>
+<div class="cl"><span class="ln">6</span>  }</div>
+<div class="cl"><span class="ln">7</span>  <span class="kw">return</span> <span class="fn">cover</span>(<span class="fn">lane</span>(ball, <span class="str">'goal'</span>));</div>
+<div class="cl"><span class="ln">8</span>};</div>
+      </div>
+      <div class="codefoot"><span class="savedot"></span> Enregistré · il y a 2s <span class="spacer"></span> JS · 8 lignes</div>
+    </div>
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div>
+        <div class="midline"></div><div class="mid"></div>
+        <div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div>
+      </div>
+      <button class="chip play" onclick="go('s-sim')"><span style="font-size:9px">▶</span> Test</button>
+      <div class="player t-red sel" style="left:12%;top:50%"><div class="pnum">1</div><div class="ptag">gardien.js</div></div>
+      <div class="player t-red" style="left:32%;top:26%"><div class="pnum">4</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:32%;top:74%"><div class="pnum">5</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:56%;top:36%"><div class="pnum">8</div><div class="ptag">aile-gauche.js</div></div>
+      <div class="player t-red" style="left:56%;top:66%"><div class="pnum">9</div><div class="ptag none">non assigné</div></div>
+      <div class="player t-blue" style="left:88%;top:50%"><div class="pnum">1</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:28%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:40%"><div class="pnum">8</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:62%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:52%;top:50%"></div>
+      <div class="zoomctl"><button>＋</button><button>－</button><button>⤢</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ASSIGNER ============ -->
+<section class="screen" id="s-picker">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink on">Équipes</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="teambar">
+    <button class="tab on"><span class="dot" style="background:var(--mint)"></span> Les Roulants</button>
+    <div class="spacer"></div>
+    <span class="pill draft">Brouillon</span>
+    <button class="btn mint sm">Prêt pour le match</button>
+  </div>
+  <div class="work">
+    <div class="panel scripts">
+      <div class="colhead">Scripts<span class="plus">+</span></div>
+      <div class="scriptlist">
+        <div class="srow on"><span class="st ok"></span> pressing.js <span class="as">3</span></div>
+        <div class="srow"><span class="st ok"></span> gardien.js <span class="as">1</span></div>
+        <div class="srow"><span class="st warn"></span> aile-gauche.js <span class="as">1</span></div>
+        <div class="srow"><span class="st err"></span> ataque.js <span class="as">0</span></div>
+      </div>
+    </div>
+    <div class="panel code">
+      <div class="colhead"><span class="st ok"></span> pressing.js</div>
+      <div class="codebody">
+<div class="cl"><span class="ln">1</span><span class="cm">// clique un joueur pour changer son script</span></div>
+<div class="cl"><span class="ln">2</span><span class="kw">const</span> <span class="fn">onTick</span> = ({ me, ball }) <span class="kw">=></span> {</div>
+<div class="cl"><span class="ln">3</span>  <span class="kw">return</span> <span class="fn">chase</span>(ball);</div>
+<div class="cl"><span class="ln">4</span>};</div>
+      </div>
+    </div>
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red sel" style="left:56%;top:66%"><div class="pnum">9</div><div class="ptag none">non assigné</div></div>
+      <div class="player t-red" style="left:12%;top:50%"><div class="pnum">1</div><div class="ptag">gardien.js</div></div>
+      <div class="player t-red" style="left:32%;top:26%"><div class="pnum">4</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:32%;top:74%"><div class="pnum">5</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:56%;top:36%"><div class="pnum">8</div><div class="ptag">aile-gauche.js</div></div>
+      <div class="player t-blue" style="left:88%;top:50%"><div class="pnum">1</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:28%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:40%"><div class="pnum">8</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:62%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:52%;top:50%"></div>
+      <div class="picker" style="left:calc(56% + 24px);top:calc(66% + 12px)">
+        <div class="ph">Assigner à n°9</div>
+        <button><span class="st" style="background:var(--mint)"></span> pressing.js <span style="margin-left:auto;font-size:10px;color:var(--muted)">3</span></button>
+        <button><span class="st" style="background:var(--mint)"></span> gardien.js</button>
+        <button><span class="st" style="background:var(--sun)"></span> aile-gauche.js</button>
+        <button><span class="st" style="background:var(--corail)"></span> ataque.js</button>
+        <button class="remove">Retirer le script</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÉQUIPEMENT ============ -->
+<section class="screen" id="s-equip">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink on">Équipes</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="teambar">
+    <button class="tab on"><span class="dot" style="background:var(--mint)"></span> Les Roulants</button>
+    <div class="spacer"></div>
+    <button class="btn ghost sm" onclick="go('s-equipes')">Retour à l'éditeur</button>
+  </div>
+  <div class="work">
+    <div class="panel pitchpanel" style="flex:1">
+      <div class="pitch" style="filter:brightness(.8)"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:12%;top:50%"><div class="pnum">1</div><div class="ptag">gardien.js</div></div>
+      <div class="player t-red" style="left:32%;top:26%"><div class="pnum">4</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:32%;top:74%"><div class="pnum">5</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:56%;top:36%"><div class="pnum">8</div><div class="ptag">aile-gauche.js</div></div>
+      <div class="player t-red" style="left:56%;top:66%"><div class="pnum">9</div><div class="ptag">pivot.js</div></div>
+    </div>
+    <div class="veil" style="border-radius:var(--r)">
+      <div class="modal">
+        <div class="h1">Équipement — Les Roulants</div>
+        <div class="field">Nom de l'équipe<input value="Les Roulants"></div>
+        <div class="field">Couleur maillot
+          <div class="swatches">
+            <div class="sw on" style="background:#e4573f"></div>
+            <div class="sw" style="background:#4aa8e8"></div>
+            <div class="sw" style="background:#31c48d"></div>
+            <div class="sw" style="background:#ffc244"></div>
+            <div class="sw" style="background:#9b6ce8"></div>
+            <div class="sw" style="background:#12241b"></div>
+          </div>
+        </div>
+        <div class="field">Blason
+          <div class="emojirow">
+            <button class="on">⚽</button><button>🦊</button><button>🐺</button><button>🦁</button><button>🐸</button><button>🚀</button><button>🐙</button><button>🔥</button><button>👑</button><button>🍕</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:2px">
+          <button class="btn ghost" onclick="go('s-equipes')">Annuler</button>
+          <button class="btn primary" onclick="go('s-equipes')">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NOUVELLE ÉQUIPE ============ -->
+<section class="screen" id="s-newteam">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink on">Équipes</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="teambar">
+    <button class="tab on"><span class="dot" style="background:var(--mint)"></span> Les Roulants</button>
+    <button class="tab"><span class="dot" style="background:var(--sun)"></span> Barca 2.0</button>
+    <div class="spacer"></div>
+    <button class="btn mint sm">Prêt pour le match</button>
+  </div>
+  <div class="work">
+    <div class="panel pitchpanel" style="flex:1">
+      <div class="pitch" style="filter:brightness(.8)"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+    </div>
+    <div class="veil" style="border-radius:var(--r)">
+      <div class="modal">
+        <div class="h1">Nouvelle équipe</div>
+        <div class="field">Nom de l'équipe<input placeholder="Ex : Les Bleus du JS"></div>
+        <div class="sub">Ton équipe démarre avec 5 scripts d'exemple et un maillot par défaut. Tu pourras tout customiser ensuite.</div>
+        <div style="display:flex;gap:9px;justify-content:flex-end">
+          <button class="btn ghost">Annuler</button>
+          <button class="btn primary" onclick="go('s-equipes')">Créer l'équipe</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MENU ONGLET ============ -->
+<section class="screen" id="s-menu">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink on">Équipes</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="teambar" style="position:relative">
+    <button class="tab on"><span class="dot" style="background:var(--mint)"></span> Les Roulants</button>
+    <button class="tab" style="position:relative;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);font-weight:700">
+      <span class="dot" style="background:var(--sun)"></span> Barca 2.0 <span class="caret">▾</span>
+      <div class="ctx" style="top:44px;left:0">
+        <button>Renommer</button>
+        <button onclick="go('s-equip')">Équipement</button>
+        <button>Dupliquer</button>
+        <button class="danger">Supprimer…</button>
+      </div>
+    </button>
+    <div class="spacer"></div>
+    <button class="btn mint sm">Prêt pour le match</button>
+  </div>
+  <div class="work">
+    <div class="panel scripts">
+      <div class="colhead">Scripts<span class="plus">+</span></div>
+      <div class="scriptlist">
+        <div class="srow"><span class="st ok"></span> tiki-taka.js <span class="as">4</span></div>
+        <div class="srow"><span class="st err"></span> bus-parque.js <span class="as">0</span></div>
+      </div>
+    </div>
+    <div class="panel code">
+      <div class="colhead"><span class="st ok"></span> tiki-taka.js</div>
+      <div class="codebody">
+<div class="cl"><span class="ln">1</span><span class="cm">// une touche, deux touches, trois touches…</span></div>
+      </div>
+    </div>
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:12%;top:50%"><div class="pnum">1</div><div class="ptag">tiki-taka.js</div></div>
+      <div class="player t-red" style="left:32%;top:26%"><div class="pnum">4</div><div class="ptag">tiki-taka.js</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MATCH ============ -->
+<section class="screen" id="s-match">
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <button class="exit">Quitter</button>
+      <div class="scorepill">
+        <span style="color:#ff9d8c">LES ROULANTS</span>
+        <span class="sc">2 – 1</span>
+        <span style="color:#9cc9ee">FC BOT</span>
+        <span class="frm">84' · frame 84/240</span>
+      </div>
+      <div class="player t-red" style="left:20%;top:50%"><div class="pnum">1</div><div class="ptag">gardien.js</div></div>
+      <div class="player t-red" style="left:40%;top:28%"><div class="pnum">4</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:38%;top:70%"><div class="pnum">5</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red sel" style="left:64%;top:38%"><div class="pnum">8</div><div class="ptag">aile-gauche.js</div></div>
+      <div class="player t-red" style="left:75%;top:60%"><div class="pnum">9</div><div class="ptag">pivot.js</div></div>
+      <div class="player t-blue" style="left:90%;top:50%"><div class="pnum">1</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:70%;top:30%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:55%;top:45%"><div class="pnum">8</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:52%;top:60%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:80%;top:48%"></div>
+    </div>
+    <aside class="panel drawer">
+      <div class="drawtabs">
+        <button class="on">Logs</button>
+        <button>Stats</button>
+      </div>
+      <div class="loglist">
+        <div class="logrow goal"><span class="min">12'</span><span class="badge but">BUT</span><div><b>#9 Le Renard</b> — Les Roulants<br><span style="color:var(--muted);font-size:11px">passe de #8 · frame 24</span></div></div>
+        <div class="logrow"><span class="min">23'</span><span class="badge card"></span><div>Carton jaune — #5 FC Bot</div></div>
+        <div class="logrow goal"><span class="min">37'</span><span class="badge but">BUT</span><div><b>#8 Bot</b> — FC Bot<br><span style="color:var(--muted);font-size:11px">contre-attaque · frame 74</span></div></div>
+        <div class="logrow"><span class="min">45'</span><span class="badge tir">MT</span><div>Mi-temps — possession 54% / 46%</div></div>
+        <div class="logrow"><span class="min">61'</span><span class="badge tir">TIR</span><div>Tir non cadré — #4 Les Roulants</div></div>
+        <div class="logrow goal"><span class="min">72'</span><span class="badge but">BUT</span><div><b>#8 L'Artiste</b> — Les Roulants<br><span style="color:var(--muted);font-size:11px">frappe lointaine · frame 144</span></div></div>
+        <div class="logrow"><span class="min">84'</span><span class="badge tir">OCC</span><div>Occasion — #9 se présente seul…</div></div>
+      </div>
+    </aside>
+  </div>
+  <div class="mtimeline">
+    <button class="tpbtn">⏮</button>
+    <button class="tpbtn play">▶</button>
+    <button class="tpbtn">⏭</button>
+    <span class="tinfo">1×</span>
+    <div class="scrub">
+      <div class="fill"></div>
+      <div class="gmark" style="left:10%"></div>
+      <div class="gmark" style="left:31%"></div>
+      <div class="gmark" style="left:60%"></div>
+    </div>
+    <span class="tinfo">frame 84 / 240 · 84'</span>
+    <button class="btn ghost sm">Plein écran</button>
+  </div>
+</section>
+
+<!-- ============ BUT ============ -->
+<section class="screen" id="s-but">
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="conf">
+        <i style="left:8%;background:var(--corail);animation-duration:2.4s"></i><i style="left:18%;background:var(--sun);animation-duration:3.1s"></i>
+        <i style="left:29%;background:var(--mint);animation-duration:2.7s"></i><i style="left:41%;background:var(--sky);animation-duration:3.4s"></i>
+        <i style="left:52%;background:var(--corail);animation-duration:2.2s"></i><i style="left:63%;background:var(--sun);animation-duration:3s"></i>
+        <i style="left:74%;background:var(--mint);animation-duration:2.6s"></i><i style="left:85%;background:var(--sky);animation-duration:3.3s"></i>
+        <i style="left:94%;background:var(--corail);animation-duration:2.8s"></i>
+      </div>
+      <div class="scorepill"><span style="color:#ff9d8c">LES ROULANTS</span><span class="sc">3 – 1</span><span style="color:#9cc9ee">FC BOT</span></div>
+      <div class="ovl" style="background:rgba(10,20,14,.35)">
+        <div class="big" style="color:var(--sun);text-shadow:0 4px 24px rgba(0,0,0,.45)">BUUUT !</div>
+        <div style="color:#fff;font-weight:700">#8 L'Artiste · 72' · frappe de 25 mètres</div>
+        <div class="chip" style="position:static">Les Roulants mènent 3 – 1</div>
+      </div>
+    </div>
+  </div>
+  <div class="mtimeline">
+    <button class="tpbtn">⏮</button>
+    <button class="tpbtn play">⏸</button>
+    <button class="tpbtn">⏭</button>
+    <span class="tinfo">1×</span>
+    <div class="scrub"><div class="fill" style="width:60%"></div><div class="gmark" style="left:10%"></div><div class="gmark" style="left:31%"></div><div class="gmark" style="left:60%;background:var(--corail)"></div></div>
+    <span class="tinfo">frame 144 / 240 · 72'</span>
+    <button class="btn ghost sm">Plein écran</button>
+  </div>
+</section>
+
+<!-- ============ SIMULATING ============ -->
+<section class="screen" id="s-sim">
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="Deschamps"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:12%;top:50%"><div class="pnum">1</div><div class="ptag">gardien.js</div></div>
+      <div class="player t-red" style="left:32%;top:26%"><div class="pnum">4</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:32%;top:74%"><div class="pnum">5</div><div class="ptag">pressing.js</div></div>
+      <div class="player t-red" style="left:56%;top:36%"><div class="pnum">8</div><div class="ptag">aile-gauche.js</div></div>
+      <div class="player t-red" style="left:56%;top:66%"><div class="pnum">9</div><div class="ptag">pivot.js</div></div>
+      <div class="player t-blue" style="left:88%;top:50%"><div class="pnum">1</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:28%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:68%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:40%"><div class="pnum">8</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:47%;top:62%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:52%;top:50%"></div>
+      <div class="ovl">
+        <div class="spin"></div>
+        <div class="big">Simulation en cours…</div>
+        <div class="chip" style="position:static">240 frames · environ 4 secondes</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RÉSULTAT ============ -->
+<section class="screen" id="s-result">
+  <div class="auth">
+    <div class="acard" style="width:490px;text-align:center">
+      <div style="width:66px;height:66px;border-radius:50%;background:var(--mint);color:#fff;display:grid;place-items:center;font-size:30px;font-weight:800;margin:0 auto;box-shadow:0 8px 22px rgba(49,196,141,.4)">V</div>
+      <div class="h1" style="font-size:26px;color:var(--mint)">Victoire</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0">
+        <div style="font-weight:800">Les Roulants</div>
+        <div style="font-size:30px;font-weight:800;font-family:'JetBrains Mono',monospace">3 – 1</div>
+        <div style="font-weight:800;color:var(--muted)">FC Bot</div>
+      </div>
+      <span class="pill ready" style="align-self:center;font-size:13px;padding:6px 16px">+18 elo · 1242 → 1260</span>
+      <div class="sub">Buts : #9 (12'), #8 (72') — L'Artiste, homme du match</div>
+      <div style="display:flex;gap:9px;justify-content:center;margin-top:8px">
+        <button class="btn ghost" onclick="go('s-match')">Revoir le match</button>
+        <button class="btn primary" onclick="go('s-jouer')">Retour au stade</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RANKED ============ -->
+<section class="screen" id="s-ranked">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink on">Jouer</button>
+    <button class="navlink" onclick="go('s-equipes')">Équipes</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="moments">
+    <div class="flow" style="max-width:640px;margin:0 auto;width:100%">
+      <div class="fcard" style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div class="h1">Match classé</div>
+          <div class="sub">Choisis ton équipe et ton adversaire. Ton elo est en jeu.</div>
+        </div>
+        <select style="border:1.5px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;padding:10px 13px;font-size:13px;outline:none">
+          <option>Les Roulants · Prête</option>
+          <option>Barca 2.0 · Brouillon</option>
+        </select>
+      </div>
+      <div class="fcard" style="padding:10px;display:flex;flex-direction:column;gap:6px">
+        <div class="opp"><span class="bl">🦊</span><div><b>Gégé FC</b><div class="sub">5 tactiques · série de 3 victoires</div></div><span class="elo" style="font-size:13px">1302</span><button class="btn primary sm">Affronter</button></div>
+        <div class="opp"><span class="bl">🦁</span><div><b>Thib's Team</b><div class="sub">3 tactiques</div></div><span class="elo" style="font-size:13px">1187</span><button class="btn ghost sm">Affronter</button></div>
+        <div class="opp"><span class="bl">🐺</span><div><b>Kev League</b><div class="sub">1 tactique</div></div><span class="elo" style="font-size:13px">1298</span><button class="btn ghost sm">Affronter</button></div>
+      </div>
+      <button class="btn ghost" onclick="go('s-jouer')">Retour</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PALMARÈS ============ -->
+<section class="screen" id="s-palmares">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink" onclick="go('s-equipes')">Équipes</button>
+    <button class="navlink on">Palmarès</button>
+    <button class="navlink" onclick="go('s-classement')">Classement</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="moments">
+    <div class="flow" style="max-width:680px;margin:0 auto;width:100%">
+      <div class="fcard">
+        <div class="h1">Palmarès</div>
+        <div class="sub">Trophées et records de la communauté.</div>
+      </div>
+      <div class="fcard" style="padding:10px">
+        <table class="tb">
+          <tr><th>Trophée</th><th>Détenteur</th><th>Valeur</th></tr>
+          <tr><td>Meilleur buteur</td><td>🦊 Gégé FC</td><td>47 buts</td></tr>
+          <tr><td>Muraille</td><td>🦁 Thib's Team</td><td>8 clean sheets</td></tr>
+          <tr><td>Série en cours</td><td>⚽ Move United</td><td>9 victoires</td></tr>
+          <tr class="you"><td>Roi du classement</td><td>⚽ Move United</td><td>1410 elo</td></tr>
+          <tr><td>Meilleur script</td><td>🐸 Pelo · pressing.js</td><td>73% de duels gagnés</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLASSEMENT ============ -->
+<section class="screen" id="s-classement">
+  <header class="appbar">
+    <div class="logo">
+      <svg class="crest" viewBox="0 0 24 26"><path d="M12 1 L22 5 V14 C22 20 17 24 12 25 C7 24 2 20 2 14 V5 Z" fill="var(--corail)"/><text x="12" y="16" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Sora">DD</text></svg>
+      LACHATADEDE
+    </div>
+    <button class="navlink" onclick="go('s-jouer')">Jouer</button>
+    <button class="navlink" onclick="go('s-equipes')">Équipes</button>
+    <button class="navlink" onclick="go('s-palmares')">Palmarès</button>
+    <button class="navlink on">Classement</button>
+    <div class="spacer"></div>
+    <button class="iconbtn" onclick="toggleTheme()">☾</button>
+    <div class="avatar">P</div>
+  </header>
+  <div class="moments">
+    <div class="flow" style="max-width:680px;margin:0 auto;width:100%">
+      <div class="fcard" style="padding:10px">
+        <table class="tb">
+          <tr><th>#</th><th>Joueur</th><th>Elo</th><th>V / D</th></tr>
+          <tr><td>1</td><td>⚽ MoveUnited</td><td><b>1410</b></td><td>42 / 8</td></tr>
+          <tr><td>2</td><td>🦊 GégéFC</td><td>1355</td><td>38 / 11</td></tr>
+          <tr><td>3</td><td>🐺 Kevleague</td><td>1298</td><td>35 / 14</td></tr>
+          <tr class="you"><td>34</td><td>🐸 Pelo</td><td>1242</td><td>21 / 19</td></tr>
+          <tr><td>35</td><td>🚀 Croaky</td><td>1238</td><td>20 / 20</td></tr>
+        </table>
+      </div>
+      <button class="btn ghost" onclick="go('s-jouer')">Retour</button>
+    </div>
+  </div>
+</section>
+
+<script>
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  document.querySelectorAll('#proto button').forEach(b=>b.classList.remove('on'));
+  event && event.target.classList.add('on');
+}
+function toggleTheme(){
+  const h=document.documentElement;
+  h.dataset.theme = h.dataset.theme==='light' ? 'dark' : 'light';
+}
+go('s-equipes');
+</script>
+</body>
+</html>

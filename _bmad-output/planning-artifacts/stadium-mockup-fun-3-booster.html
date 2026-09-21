@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Fun 3 · Le Booster (light/dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6eff9; --card:#ffffff; --card2:#eef4fb; --ink:#152338; --muted:#7d92ab;
+  --orange:#ff9f1c; --orange-d:#e8820a; --yellow:#ffd166; --teal:#12b5a4; --navy:#173356;
+  --pitch1:#54b368; --pitch2:#4aa75e; --holo:conic-gradient(from 200deg,#ffd166,#ff9f1c,#12b5a4,#7ec8ff,#ffd166);
+  --shadow:0 16px 36px rgba(21,35,56,.13);
+}
+body.dark{
+  --bg:#0f1b2b; --card:#1a2940; --card2:#223350; --ink:#eef4fc; --muted:#8199b5;
+  --orange:#ffb043; --orange-d:#d98412; --yellow:#ffd166; --teal:#1fc9b6; --navy:#0c1826;
+  --pitch1:#3e8f50; --pitch2:#368246; --shadow:0 16px 36px rgba(0,0,0,.5);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100vh;transition:background .3s,color .3s}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:
+  radial-gradient(600px 300px at 82% -6%,rgba(255,159,28,.16),transparent 70%),
+  radial-gradient(600px 340px at 8% 100%,rgba(18,181,164,.14),transparent 70%)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px 100px;position:relative;z-index:1}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;letter-spacing:-.3px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px;font-size:13px;font-weight:700;background:var(--ink);color:var(--bg)}
+.ribbon b{color:var(--orange)}
+.mode-toggle{position:fixed;top:12px;right:14px;z-index:99;width:44px;height:44px;border-radius:14px;border:none;background:var(--card);font-size:18px;cursor:pointer;box-shadow:var(--shadow)}
+
+/* nav compacte */
+.top{display:flex;align-items:center;gap:16px;margin-top:24px}
+.top .logo{display:flex;align-items:center;gap:11px;font-family:'Bricolage Grotesque';font-weight:800;font-size:19px}
+.logo .pk{width:40px;height:40px;border-radius:14px;background:var(--holo);display:grid;place-items:center;font-size:17px;box-shadow:var(--shadow)}
+.topnav{display:flex;gap:4px;background:var(--card);border-radius:16px;padding:5px;box-shadow:var(--shadow)}
+.tn{padding:9px 22px;border-radius:12px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer}
+.tn.active{background:var(--navy);color:#fff}
+body.dark .tn.active{background:var(--orange);color:var(--navy)}
+.top .me{margin-left:auto;display:flex;align-items:center;gap:10px;font-weight:700;font-size:13.5px}
+.me .ava{width:38px;height:38px;border-radius:14px;background:var(--teal);display:grid;place-items:center;color:#fff;font-family:'Bricolage Grotesque';font-weight:800}
+
+/* ===== agencement booster : rail horizontal de grandes cartes ===== */
+.rail-head{display:flex;align-items:baseline;gap:14px;margin:40px 0 18px}
+.rail-head h2{font-size:26px;font-weight:800}
+.rail-head .hint{color:var(--muted);font-size:13px;font-weight:600}
+.rail-head .arrows{margin-left:auto;display:flex;gap:8px}
+.arrows button{width:40px;height:40px;border-radius:12px;border:none;background:var(--card);box-shadow:var(--shadow);cursor:pointer;font-size:15px;color:var(--muted)}
+.booster{display:flex;gap:18px;overflow-x:auto;padding:6px 6px 22px}
+
+.bcard{flex:0 0 272px;border-radius:26px;background:var(--card);box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;position:relative}
+.bcard .b-top{display:flex;align-items:center;justify-content:space-between}
+.b-tag{font-size:10.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+.b-num{font-family:'Bricolage Grotesque';font-weight:800;font-size:13px;color:var(--muted)}
+.b-crest{width:96px;height:96px;border-radius:30px;display:grid;place-items:center;font-size:44px;margin:18px auto 14px;background:var(--card2);box-shadow:inset 0 -6px 0 rgba(21,35,56,.06)}
+.b-name{font-family:'Bricolage Grotesque';font-weight:800;font-size:21px;text-align:center}
+.b-wl{text-align:center;font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px}
+.b-stats{display:flex;flex-direction:column;gap:8px;margin:18px 0}
+.b-stat{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.b-stat .bar{flex:1;height:8px;border-radius:4px;background:var(--card2);overflow:hidden}
+.b-stat .bar i{display:block;height:100%;border-radius:4px}
+.b-foot{margin-top:auto;display:flex;align-items:center;gap:10px}
+.b-elo{font-family:'Bricolage Grotesque';font-weight:800;font-size:19px}
+.b-play{margin-left:auto;border:none;cursor:pointer;font-family:'Bricolage Grotesque';font-weight:800;font-size:14px;color:#fff;background:var(--orange);border-radius:14px;padding:11px 24px;box-shadow:0 6px 14px rgba(232,130,10,.35)}
+.b-play:active{transform:translateY(2px)}
+
+.bcard.mystery{background:linear-gradient(160deg,var(--navy),#0d2138);color:#fff;overflow:hidden}
+body.dark .bcard.mystery{background:linear-gradient(160deg,var(--navy),#122a44)}
+.bcard.mystery::before{content:"";position:absolute;inset:-40%;background:var(--holo);opacity:.16;filter:blur(30px)}
+.bcard.mystery .b-tag{color:rgba(255,255,255,.65)}
+.bcard.mystery .b-num{color:rgba(255,255,255,.5)}
+.m-crest{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;font-size:52px;margin:26px auto 16px;background:var(--holo);position:relative;animation:spinbg 14s linear infinite}
+@keyframes spinbg{to{filter:hue-rotate(40deg)}}
+.m-title{font-family:'Bricolage Grotesque';font-weight:800;font-size:23px;text-align:center;position:relative}
+.m-sub{text-align:center;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.7);margin-top:6px;position:relative}
+.m-go{margin:auto auto 0;border:none;cursor:pointer;font-family:'Bricolage Grotesque';font-weight:800;font-size:16px;color:var(--navy);background:#fff;border-radius:16px;padding:14px;width:100%;position:relative}
+.m-go:hover{background:var(--yellow)}
+
+/* panneau à onglets */
+.tabs-card{margin-top:14px;border-radius:26px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+.tabs{display:flex;gap:6px;padding:14px 16px 0}
+.tab{padding:11px 26px;border-radius:14px 14px 0 0;font-family:'Bricolage Grotesque';font-weight:800;font-size:14.5px;color:var(--muted);cursor:pointer}
+.tab.on{background:var(--card2);color:var(--ink)}
+.tabs-card .body{background:var(--card2);padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.th-row{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:14px;font-size:13.5px;font-weight:600}
+.th-row:hover{background:var(--card)}
+.th-res{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:800;font-size:12px;color:#fff}
+.th-res.win{background:var(--teal)}
+.th-res.loss{background:var(--muted)}
+.th-score{font-family:'Bricolage Grotesque';font-weight:800;font-size:14px;width:46px}
+.th-vs{flex:1;color:var(--muted)}
+.th-elo{font-weight:800;font-size:12.5px}
+.th-elo.plus{color:var(--teal)}.th-elo.minus{color:var(--orange-d)}
+.th-time{font-size:11px;color:var(--muted)}
+.lb-line{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:14px;font-size:13.5px;font-weight:600}
+.lb-line .rk{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:800;font-size:12.5px;background:var(--card)}
+.lb-line.first .rk{background:var(--yellow)}
+.lb-line .nm{flex:1}
+.lb-line .nm .you{font-size:9.5px;font-weight:800;color:#fff;background:var(--orange);border-radius:999px;padding:2px 9px;margin-left:7px}
+.lb-line .pt{font-family:'Bricolage Grotesque';font-weight:800}
+
+/* ===== ÉQUIPES ===== */
+.eq-title{display:flex;align-items:center;gap:14px;margin:56px 0 18px}
+.eq-title h2{font-size:26px;font-weight:800}
+.eq-casiers{display:flex;gap:10px;margin-left:auto}
+.cas{display:flex;align-items:center;gap:9px;padding:8px 16px 8px 8px;border-radius:16px;background:var(--card);box-shadow:var(--shadow);font-weight:700;font-size:13.5px;cursor:pointer}
+.cas.on{outline:2.5px solid var(--orange)}
+.cas .cc{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;font-size:15px;background:linear-gradient(135deg,var(--orange),var(--yellow))}
+.cas.new{color:var(--teal);font-weight:800}
+.eq-pitch{border-radius:28px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+.eq-pitch .head{display:flex;align-items:center;gap:12px;padding:16px 20px}
+.eq-pitch .head .nm{font-family:'Bricolage Grotesque';font-weight:800;font-size:17px}
+.eq-pitch .head .rdy{margin-left:auto;font-size:11px;font-weight:800;color:#fff;background:var(--teal);border-radius:999px;padding:5px 14px}
+.eq-pitch .head .bot{font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer}
+.pitch{position:relative;height:320px;background:repeating-linear-gradient(90deg,var(--pitch1) 0 54px,var(--pitch2) 54px 108px)}
+.ln{position:absolute;border:2.5px solid rgba(255,255,255,.85);border-radius:6px}
+.ln.mid{left:50%;top:8px;bottom:8px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:108px;height:108px;border-radius:50%;transform:translate(-50%,-50%)}
+.spot{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:86px;border-radius:8px;background:rgba(255,255,255,.4);border:2.5px solid rgba(255,255,255,.85)}
+.pl{position:absolute;transform:translate(-50%,-50%);text-align:center;z-index:4}
+.p-body{width:36px;height:36px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#ffcf8a,var(--orange) 72%);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.p-body.away{background:radial-gradient(circle at 32% 26%,#8fc6ec,#5a94c8 72%)}
+.p-num{font-weight:700;font-size:14px;color:#fff}
+.p-badge{position:absolute;top:-9px;left:-9px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;background:#fff;box-shadow:var(--shadow)}
+.p-tag{display:inline-block;margin-top:6px;padding:1px 10px;border-radius:999px;background:rgba(13,33,56,.5);color:#fff;font-size:10px;font-weight:700}
+.eq-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}
+.tile{border-radius:24px;background:var(--card);box-shadow:var(--shadow);padding:18px}
+.tile h3{font-size:15px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.tile h3 .add{margin-left:auto;font-size:11px;font-weight:800;color:var(--teal);cursor:pointer}
+.sl{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px;font-weight:600;font-size:13.5px}
+.sl:hover{background:var(--card2)}
+.sl .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:14px;background:linear-gradient(135deg,var(--orange),var(--yellow))}
+.sl .cnt{margin-left:auto;font-size:11px;font-weight:800;color:var(--muted);background:var(--card2);border-radius:999px;padding:3px 10px}
+.sl .cnt.err{color:#fff;background:var(--orange-d)}
+.code{margin-top:4px;border-radius:16px;background:var(--navy);padding:14px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11.5px;line-height:1.7;white-space:pre;color:#dce9f8;overflow:hidden}
+.code .kw{color:var(--yellow)}.code .fn{color:#8fd8f5}.code .cm{color:#7d92ab;font-style:italic}
+body.dark .code{background:#0c1826}
+.c-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12.5px;font-weight:700}
+.c-row .k{width:64px;color:var(--muted)}
+.sw{width:32px;height:32px;border-radius:12px;border:none;cursor:pointer;box-shadow:inset 0 -4px 0 rgba(21,35,56,.2)}
+.sw.sel{outline:3px solid var(--orange);outline-offset:2px}
+.emo{width:34px;height:34px;display:grid;place-items:center;font-size:15px;border-radius:11px;background:var(--card2);cursor:pointer}
+.emo.sel{background:var(--yellow)}
+.c-note{margin-top:12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.footer-note{margin-top:70px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--orange)}
+</style>
+</head>
+<body>
+
+<button class="mode-toggle" onclick="document.body.classList.toggle('dark')">🌙</button>
+<div class="ribbon">FUN <b>3 · LE BOOSTER</b> — agencement neuf : rail horizontal de grandes cartes à ouvrir + panneau à onglets · 🌙 pour le dark</div>
+
+<div class="wrap">
+
+  <div class="top">
+    <span class="logo"><span class="pk">⚽</span> LACHATADEDE</span>
+    <div class="topnav"><span class="tn">Équipes</span><span class="tn active">Jouer</span></div>
+    <span class="me"><span class="ava">P</span> @Pelo</span>
+  </div>
+
+  <!-- JOUER : le booster -->
+  <div class="rail-head">
+    <h2>Ouvre un match</h2>
+    <span class="hint">chaque carte est un adversaire prêt — la simu tourne même s'ils dorment</span>
+    <div class="arrows"><button>←</button><button>→</button></div>
+  </div>
+
+  <div class="booster">
+    <div class="bcard mystery">
+      <div class="b-top"><span class="b-tag">Quick match</span><span class="b-num">N°00</span></div>
+      <div class="m-crest">🎲</div>
+      <div class="m-title">Adversaire mystère</div>
+      <div class="m-sub">tirage instantané parmi les prêts</div>
+      <button class="m-go">Ouvrir ⚡</button>
+    </div>
+
+    <div class="bcard">
+      <div class="b-top"><span class="b-tag">Carte équipe</span><span class="b-num">N°07</span></div>
+      <div class="b-crest" style="background:linear-gradient(160deg,#ffe3b3,#ffc98a)">🦁</div>
+      <div class="b-name">Kaaris FC</div>
+      <div class="b-wl">18 victoires · 4 défaites</div>
+      <div class="b-stats">
+        <div class="b-stat">Attaque<span class="bar"><i style="width:80%;background:var(--orange)"></i></span></div>
+        <div class="b-stat">Défense<span class="bar"><i style="width:64%;background:var(--teal)"></i></span></div>
+        <div class="b-stat">Forme<span class="bar"><i style="width:92%;background:var(--yellow)"></i></span></div>
+      </div>
+      <div class="b-foot"><span class="b-elo">1022</span><button class="b-play">Jouer</button></div>
+    </div>
+
+    <div class="bcard">
+      <div class="b-top"><span class="b-tag">Carte équipe</span><span class="b-num">N°12</span></div>
+      <div class="b-crest" style="background:linear-gradient(160deg,#cde9ff,#a8d4f5)">🧊</div>
+      <div class="b-name">Glacier United</div>
+      <div class="b-wl">9 victoires · 11 défaites</div>
+      <div class="b-stats">
+        <div class="b-stat">Attaque<span class="bar"><i style="width:42%;background:var(--orange)"></i></span></div>
+        <div class="b-stat">Défense<span class="bar"><i style="width:55%;background:var(--teal)"></i></span></div>
+        <div class="b-stat">Forme<span class="bar"><i style="width:38%;background:var(--yellow)"></i></span></div>
+      </div>
+      <div class="b-foot"><span class="b-elo">988</span><button class="b-play">Jouer</button></div>
+    </div>
+
+    <div class="bcard">
+      <div class="b-top"><span class="b-tag">Carte équipe</span><span class="b-num">N°01</span></div>
+      <div class="b-crest" style="background:linear-gradient(160deg,#ffd9e6,#ffb7d0)">👑</div>
+      <div class="b-name">Les Bleus de DD</div>
+      <div class="b-wl">22 victoires · 2 défaites</div>
+      <div class="b-stats">
+        <div class="b-stat">Attaque<span class="bar"><i style="width:95%;background:var(--orange)"></i></span></div>
+        <div class="b-stat">Défense<span class="bar"><i style="width:88%;background:var(--teal)"></i></span></div>
+        <div class="b-stat">Forme<span class="bar"><i style="width:97%;background:var(--yellow)"></i></span></div>
+      </div>
+      <div class="b-foot"><span class="b-elo">1187</span><button class="b-play">Jouer</button></div>
+    </div>
+  </div>
+
+  <div class="tabs-card">
+    <div class="tabs"><span class="tab on">Palmarès</span><span class="tab">Classement</span></div>
+    <div class="body">
+      <div>
+        <div class="th-row"><span class="th-res win">V</span><span class="th-score">3–1</span><span class="th-vs">vs Glacier United</span><span class="th-elo plus">+12</span><span class="th-time">2 h</span></div>
+        <div class="th-row"><span class="th-res loss">D</span><span class="th-score">1–2</span><span class="th-vs">vs Kaaris FC</span><span class="th-elo minus">−9</span><span class="th-time">hier</span></div>
+        <div class="th-row"><span class="th-res win">V</span><span class="th-score">2–0</span><span class="th-vs">vs Bleus de DD</span><span class="th-elo plus">+18</span><span class="th-time">hier</span></div>
+        <div class="th-row"><span class="th-res loss">D</span><span class="th-score">0–4</span><span class="th-vs">vs Kaaris FC</span><span class="th-elo minus">−11</span><span class="th-time">mar.</span></div>
+        <div class="th-row"><span class="th-res win">V</span><span class="th-score">5–3</span><span class="th-vs">vs Tiki-taka 2009</span><span class="th-elo plus">+7</span><span class="th-time">lun.</span></div>
+      </div>
+      <div>
+        <div class="lb-line first"><span class="rk">1</span><span class="nm">Les Bleus de DD<span class="you">TOI</span></span><span class="pt">1187</span></div>
+        <div class="lb-line"><span class="rk">2</span><span class="nm">Kaaris FC</span><span class="pt">1022</span></div>
+        <div class="lb-line"><span class="rk">3</span><span class="nm">Pressing 804<span class="you">TOI</span></span><span class="pt">1004</span></div>
+        <div class="lb-line"><span class="rk">4</span><span class="nm">Glacier United</span><span class="pt">988</span></div>
+        <div class="lb-line"><span class="rk">5</span><span class="nm">Tiki-taka 2009</span><span class="pt">961</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉQUIPES -->
+  <div class="eq-title">
+    <h2>Équipes</h2>
+    <div class="eq-casiers">
+      <span class="cas on"><span class="cc">🔶</span> Pressing 804</span>
+      <span class="cas"><span class="cc" style="background:linear-gradient(135deg,#a8d4f5,#5a94c8)">🧊</span> Glacier U.</span>
+      <span class="cas new">＋ nouvelle</span>
+    </div>
+  </div>
+
+  <div class="eq-pitch">
+    <div class="head"><span class="nm">🔶 Pressing 804</span><span class="bot">▶ Test vs bot</span><span class="rdy">PRÊT !</span></div>
+    <div class="pitch">
+      <div class="ln cir"></div><div class="ln mid"></div>
+      <div class="spot"></div>
+      <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+      <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-badge">🧤</span><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+      <div class="pl" style="left:24%;top:24%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+      <div class="pl" style="left:24%;top:76%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+      <div class="pl" style="left:40%;top:38%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+      <div class="pl" style="left:40%;top:62%"><div class="p-body"><span class="p-badge">⚡</span><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+      <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">1</span></div></div>
+      <div class="pl" style="left:76%;top:26%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">8</span></div></div>
+      <div class="pl" style="left:76%;top:74%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">10</span></div></div>
+      <div class="pl" style="left:58%;top:34%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">7</span></div></div>
+      <div class="pl" style="left:58%;top:66%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">9</span></div></div>
+    </div>
+  </div>
+
+  <div class="eq-tiles">
+    <div class="tile">
+      <h3>📜 Scripts <span class="add">＋ nouveau</span></h3>
+      <div class="sl"><span class="ic">🔶</span> pressing.js <span class="cnt">2 joueurs</span></div>
+      <div class="sl"><span class="ic">⚡</span> tiki-taka.js <span class="cnt">2 joueurs</span></div>
+      <div class="sl"><span class="ic">🧤</span> gardien.js <span class="cnt">1 joueur</span></div>
+      <div class="sl"><span class="ic">🕳</span> catenaccio.js <span class="cnt err">HS !</span></div>
+    </div>
+    <div class="tile">
+      <h3>⌨️ Éditeur</h3>
+      <pre class="code"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+    </div>
+    <div class="tile">
+      <h3>🎨 Équipement</h3>
+      <div class="c-row"><span class="k">Maillot</span>
+        <span class="sw sel" style="background:var(--orange)"></span>
+        <span class="sw" style="background:var(--yellow)"></span>
+        <span class="sw" style="background:var(--teal)"></span>
+        <span class="sw" style="background:#5a94c8"></span>
+      </div>
+      <div class="c-row"><span class="k">Blason</span>
+        <span class="emo sel">🔶</span><span class="emo">🦁</span><span class="emo">⚡</span><span class="emo">🐱</span><span class="emo">👑</span>
+      </div>
+      <div class="c-note">Ta couleur = ton maillot. Le numéro reste au centre du cercle.</div>
+    </div>
+  </div>
+
+  <div class="footer-note">FUN 3 — <b>le booster</b> · cartes à collectionner, rail horizontal, onglets · 🌙 pour le dark</div>
+</div>
+
+</body>
+</html>

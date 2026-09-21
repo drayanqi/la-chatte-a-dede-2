@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Fun 2 · Le Tunnel (light/dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fdf8f1; --card:#ffffff; --soft:#f6ede2; --ink:#2b2a33; --muted:#a09a90;
+  --peach:#ff8a5c; --peach-d:#ef6f42; --mint:#2ec4a6; --mint-d:#1f9e85; --sky:#4aa8e8; --sun:#ffc244;
+  --pitch1:#7ecf8a; --pitch2:#74c481; --glow:0 18px 40px rgba(43,42,51,.10);
+}
+body.dark{
+  --bg:#1f232b; --card:#2a303b; --soft:#232933; --ink:#f2f1ec; --muted:#8f97a3;
+  --peach:#ff9a70; --peach-d:#e07447; --mint:#33d6b6; --mint-d:#1fa487; --sky:#57b3f0; --sun:#ffc94d;
+  --pitch1:#4f9a63; --pitch2:#478d59; --glow:0 18px 40px rgba(0,0,0,.4);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Quicksand',sans-serif;min-height:100vh;transition:background .3s,color .3s}
+.wrap{max-width:1120px;margin:0 auto;padding:0 26px 100px}
+h1,h2,h3{font-weight:700;letter-spacing:-.2px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px;font-size:13px;font-weight:700;background:var(--ink);color:var(--bg)}
+.ribbon b{color:var(--peach)}
+.mode-toggle{position:fixed;top:12px;right:14px;z-index:99;width:44px;height:44px;border-radius:50%;border:none;background:var(--card);font-size:18px;cursor:pointer;box-shadow:var(--glow)}
+
+/* nav = simple ligne de pilules à gauche */
+.topbar{display:flex;align-items:center;gap:8px;margin-top:24px}
+.topbar .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-right:16px}
+.logo .dot{width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,var(--peach),var(--sun));display:grid;place-items:center;font-size:17px;box-shadow:var(--glow)}
+.tab{padding:10px 24px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer}
+.tab:hover{background:var(--soft)}
+.tab.active{background:var(--ink);color:var(--bg)}
+.topbar .me{margin-left:auto;display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px}
+.me .ava{width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,var(--mint),var(--sky));display:grid;place-items:center;color:#fff;font-weight:700}
+
+/* ===== agencement tunnel : pile narrative au centre + rail vestiaire ===== */
+.tunnel-grid{display:grid;grid-template-columns:minmax(0,560px) 300px;gap:44px;justify-content:center;margin-top:40px;align-items:start}
+
+.scene{border-radius:28px;background:var(--card);box-shadow:var(--glow);padding:22px}
+.scene-label{font-size:11px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.scene-label::after{content:"";flex:1;height:1.5px;background:var(--soft)}
+
+/* scène 1 : ton équipe */
+.team-strip{display:flex;align-items:center;gap:14px}
+.ts-crest{width:64px;height:64px;border-radius:22px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,var(--peach),var(--sun));box-shadow:var(--glow);flex:none}
+.ts-name{font-size:20px;font-weight:700}
+.ts-meta{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:3px}
+.ts-shirts{display:flex;gap:8px;margin-left:auto}
+.shirt{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:radial-gradient(circle at 32% 26%,#ffb493,var(--peach) 72%);position:relative;box-shadow:var(--glow)}
+.shirt .bdg{position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:9px;box-shadow:var(--glow)}
+.change{margin-left:14px;font-size:12.5px;font-weight:700;color:var(--sky);cursor:pointer}
+
+/* scène 2 : carousel VS */
+.vs-scene{position:relative}
+.vs-head{display:flex;align-items:center;justify-content:space-between}
+.vs-head .mode{font-size:11.5px;font-weight:700;color:var(--mint);background:rgba(46,196,166,.12);padding:4px 14px;border-radius:999px}
+.vs-row{display:flex;align-items:center;gap:18px;margin-top:16px}
+.vs-arrow{width:44px;height:44px;border-radius:50%;border:none;background:var(--soft);font-size:17px;cursor:pointer;color:var(--muted);flex:none}
+.vs-arrow:hover{background:var(--sun);color:var(--ink)}
+.vs-face{flex:1;text-align:center;padding:6px 0}
+.vs-face .emo{width:78px;height:78px;border-radius:28px;display:grid;place-items:center;font-size:36px;margin:0 auto;background:linear-gradient(135deg,#d9f0ff,#eafaf1);box-shadow:var(--glow)}
+body.dark .vs-face .emo{background:linear-gradient(135deg,#33465a,#2c4a41)}
+.vs-face .n{font-size:19px;font-weight:700;margin-top:12px}
+.vs-face .m{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:3px}
+.vs-face .elo{display:inline-block;margin-top:10px;font-weight:700;font-size:13px;background:var(--soft);border-radius:999px;padding:4px 16px}
+.vs-dots{display:flex;gap:6px;justify-content:center;margin-top:14px}
+.vs-dots i{width:7px;height:7px;border-radius:50%;background:var(--soft)}
+.vs-dots i.on{background:var(--peach)}
+.random-line{text-align:center;font-size:12.5px;font-weight:700;color:var(--muted);margin-top:12px}
+.random-line b{color:var(--mint);cursor:pointer}
+
+/* scène 3 : lancement */
+.launch{display:flex;align-items:center;gap:18px}
+.launch-btn{
+  flex:1;border:none;cursor:pointer;border-radius:22px;padding:22px;
+  background:linear-gradient(135deg,var(--mint),var(--sky));color:#fff;font-family:'Quicksand';font-weight:700;font-size:19px;
+  box-shadow:0 14px 30px rgba(46,196,166,.35);
+}
+.launch-btn small{display:block;font-size:12.5px;font-weight:600;opacity:.85;margin-top:4px}
+.launch-btn:hover{transform:translateY(-2px)}
+.launch-btn:active{transform:translateY(2px)}
+.launch-side{display:flex;flex-direction:column;gap:8px}
+.lk{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--soft);border:none;border-radius:14px;padding:10px 16px;cursor:pointer;text-align:center}
+
+/* rail vestiaire */
+.rail{display:flex;flex-direction:column;gap:16px}
+.rail-card{border-radius:24px;background:var(--card);box-shadow:var(--glow);padding:18px}
+.rail-card h3{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.streak{display:flex;gap:7px;align-items:center}
+.streak i{width:16px;height:16px;border-radius:50%;background:var(--soft)}
+.streak i.w{background:var(--mint)}
+.streak i.l{background:var(--peach)}
+.streak .lbl{margin-left:auto;font-weight:700;font-size:13px}
+.rank-line{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13.5px;font-weight:600}
+.rank-line .rk{width:26px;height:26px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--soft)}
+.rank-line.first .rk{background:var(--sun)}
+.rank-line .nm{flex:1}
+.rank-line .pt{font-weight:700}
+.rank-line.me .nm::after{content:"· toi";color:var(--muted);font-weight:700;font-size:11px}
+.tl{position:relative;padding-left:20px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--soft)}
+.tl-item{position:relative;padding:6px 0}
+.tl-item::before{content:"";position:absolute;left:-19px;top:13px;width:10px;height:10px;border-radius:50%;background:var(--card);border:2.5px solid var(--muted)}
+.tl-item.win::before{border-color:var(--mint)}
+.tl-item.loss::before{border-color:var(--peach)}
+.tl-item .s{font-weight:700;font-size:13.5px}
+.tl-item .s span{color:var(--muted);font-weight:600}
+.tl-item .d{font-size:11.5px;color:var(--muted);font-weight:600}
+
+/* ===== ÉQUIPES : tabs verticaux + terrain ===== */
+.eq-head{display:flex;align-items:center;gap:12px;margin-top:56px;flex-wrap:wrap}
+.eq-head .rail-title{font-size:22px;font-weight:700}
+.eq-casiers{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.mini-cas{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--card);box-shadow:var(--glow);font-weight:700;font-size:13px;cursor:pointer}
+.mini-cas.on{outline:2.5px solid var(--peach)}
+.mini-cas .cc{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-size:14px;background:linear-gradient(135deg,var(--peach),var(--sun))}
+.eq-grid{display:grid;grid-template-columns:190px minmax(0,1fr);gap:26px;margin-top:20px;align-items:start}
+.vtabs{display:flex;flex-direction:column;gap:8px;position:sticky;top:20px}
+.vtab{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:18px;background:var(--card);box-shadow:var(--glow);font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
+.vtab.on{color:var(--ink);outline:2.5px solid var(--mint)}
+.vtab .ic{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--soft);font-size:16px}
+.vtab.on .ic{background:linear-gradient(135deg,var(--mint),var(--sky));color:#fff}
+.vtab .cnt{margin-left:auto;font-size:11px;font-weight:700;background:var(--soft);border-radius:999px;padding:2px 9px}
+.eq-main{display:flex;flex-direction:column;gap:16px}
+.pitch-card{border-radius:26px;background:var(--card);box-shadow:var(--glow);overflow:hidden}
+.pitch{position:relative;height:330px;background:repeating-linear-gradient(90deg,var(--pitch1) 0 54px,var(--pitch2) 54px 108px)}
+.ln{position:absolute;border:2.5px solid rgba(255,255,255,.85);border-radius:6px}
+.ln.mid{left:50%;top:8px;bottom:8px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%)}
+.spot{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:88px;border-radius:8px;background:rgba(255,255,255,.4);border:2.5px solid rgba(255,255,255,.85)}
+.pl{position:absolute;transform:translate(-50%,-50%);text-align:center;z-index:4}
+.p-body{width:36px;height:36px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#ffb493,var(--peach) 72%);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.p-body.away{background:radial-gradient(circle at 32% 26%,#8fc6ec,var(--sky) 72%)}
+.p-num{font-weight:700;font-size:14px;color:#fff}
+.p-badge{position:absolute;top:-9px;left:-9px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;background:#fff;box-shadow:var(--glow)}
+.p-tag{display:inline-block;margin-top:6px;padding:1px 10px;border-radius:999px;background:rgba(0,0,0,.32);color:#fff;font-size:10px;font-weight:700}
+.pl .pick{position:absolute;inset:-6px;border-radius:50%;border:2.5px dashed var(--sun)}
+.pitch-toolbar{display:flex;gap:10px;padding:14px 16px;flex-wrap:wrap}
+.chip{font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:999px;background:var(--soft);cursor:pointer;color:var(--muted)}
+.chip.on{background:var(--mint);color:#fff}
+.chip .em{margin-right:6px}
+.panel-soft{border-radius:22px;background:var(--card);box-shadow:var(--glow);padding:18px}
+.panel-soft h3{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.script-list .sl{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;font-weight:600;font-size:14px}
+.script-list .sl:hover{background:var(--soft)}
+.script-list .sl .ic{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-size:15px;background:linear-gradient(135deg,var(--peach),var(--sun))}
+.script-list .sl .cnt{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted);background:var(--soft);border-radius:999px;padding:3px 11px}
+.script-list .sl .cnt.err{color:#fff;background:var(--peach)}
+.code-mini{margin-top:12px;border-radius:18px;background:var(--ink);padding:16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12px;line-height:1.75;white-space:pre;color:#f6ede2;overflow:hidden}
+.code-mini .kw{color:var(--sun)}.code-mini .fn{color:#8fd8f5}.code-mini .cm{color:#a09a90;font-style:italic}
+body.dark .code-mini{background:#171b22}
+.footer-note{margin-top:70px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--peach)}
+</style>
+</head>
+<body>
+
+<button class="mode-toggle" onclick="document.body.classList.toggle('dark')">🌙</button>
+<div class="ribbon">FUN <b>2 · LE TUNNEL</b> — agencement neuf : pile narrative verticale (ton équipe → adversaire → GO) + rail vestiaire · 🌙 pour le dark</div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="logo"><span class="dot">⚽</span> LACHATADEDE</span>
+    <span class="tab">Équipes</span>
+    <span class="tab active">Jouer</span>
+    <span class="me"><span class="ava">P</span> @Pelo</span>
+  </div>
+
+  <div class="tunnel-grid">
+    <div class="tunnel-col" style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- scène 1 : ton équipe -->
+      <section class="scene">
+        <div class="scene-label">Étape 1 · ton équipe</div>
+        <div class="team-strip">
+          <span class="ts-crest">🔶</span>
+          <div>
+            <div class="ts-name">Pressing 804</div>
+            <div class="ts-meta">12 victoires · 3 défaites · prête à jouer</div>
+          </div>
+          <div class="ts-shirts">
+            <span class="shirt">1<span class="bdg">🧤</span></span>
+            <span class="shirt">2<span class="bdg">🔶</span></span>
+            <span class="shirt">3<span class="bdg">🔶</span></span>
+            <span class="shirt">4<span class="bdg">⚡</span></span>
+            <span class="shirt">5<span class="bdg">⚡</span></span>
+          </div>
+          <span class="change">changer</span>
+        </div>
+      </section>
+
+      <!-- scène 2 : l'adversaire (carousel) -->
+      <section class="scene vs-scene">
+        <div class="scene-label">Étape 2 · l'adversaire</div>
+        <div class="vs-head"><span class="mode">◈ adversaires prêts</span><span style="font-size:11.5px;font-weight:700;color:var(--muted)">3 dispo</span></div>
+        <div class="vs-row">
+          <button class="vs-arrow">←</button>
+          <div class="vs-face">
+            <span class="emo">🧊</span>
+            <div class="n">Glacier United</div>
+            <div class="m">9 victoires · 11 défaites</div>
+            <span class="elo">988 pts</span>
+          </div>
+          <button class="vs-arrow">→</button>
+        </div>
+        <div class="vs-dots"><i class="on"></i><i></i><i></i></div>
+        <div class="random-line">ou laisse le sort choisir : <b>adversaire mystère 🎲</b></div>
+      </section>
+
+      <!-- scène 3 : go -->
+      <section class="scene launch">
+        <button class="launch-btn">Coup d'envoi !<small>ton élo se joue maintenant</small></button>
+        <div class="launch-side">
+          <button class="lk">▶ Test vs bot</button>
+          <button class="lk">Voir un replay</button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- rail : le vestiaire -->
+    <aside class="rail">
+      <div class="rail-card">
+        <h3>Forme</h3>
+        <div class="streak"><i class="w"></i><i class="l"></i><i class="w"></i><i class="w"></i><i class="l"></i><span class="lbl">3V sur 5</span></div>
+      </div>
+      <div class="rail-card">
+        <h3>Classement</h3>
+        <div class="rank-line first"><span class="rk">1</span><span class="nm">Bleus de DD</span><span class="pt">1187</span></div>
+        <div class="rank-line"><span class="rk">2</span><span class="nm">Kaaris FC</span><span class="pt">1022</span></div>
+        <div class="rank-line me"><span class="rk">3</span><span class="nm">Pressing 804</span><span class="pt">1004</span></div>
+        <div class="rank-line"><span class="rk">4</span><span class="nm">Glacier U.</span><span class="pt">988</span></div>
+      </div>
+      <div class="rail-card">
+        <h3>Derniers matchs</h3>
+        <div class="tl">
+          <div class="tl-item win"><div class="s">3 – 1 <span>vs Glacier U.</span></div><div class="d">+12 · il y a 2 h</div></div>
+          <div class="tl-item loss"><div class="s">1 – 2 <span>vs Kaaris FC</span></div><div class="d">−9 · hier</div></div>
+          <div class="tl-item win"><div class="s">2 – 0 <span>vs Bleus de DD</span></div><div class="d">+18 · hier</div></div>
+          <div class="tl-item loss"><div class="s">0 – 4 <span>vs Kaaris FC</span></div><div class="d">−11 · mardi</div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ÉQUIPES : tabs verticaux -->
+  <div class="eq-head">
+    <span class="rail-title">Équipes</span>
+    <div class="eq-casiers">
+      <span class="mini-cas on"><span class="cc">🔶</span> Pressing 804</span>
+      <span class="mini-cas"><span class="cc" style="background:linear-gradient(135deg,#8fc6ec,#4aa8e8)">🧊</span> Glacier U.</span>
+      <span class="mini-cas" style="color:var(--mint)">＋ nouvelle</span>
+    </div>
+  </div>
+
+  <div class="eq-grid">
+    <nav class="vtabs">
+      <span class="vtab on"><span class="ic">📜</span> Scripts <span class="cnt">4</span></span>
+      <span class="vtab"><span class="ic">⌨️</span> Éditeur</span>
+      <span class="vtab"><span class="ic">🎨</span> Équipement</span>
+      <span class="vtab"><span class="ic">🧪</span> Test vs bot</span>
+    </nav>
+
+    <div class="eq-main">
+      <div class="pitch-card">
+        <div class="pitch">
+          <div class="ln cir"></div><div class="ln mid"></div>
+          <div class="spot"></div>
+          <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+          <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-badge">🧤</span><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+          <div class="pl" style="left:24%;top:24%"><span class="pick"></span><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+          <div class="pl" style="left:24%;top:76%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+          <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p-badge">⚡</span><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+          <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p-badge">⚡</span><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+          <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">1</span></div></div>
+          <div class="pl" style="left:76%;top:26%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">8</span></div></div>
+          <div class="pl" style="left:76%;top:74%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">10</span></div></div>
+          <div class="pl" style="left:58%;top:34%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">7</span></div></div>
+          <div class="pl" style="left:58%;top:66%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">9</span></div></div>
+        </div>
+        <div class="pitch-toolbar">
+          <span class="chip on">🔶 pressing.js · 2</span>
+          <span class="chip">⚡ tiki-taka.js · 2</span>
+          <span class="chip">🧤 gardien.js · 1</span>
+          <span class="chip" style="background:var(--peach);color:#fff">🕳 catenaccio.js · HS</span>
+        </div>
+      </div>
+
+      <div class="panel-soft">
+        <h3>pressing.js — aperçu</h3>
+        <pre class="code-mini"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball)) <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">FUN 2 — <b>le tunnel</b> · pilules, ombres douces, zéro bordure · 🌙 pour le dark</div>
+</div>
+
+</body>
+</html>

@@ -1,17 +1,23 @@
 /**
- * MatchStatusOverlay - Practice match feedback states (story 3.5)
+ * MatchStatusOverlay - Practice match feedback states (story 3.5, 7.5 restyle)
  * OWNER: Dev Team
  *
- * - Simulating: full-screen blocker while the synchronous simulation runs.
- *   Deliberately minimal (no animated spinner — deferred-work.md anti-pattern)
- *   and NOT dismissible: the server-side work continues regardless, so
- *   Escape/click-away must not pretend to cancel it.
- * - Result: score banner with a Watch Replay button that loads and plays
- *   the match frames (story 3.8, AC #1).
+ * - Simulating: pitch-covering blocker while the synchronous simulation runs
+ *   (spinner + frames-estimate chip, mockup s-equipes). NOT dismissible: the
+ *   server-side work continues regardless, so Escape/click-away must not
+ *   pretend to cancel it.
+ * - Result: score banner with a Watch Replay button (story 3.8, AC #1; 7.5
+ *   hands off to the /match/:id viewer).
  * - Error: message with a Retry button; the overlay is dismissed.
+ *
+ * All states are absolutely positioned: the overlay renders INSIDE the pitch
+ * panel (story 7.5 layout), never over the side panels.
  */
 
 import type { MatchResult } from '@/types';
+
+/** Engine match length (3 min at 60 fps) — the frames-estimate chip (7.5) */
+const ESTIMATED_FRAMES = 10800;
 
 interface MatchStatusOverlayProps {
   isSimulating: boolean;
@@ -34,8 +40,12 @@ export const MatchStatusOverlay: React.FC<MatchStatusOverlayProps> = ({
     return (
       <div style={styles.backdrop} data-testid="simulating-overlay">
         <div style={styles.panel}>
+          <span style={styles.spinner} aria-hidden="true" />
           <span style={styles.title}>Simulating...</span>
           <span style={styles.hint}>Your AI is playing against the Easy Bot</span>
+          <span style={styles.framesChip}>
+            ≈ {ESTIMATED_FRAMES.toLocaleString('en-US')} frames · a few seconds
+          </span>
         </div>
       </div>
     );
@@ -77,14 +87,23 @@ export const MatchStatusOverlay: React.FC<MatchStatusOverlayProps> = ({
 
 const styles: Record<string, React.CSSProperties> = {
   backdrop: {
-    position: 'fixed',
+    position: 'absolute',
     inset: 0,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 30, 30, 0.75)',
-    zIndex: 2000,
+    backgroundColor: 'rgba(10, 20, 14, 0.55)',
+    zIndex: 30,
     cursor: 'wait',
+    backdropFilter: 'blur(3px)',
+  },
+  spinner: {
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    border: '4px solid rgba(255, 255, 255, 0.25)',
+    borderTopColor: 'var(--mint)',
+    animation: 'lachatadede-spin 0.9s linear infinite',
   },
   panel: {
     display: 'flex',
@@ -92,52 +111,62 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '8px',
     padding: '24px 32px',
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '8px',
+    backgroundColor: 'var(--panel)',
+    border: '1px solid var(--line)',
+    borderRadius: 'var(--r-modal, 24px)',
+    boxShadow: 'var(--shadow-lg)',
   },
   title: {
     fontSize: '16px',
-    fontWeight: 600,
-    color: '#ffffff',
+    fontWeight: 700,
+    color: 'var(--ink)',
   },
   hint: {
     fontSize: '12px',
-    color: '#9d9d9d',
+    color: 'var(--muted)',
+  },
+  framesChip: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: 'var(--ink)',
+    background: 'var(--panel2)',
+    border: '1px solid var(--line)',
+    borderRadius: '999px',
+    padding: '4px 12px',
   },
   toast: {
-    position: 'fixed',
-    top: '60px',
+    position: 'absolute',
+    top: '12px',
     left: '50%',
     transform: 'translateX(-50%)',
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
     padding: '10px 20px',
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-    zIndex: 1500,
+    backgroundColor: 'var(--panel)',
+    border: '1px solid var(--line)',
+    borderRadius: 'var(--r-btn, 13px)',
+    boxShadow: 'var(--shadow-lg)',
+    zIndex: 30,
   },
   score: {
     fontSize: '14px',
-    fontWeight: 600,
-    color: '#ffffff',
+    fontWeight: 700,
+    color: 'var(--ink)',
   },
   errorText: {
     fontSize: '13px',
-    color: '#f48771',
+    color: 'var(--corail)',
   },
   button: {
-    padding: '6px 16px',
-    backgroundColor: '#0e639c',
+    padding: '8px 16px',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--r-btn, 13px)',
     cursor: 'pointer',
     fontSize: '13px',
-    fontWeight: 500,
+    fontWeight: 700,
     whiteSpace: 'nowrap',
   },
 };

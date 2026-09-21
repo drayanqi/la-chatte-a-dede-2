@@ -63,8 +63,7 @@ test.describe('Public Leaderboard', () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await seedAuthToken(page, token);
-    await page.goto('/workspace');
-    await page.getByTestId('leaderboard-nav-button').click();
+    await page.goto('/classement');
     await expect(page.getByTestId('leaderboard-view')).toBeVisible();
     return page;
   };
@@ -144,8 +143,8 @@ test.describe('Public Leaderboard', () => {
     await expect(rowA.getByTestId('leaderboard-you')).toHaveText('You');
     await expect(rowB.getByTestId('leaderboard-you')).toHaveCount(0);
 
-    // Back to the workspace: the overlay closes, the engine stayed mounted
-    await page.getByTestId('leaderboard-back-button').click();
+    // Back to the teams editor via the appbar (routes replaced the overlay)
+    await page.getByTestId('nav-teams').click();
     await expect(page.getByTestId('leaderboard-view')).not.toBeVisible();
     await expect(page.getByTestId('field-canvas')).toBeVisible();
   });

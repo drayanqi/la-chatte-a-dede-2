@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Tunnel 1 · Stade de Nuit v2 (light/dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fdf8f1; --card:#ffffff; --soft:#f6ede2; --ink:#2b2a33; --muted:#a09a90;
+  --peach:#ff8a5c; --peach-d:#ef6f42; --mint:#2ec4a6; --mint-d:#1f9e85; --sky:#4aa8e8; --sun:#ffc244;
+  --glow:0 18px 40px rgba(43,42,51,.10);
+  --skygrad:linear-gradient(180deg,#ffd9a0 0%,#ffb27a 30%,#3f7a5e 100%);
+  --stands:#3a5c48; --standslight:rgba(255,255,255,.25); --roof:#2c4638;
+  --turf1:#3f8a58; --turf2:#377d4e; --tline:rgba(255,255,255,.9);
+  --adbg:#173325; --adtxt:#ffd166;
+  --beamop:.14; --halo:rgba(255,244,200,.5);
+}
+body.dark{
+  --bg:#1f232b; --card:#2a303b; --soft:#232933; --ink:#f2f1ec; --muted:#8f97a3;
+  --peach:#ff9a70; --peach-d:#e07447; --mint:#33d6b6; --mint-d:#1fa487; --sky:#57b3f0; --sun:#ffc94d;
+  --glow:0 18px 40px rgba(0,0,0,.4);
+  --skygrad:linear-gradient(180deg,#0b1d2b 0%,#0e2a22 55%,#123526 100%);
+  --stands:#1b2f26; --standslight:rgba(255,255,255,.16); --roof:#0f1f19;
+  --turf1:#2b6b45; --turf2:#25603c; --tline:rgba(255,255,255,.92);
+  --adbg:#0a1a12; --adtxt:#ffd166;
+  --beamop:.32; --halo:rgba(255,244,200,.85);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Quicksand',sans-serif;min-height:100vh;transition:background .3s,color .3s}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(500px 300px at 85% -5%,rgba(255,138,92,.14),transparent 70%),
+             radial-gradient(460px 320px at 4% 92%,rgba(46,196,166,.12),transparent 70%)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 26px 100px;position:relative;z-index:1}
+h1,h2,h3{font-weight:700;letter-spacing:-.2px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px;font-size:13px;font-weight:700;background:var(--ink);color:var(--bg)}
+.ribbon b{color:var(--peach)}
+.mode-toggle{position:fixed;top:12px;right:14px;z-index:99;width:44px;height:44px;border-radius:50%;border:none;background:var(--card);font-size:18px;cursor:pointer;box-shadow:var(--glow)}
+
+.topbar{display:flex;align-items:center;gap:8px;margin-top:24px}
+.topbar .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-right:16px}
+.logo .dot{width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,var(--peach),var(--sun));display:grid;place-items:center;font-size:17px;box-shadow:var(--glow)}
+.tab{padding:10px 24px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer}
+.tab:hover{background:var(--soft)}
+.tab.active{background:var(--ink);color:var(--bg)}
+.topbar .me{margin-left:auto;display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px}
+.me .ava{width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,var(--mint),var(--sky));display:grid;place-items:center;color:#fff;font-weight:700}
+
+.tunnel-grid{display:grid;grid-template-columns:minmax(0,560px) 300px;gap:44px;justify-content:center;margin-top:40px;align-items:start}
+.scene{border-radius:28px;background:var(--card);box-shadow:var(--glow);padding:22px}
+.scene-label{font-size:11px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.scene-label::after{content:"";flex:1;height:1.5px;background:var(--soft)}
+
+.team-strip{display:flex;align-items:center;gap:14px}
+.ts-crest{width:64px;height:64px;border-radius:22px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,var(--peach),var(--sun));box-shadow:var(--glow);flex:none;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.ts-name{font-size:20px;font-weight:700}
+.ts-meta{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:3px}
+.ts-shirts{display:flex;gap:8px;margin-left:auto}
+.shirt{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:radial-gradient(circle at 32% 26%,#ffb493,var(--peach) 72%);position:relative;box-shadow:var(--glow)}
+.shirt .bdg{position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:9px;box-shadow:var(--glow)}
+.change{margin-left:14px;font-size:12.5px;font-weight:700;color:var(--sky);cursor:pointer}
+
+.vs-scene .vs-head{display:flex;align-items:center;justify-content:space-between}
+.vs-head .mode{font-size:11.5px;font-weight:700;color:var(--mint);background:rgba(46,196,166,.12);padding:4px 14px;border-radius:999px}
+.vs-row{display:flex;align-items:center;gap:18px;margin-top:16px}
+.vs-arrow{width:44px;height:44px;border-radius:50%;border:none;background:var(--soft);font-size:17px;cursor:pointer;color:var(--muted);flex:none}
+.vs-arrow:hover{background:var(--sun);color:var(--ink)}
+.vs-face{flex:1;text-align:center;padding:6px 0}
+.vs-face .emo{width:78px;height:78px;border-radius:28px;display:grid;place-items:center;font-size:36px;margin:0 auto;background:linear-gradient(135deg,#d9f0ff,#eafaf1);box-shadow:var(--glow)}
+body.dark .vs-face .emo{background:linear-gradient(135deg,#33465a,#2c4a41)}
+.vs-face .n{font-size:19px;font-weight:700;margin-top:12px}
+.vs-face .m{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:3px}
+.vs-face .elo{display:inline-block;margin-top:10px;font-weight:700;font-size:13px;background:var(--soft);border-radius:999px;padding:4px 16px}
+.vs-dots{display:flex;gap:6px;justify-content:center;margin-top:14px}
+.vs-dots i{width:7px;height:7px;border-radius:50%;background:var(--soft)}
+.vs-dots i.on{background:var(--peach)}
+.random-line{text-align:center;font-size:12.5px;font-weight:700;color:var(--muted);margin-top:12px}
+.random-line b{color:var(--mint);cursor:pointer}
+
+.launch{display:flex;align-items:center;gap:18px}
+.launch-btn{
+  flex:1;border:none;cursor:pointer;border-radius:22px;padding:22px;color:#fff;font-family:'Quicksand';font-weight:700;font-size:19px;
+  background:linear-gradient(135deg,var(--mint),var(--sky));box-shadow:0 14px 30px rgba(46,196,166,.35);position:relative;overflow:hidden;
+}
+.launch-btn::after{content:"";position:absolute;top:0;left:-80%;width:60%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);animation:shine 3.2s ease-in-out infinite}
+@keyframes shine{0%,60%{left:-80%}100%{left:130%}}
+.launch-btn small{display:block;font-size:12.5px;font-weight:600;opacity:.85;margin-top:4px}
+.launch-btn:hover{transform:translateY(-2px)}
+.launch-btn:active{transform:translateY(2px)}
+.launch-side{display:flex;flex-direction:column;gap:8px}
+.lk{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--soft);border:none;border-radius:14px;padding:10px 16px;cursor:pointer;text-align:center}
+
+.rail{display:flex;flex-direction:column;gap:16px}
+.rail-card{border-radius:24px;background:var(--card);box-shadow:var(--glow);padding:18px}
+.rail-card h3{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.streak{display:flex;gap:7px;align-items:center}
+.streak i{width:16px;height:16px;border-radius:50%;background:var(--soft)}
+.streak i.w{background:var(--mint)}
+.streak i.l{background:var(--peach)}
+.streak .lbl{margin-left:auto;font-weight:700;font-size:13px}
+.rank-line{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13.5px;font-weight:600}
+.rank-line .rk{width:26px;height:26px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--soft)}
+.rank-line.first .rk{background:var(--sun)}
+.rank-line .nm{flex:1}
+.rank-line .pt{font-weight:700}
+.rank-line.me .nm::after{content:"· toi";color:var(--muted);font-weight:700;font-size:11px}
+.tl{position:relative;padding-left:20px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--soft)}
+.tl-item{position:relative;padding:6px 0}
+.tl-item::before{content:"";position:absolute;left:-19px;top:13px;width:10px;height:10px;border-radius:50%;background:var(--card);border:2.5px solid var(--muted)}
+.tl-item.win::before{border-color:var(--mint)}
+.tl-item.loss::before{border-color:var(--peach)}
+.tl-item .s{font-weight:700;font-size:13.5px}
+.tl-item .s span{color:var(--muted);font-weight:600}
+.tl-item .d{font-size:11.5px;color:var(--muted);font-weight:600}
+
+/* ================= LE STADE ================= */
+.wow{border-radius:28px;overflow:hidden;box-shadow:var(--glow);position:relative}
+.wow-label{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px}
+.wow-label .t{font-size:11px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase}
+.wow-label .live{font-size:10.5px;font-weight:800;color:#fff;background:rgba(255,90,90,.85);border-radius:999px;padding:3px 12px;animation:blinkled 1.6s steps(2) infinite}
+@keyframes blinkled{50%{opacity:.55}}
+
+.stade{position:relative;height:430px;background:var(--skygrad);overflow:hidden}
+
+/* toit + lumières du stade */
+.roof{position:absolute;top:0;left:0;right:0;height:34px;background:var(--roof);z-index:6;
+  display:flex;align-items:center;justify-content:center;gap:14px}
+.roof i{width:5px;height:5px;border-radius:50%;background:#fffbe8;box-shadow:0 0 8px var(--halo);opacity:.9}
+.roof i:nth-child(odd){opacity:.55}
+
+/* jumbotron */
+.jumbo{
+  position:absolute;top:46px;left:50%;transform:translateX(-50%);z-index:6;
+  background:#0d1418;border-radius:14px;padding:8px 18px;text-align:center;
+  border:3px solid #1f2a30;box-shadow:0 10px 24px rgba(0,0,0,.35);
+}
+.jumbo .sc{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-weight:700;font-size:15px;color:#eafff3;letter-spacing:1px}
+.jumbo .sc b{color:var(--sun)}
+.jumbo .st{font-size:8.5px;font-weight:700;letter-spacing:2.5px;color:#7fae95;margin-top:2px}
+
+/* tribunes avec foule */
+.crowd{
+  position:absolute;left:0;right:0;height:84px;z-index:4;background:var(--stands);
+}
+.crowd::before{content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle 2.4px at 9px 12px,#ffd166 97%,transparent),
+    radial-gradient(circle 2.4px at 25px 7px,#ff8a5c 97%,transparent),
+    radial-gradient(circle 2.4px at 38px 17px,#7ec8f5 97%,transparent),
+    radial-gradient(circle 2.4px at 15px 23px,#9be8a8 97%,transparent),
+    radial-gradient(circle 2.4px at 46px 5px,#f5f0e0 97%,transparent),
+    radial-gradient(circle 2.4px at 52px 20px,#f58fb0 97%,transparent);
+  background-size:60px 28px;opacity:.9;animation:crowd 3.2s ease-in-out infinite alternate}
+@keyframes crowd{from{background-position:0 0}to{background-position:3px -2px}}
+.crowd.top{top:120px;border-top:3px solid rgba(0,0,0,.25)}
+.crowd::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.18),transparent 40%)}
+
+/* panneaux LED défilants */
+.ad{position:absolute;left:0;right:0;height:30px;background:var(--adbg);z-index:5;overflow:hidden;display:flex;align-items:center}
+.ad .inner{display:flex;white-space:nowrap;animation:marquee 22s linear infinite;font-weight:700;font-size:12.5px;letter-spacing:2.5px;color:var(--adtxt)}
+.ad .inner span{padding:0 26px}
+.ad .inner b{color:#9be8a8}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.ad.top{top:204px}
+.ad.bottom{bottom:74px;transform:scaleX(1.06)}
+
+/* terrain en perspective douce + blason central */
+.pitch-zone{position:absolute;left:0;right:0;top:236px;bottom:0;z-index:3;perspective:1100px}
+.turf{
+  position:absolute;inset:12px 22px 0;border-radius:16px;overflow:hidden;
+  background:repeating-linear-gradient(90deg,var(--turf1) 0 54px,var(--turf2) 54px 108px);
+  border:3px solid rgba(255,255,255,.35);
+  transform:rotateX(17deg);transform-origin:50% 100%;
+  box-shadow:0 30px 50px rgba(0,0,0,.4);
+}
+.turf::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 100% at 50% -30%,rgba(255,255,240,.2),transparent 60%)}
+.ln{position:absolute;border:2.5px solid var(--tline);border-radius:6px}
+.ln.mid{left:50%;top:6px;bottom:6px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:118px;height:118px;border-radius:50%;transform:translate(-50%,-50%)}
+.spot{position:absolute;left:50%;top:50%;width:9px;height:9px;border-radius:50%;background:#fff;transform:translate(-50%,-50%)}
+.center-logo{
+  position:absolute;left:50%;top:50%;width:74px;height:74px;transform:translate(-50%,-52%) rotateX(-17deg);
+  z-index:2;opacity:.95;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
+}
+.center-logo img{width:100%;height:100%;object-fit:contain}
+.center-logo .fb{display:none;position:absolute;inset:0;place-items:center;font-size:34px}
+.goal{position:absolute;top:50%;transform:translateY(-50%) rotateX(-17deg);width:22px;height:78px;border-radius:8px;background:rgba(255,255,255,.4);border:3px solid rgba(255,255,255,.92);z-index:2}
+.p3{position:absolute;transform:translate(-50%,-50%) rotateX(-17deg);z-index:4;text-align:center}
+.p3-body{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#ffb493,var(--peach) 72%);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 6px 12px rgba(0,0,0,.45)}
+.p3-body.away{background:radial-gradient(circle at 32% 26%,#a9d8f5,#4a94cf 72%)}
+.p3-num{font-weight:700;font-size:14px;color:#fff}
+.p3-badge{position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:9px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.p3-tag{display:inline-block;margin-top:5px;padding:1px 10px;border-radius:999px;background:rgba(0,0,0,.42);color:#fff;font-size:9.5px;font-weight:700;backdrop-filter:blur(2px)}
+.ball{position:absolute;left:49%;top:49%;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 14px rgba(255,255,255,.7);z-index:5;animation:roll 10s ease-in-out infinite alternate}
+@keyframes roll{
+  0%{left:49%;top:49%}25%{left:68%;top:60%}50%{left:32%;top:40%}75%{left:60%;top:32%}100%{left:49%;top:49%}
+}
+
+/* projecteurs pylônes + faisceaux */
+.pylon{position:absolute;top:36px;z-index:7;display:flex;gap:4px;background:#16211c;border-radius:8px;padding:5px 7px;box-shadow:0 6px 14px rgba(0,0,0,.35)}
+.pylon i{width:7px;height:7px;border-radius:50%;background:#fffbe8;box-shadow:0 0 10px var(--halo)}
+.pylon.l{left:10px}.pylon.r{right:10px}
+.beam{position:absolute;top:58px;width:150px;height:135%;z-index:2;pointer-events:none;opacity:var(--beamop);
+  background:linear-gradient(180deg,rgba(255,250,220,.8),transparent 72%);
+  clip-path:polygon(44% 0,56% 0,100% 100%,0 100%);
+  animation:sway 8s ease-in-out infinite alternate}
+.beam.b1{left:2%;--r:4deg}
+.beam.b2{right:2%;--r:-4deg;animation-delay:2s}
+@keyframes sway{from{transform:rotate(calc(var(--r)*-1))}to{transform:rotate(var(--r))}}
+
+/* foule devant (bas) */
+.crowd.front{bottom:0;height:58px;z-index:6;border-top:3px solid rgba(0,0,0,.2)}
+.crowd.front::before{background-size:44px 22px;opacity:.75}
+
+/* équipes */
+.eq-head{display:flex;align-items:center;gap:12px;margin-top:56px;flex-wrap:wrap}
+.eq-head .rail-title{font-size:22px;font-weight:700}
+.eq-casiers{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.mini-cas{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--card);box-shadow:var(--glow);font-weight:700;font-size:13px;cursor:pointer}
+.mini-cas.on{outline:2.5px solid var(--peach)}
+.mini-cas .cc{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-size:14px;background:linear-gradient(135deg,var(--peach),var(--sun))}
+.eq-grid{display:grid;grid-template-columns:190px minmax(0,1fr);gap:26px;margin-top:20px;align-items:start}
+.vtabs{display:flex;flex-direction:column;gap:8px;position:sticky;top:20px}
+.vtab{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:18px;background:var(--card);box-shadow:var(--glow);font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
+.vtab.on{color:var(--ink);outline:2.5px solid var(--mint)}
+.vtab .ic{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--soft);font-size:16px}
+.vtab.on .ic{background:linear-gradient(135deg,var(--mint),var(--sky));color:#fff}
+.vtab .cnt{margin-left:auto;font-size:11px;font-weight:700;background:var(--soft);border-radius:999px;padding:2px 9px}
+.eq-main{display:flex;flex-direction:column;gap:16px}
+.stade.small{height:360px}
+.stade.small .crowd{height:64px}
+.stade.small .crowd.top{top:88px}
+.stade.small .ad.top{top:152px}
+.stade.small .pitch-zone{top:184px}
+.footer-note{margin-top:70px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--peach)}
+</style>
+</head>
+<body>
+
+<button class="mode-toggle" onclick="document.body.classList.toggle('dark')">🌙</button>
+<div class="ribbon">TUNNEL <b>1 · STADE DE NUIT v2</b> — stade habillé : toit, jumbotron, tribunes, panneaux LED défilants, projecteurs · blason DD au centre du rond · 🌙</div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="logo"><span class="dot">⚽</span> LACHATADEDE</span>
+    <span class="tab">Équipes</span>
+    <span class="tab active">Jouer</span>
+    <span class="me"><span class="ava">P</span> @Pelo</span>
+  </div>
+
+  <div class="tunnel-grid">
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <section class="scene">
+        <div class="scene-label">Étape 1 · ton équipe</div>
+        <div class="team-strip">
+          <span class="ts-crest">🔶</span>
+          <div>
+            <div class="ts-name">Pressing 804</div>
+            <div class="ts-meta">12 victoires · 3 défaites · prête à jouer</div>
+          </div>
+          <div class="ts-shirts">
+            <span class="shirt">1<span class="bdg">🧤</span></span>
+            <span class="shirt">2<span class="bdg">🔶</span></span>
+            <span class="shirt">3<span class="bdg">🔶</span></span>
+            <span class="shirt">4<span class="bdg">⚡</span></span>
+            <span class="shirt">5<span class="bdg">⚡</span></span>
+          </div>
+          <span class="change">changer</span>
+        </div>
+      </section>
+
+      <!-- ===== LE STADE ===== -->
+      <section class="wow">
+        <div class="wow-label"><span class="t">Le stade · aperçu live</span><span class="live">● EN DIRECT</span></div>
+        <div class="stade">
+          <div class="roof"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+          <div class="jumbo">
+            <div class="sc">P804 🔶 <b>0 — 0</b> 🎲 ?</div>
+            <div class="st">LACHATADEDE ARENA · 21:47</div>
+          </div>
+
+          <div class="crowd top"></div>
+          <div class="ad top"><div class="inner">
+            <span>⚽ LACHATADEDE ★ BIENVENUE EN 3E MI-TEMPS</span><span><b>PRESSING 804</b> ★ TES SCRIPTS, TES JOUEURS</span><span>⚡ KAARIS FC ★ DORS FORT, JOUE FORT</span><span>⚽ LACHATADEDE ★ BIENVENUE EN 3E MI-TEMPS</span><span><b>PRESSING 804</b> ★ TES SCRIPTS, TES JOUEURS</span><span>⚡ KAARIS FC ★ DORS FORT, JOUE FORT</span>
+          </div></div>
+
+          <div class="beam b1"></div><div class="beam b2"></div>
+          <div class="pylon l"><i></i><i></i><i></i><i></i></div>
+          <div class="pylon r"><i></i><i></i><i></i><i></i></div>
+
+          <div class="pitch-zone">
+            <div class="turf">
+              <div class="ln cir"></div><div class="ln mid"></div>
+              <div class="spot"></div>
+              <div class="center-logo"><img src="../../src/assets/watermark.png" alt="DD" onerror="this.parentElement.classList.add('broken')"><span class="fb">🐱</span></div>
+              <div class="goal" style="left:6px"></div><div class="goal" style="right:6px"></div>
+              <div class="p3" style="left:9%;top:50%"><div class="p3-body"><span class="p3-badge">🧤</span><span class="p3-num">1</span></div><span class="p3-tag">gardien.js</span></div>
+              <div class="p3" style="left:24%;top:26%"><div class="p3-body"><span class="p3-badge">🔶</span><span class="p3-num">2</span></div><span class="p3-tag">pressing.js</span></div>
+              <div class="p3" style="left:24%;top:74%"><div class="p3-body"><span class="p3-badge">🔶</span><span class="p3-num">3</span></div><span class="p3-tag">pressing.js</span></div>
+              <div class="p3" style="left:40%;top:38%"><div class="p3-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p3-badge">⚡</span><span class="p3-num">4</span></div><span class="p3-tag">tiki-taka.js</span></div>
+              <div class="p3" style="left:40%;top:62%"><div class="p3-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p3-badge">⚡</span><span class="p3-num">5</span></div><span class="p3-tag">tiki-taka.js</span></div>
+              <div class="p3" style="left:91%;top:50%"><div class="p3-body away"><span class="p3-badge">🧊</span><span class="p3-num">1</span></div></div>
+              <div class="p3" style="left:76%;top:28%"><div class="p3-body away"><span class="p3-badge">🧊</span><span class="p3-num">8</span></div></div>
+              <div class="p3" style="left:76%;top:72%"><div class="p3-body away"><span class="p3-badge">🧊</span><span class="p3-num">10</span></div></div>
+              <div class="p3" style="left:58%;top:36%"><div class="p3-body away"><span class="p3-badge">🦁</span><span class="p3-num">7</span></div></div>
+              <div class="p3" style="left:58%;top:64%"><div class="p3-body away"><span class="p3-badge">🦁</span><span class="p3-num">9</span></div></div>
+              <div class="ball"></div>
+            </div>
+          </div>
+
+          <div class="ad bottom"><div class="inner">
+            <span>🔶 804 · UNE ÉQUIPE, CINQ CERVEAUX</span><span>🧊 GLACIER U. · L'ENTRAÎNEUR DORT, PAS L'ÉQUIPE</span><span>⚽ 3E MI-TEMPS ★ CEUX QUI CODENT JOUENT ENSEMBLE</span><span>🔶 804 · UNE ÉQUIPE, CINQ CERVEAUX</span><span>🧊 GLACIER U. · L'ENTRAÎNEUR DORT, PAS L'ÉQUIPE</span><span>⚽ 3E MI-TEMPS ★ CEUX QUI CODENT JOUENT ENSEMBLE</span>
+          </div></div>
+          <div class="crowd front"></div>
+        </div>
+      </section>
+
+      <section class="scene vs-scene">
+        <div class="scene-label">Étape 2 · l'adversaire</div>
+        <div class="vs-head"><span class="mode">◈ adversaires prêts</span><span style="font-size:11.5px;font-weight:700;color:var(--muted)">3 dispo</span></div>
+        <div class="vs-row">
+          <button class="vs-arrow">←</button>
+          <div class="vs-face">
+            <span class="emo">🧊</span>
+            <div class="n">Glacier United</div>
+            <div class="m">9 victoires · 11 défaites</div>
+            <span class="elo">988 pts</span>
+          </div>
+          <button class="vs-arrow">→</button>
+        </div>
+        <div class="vs-dots"><i class="on"></i><i></i><i></i></div>
+        <div class="random-line">ou laisse le sort choisir : <b>adversaire mystère 🎲</b></div>
+      </section>
+
+      <section class="scene launch">
+        <button class="launch-btn">Coup d'envoi !<small>ton élo se joue maintenant</small></button>
+        <div class="launch-side">
+          <button class="lk">▶ Test vs bot</button>
+          <button class="lk">Voir un replay</button>
+        </div>
+      </section>
+
+    </div>
+
+    <aside class="rail">
+      <div class="rail-card">
+        <h3>Forme</h3>
+        <div class="streak"><i class="w"></i><i class="l"></i><i class="w"></i><i class="w"></i><i class="l"></i><span class="lbl">3V sur 5</span></div>
+      </div>
+      <div class="rail-card">
+        <h3>Classement</h3>
+        <div class="rank-line first"><span class="rk">1</span><span class="nm">Bleus de DD</span><span class="pt">1187</span></div>
+        <div class="rank-line"><span class="rk">2</span><span class="nm">Kaaris FC</span><span class="pt">1022</span></div>
+        <div class="rank-line me"><span class="rk">3</span><span class="nm">Pressing 804</span><span class="pt">1004</span></div>
+        <div class="rank-line"><span class="rk">4</span><span class="nm">Glacier U.</span><span class="pt">988</span></div>
+      </div>
+      <div class="rail-card">
+        <h3>Derniers matchs</h3>
+        <div class="tl">
+          <div class="tl-item win"><div class="s">3 – 1 <span>vs Glacier U.</span></div><div class="d">+12 · il y a 2 h</div></div>
+          <div class="tl-item loss"><div class="s">1 – 2 <span>vs Kaaris FC</span></div><div class="d">−9 · hier</div></div>
+          <div class="tl-item win"><div class="s">2 – 0 <span>vs Bleus de DD</span></div><div class="d">+18 · hier</div></div>
+          <div class="tl-item loss"><div class="s">0 – 4 <span>vs Kaaris FC</span></div><div class="d">−11 · mardi</div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ÉQUIPES -->
+  <div class="eq-head">
+    <span class="rail-title">Équipes</span>
+    <div class="eq-casiers">
+      <span class="mini-cas on"><span class="cc">🔶</span> Pressing 804</span>
+      <span class="mini-cas"><span class="cc" style="background:linear-gradient(135deg,#8fc6ec,#4aa8e8)">🧊</span> Glacier U.</span>
+      <span class="mini-cas" style="color:var(--mint)">＋ nouvelle</span>
+    </div>
+  </div>
+
+  <div class="eq-grid">
+    <nav class="vtabs">
+      <span class="vtab on"><span class="ic">📜</span> Scripts <span class="cnt">4</span></span>
+      <span class="vtab"><span class="ic">⌨️</span> Éditeur</span>
+      <span class="vtab"><span class="ic">🎨</span> Équipement</span>
+      <span class="vtab"><span class="ic">🧪</span> Test vs bot</span>
+    </nav>
+
+    <div class="eq-main">
+      <div class="wow">
+        <div class="wow-label"><span class="t">Le stade · ton équipe</span><span class="live">● PRÊT</span></div>
+        <div class="stade small">
+          <div class="roof"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="jumbo"><div class="sc">🔶 P804 <b>prêt</b></div><div class="st">ÉQUIPEMENT EN COURS</div></div>
+          <div class="crowd top"></div>
+          <div class="ad top"><div class="inner">
+            <span>⚽ LACHATADEDE ★ LE VESTIAIRE</span><span>🔶 PRESSING 804 ★ UNE ÉQUIPE, CINQ CERVEAUX</span><span>⚽ LACHATADEDE ★ LE VESTIAIRE</span><span>🔶 PRESSING 804 ★ UNE ÉQUIPE, CINQ CERVEAUX</span>
+          </div></div>
+          <div class="pitch-zone">
+            <div class="turf">
+              <div class="ln cir"></div><div class="ln mid"></div>
+              <div class="spot"></div>
+              <div class="center-logo"><img src="../../src/assets/watermark.png" alt="DD" onerror="this.parentElement.classList.add('broken')"><span class="fb">🐱</span></div>
+              <div class="goal" style="left:6px"></div><div class="goal" style="right:6px"></div>
+              <div class="p3" style="left:9%;top:50%"><div class="p3-body"><span class="p3-badge">🧤</span><span class="p3-num">1</span></div><span class="p3-tag">gardien.js</span></div>
+              <div class="p3" style="left:24%;top:26%"><div class="p3-body"><span class="p3-badge">🔶</span><span class="p3-num">2</span></div><span class="p3-tag">pressing.js</span></div>
+              <div class="p3" style="left:24%;top:74%"><div class="p3-body"><span class="p3-badge">🔶</span><span class="p3-num">3</span></div><span class="p3-tag">pressing.js</span></div>
+              <div class="p3" style="left:40%;top:38%"><div class="p3-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p3-badge">⚡</span><span class="p3-num">4</span></div><span class="p3-tag">tiki-taka.js</span></div>
+              <div class="p3" style="left:40%;top:62%"><div class="p3-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 72%)"><span class="p3-badge">⚡</span><span class="p3-num">5</span></div><span class="p3-tag">tiki-taka.js</span></div>
+              <div class="ball"></div>
+            </div>
+          </div>
+          <div class="crowd front"></div>
+        </div>
+      </div>
+
+      <div class="scene">
+        <div class="scene-label">pressing.js — aperçu</div>
+        <pre style="border-radius:18px;background:var(--ink);padding:16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12px;line-height:1.75;white-space:pre;color:#f6ede2;overflow:hidden"><span style="color:#a09a90;font-style:italic">// pressing.js</span>
+<span style="color:var(--sun)">const</span> onTick = (ctx) => {
+  <span style="color:var(--sun)">if</span> (ctx.me.<span style="color:#8fd8f5">canTackle</span>(ctx.ball)) <span style="color:var(--sun)">return</span> ctx.<span style="color:#8fd8f5">tackle</span>();
+  <span style="color:var(--sun)">return</span> ctx.<span style="color:#8fd8f5">chase</span>(ctx.ball);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">TUNNEL 1 v2 — <b>le stade habillé</b> · toit, jumbotron, tribunes, LED défilantes, projecteurs · blason DD au rond central · 🌙</div>
+</div>
+
+</body>
+</html>

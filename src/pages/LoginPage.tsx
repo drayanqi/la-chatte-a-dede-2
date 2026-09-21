@@ -15,7 +15,7 @@ export const LoginPage: React.FC = () => {
 
   const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
 
-  const from = (location.state as { from?: string } | null)?.from || '/workspace';
+  const from = (location.state as { from?: string } | null)?.from || '/play';
 
   useEffect(() => {
     clearError();

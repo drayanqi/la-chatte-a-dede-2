@@ -35,6 +35,14 @@ class MatchSerializer
             // private); practice matches have no opponent tactic
             'challengerTacticName' => $match->challengerTactic?->name,
             'opponentTacticName' => $match->opponentTactic?->name,
+            // Team customization (story 7.4): per-side colors + crest, null
+            // when the side has no tactic (practice bot keeps the defaults)
+            'challengerColorPrimary' => $match->challengerTactic?->color_primary,
+            'challengerColorSecondary' => $match->challengerTactic?->color_secondary,
+            'challengerCrest' => $match->challengerTactic?->crest,
+            'opponentColorPrimary' => $match->opponentTactic?->color_primary,
+            'opponentColorSecondary' => $match->opponentTactic?->color_secondary,
+            'opponentCrest' => $match->opponentTactic?->crest,
             'durationFrames' => $match->duration_frames,
             'createdAt' => $match->created_at->toISOString(),
         ];

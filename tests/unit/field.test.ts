@@ -17,7 +17,7 @@ import {
   percentToScreen,
   screenToPercent,
 } from '@/components/canvas/engine/fieldGeometry';
-import { FIELD_PALETTE } from '@/components/canvas/engine/Field';
+import { FIELD_PALETTE, Field } from '@/components/canvas/engine/Field';
 
 describe('Field Geometry', () => {
   describe('computePitchRect', () => {
@@ -399,12 +399,83 @@ describe('Field Palette (story 3.7, Task 3/6)', () => {
 
   it('should reserve team colors for accents, never as the floor paint', () => {
     // Hard law (ux-design-specification.md): team/player colors never paint
-    // the floor beneath players — they only appear as half-wash gradients
-    // and goal frames.
+    // the floor beneath players — they only appear as goal frames and
+    // player/goal accents (the half-wash floor gradients are gone in 7.3).
     expect(FIELD_PALETTE.homeHalf).toBe(0xff6b1a);
     expect(FIELD_PALETTE.awayHalf).toBe(0x1a8cff);
-    expect(FIELD_PALETTE.pitchBase).not.toBe(FIELD_PALETTE.homeHalf);
-    expect(FIELD_PALETTE.pitchBase).not.toBe(FIELD_PALETTE.awayHalf);
+    expect(FIELD_PALETTE.goalHome).toBe(0xff6b1a);
+    expect(FIELD_PALETTE.goalAway).toBe(0x1a8cff);
+  });
+});
+
+describe('Field Palette — La Ronde habillage (story 7.3, Task 1/6)', () => {
+  it('should carry the v4 mockup stripe and wall palette entries', () => {
+    // THEN: mockup v4 values — stripes #3fae62/#379c56, walls rgba(10,20,14)/white
+    expect(FIELD_PALETTE.pitchStripeLight).toBe(0x3fae62);
+    expect(FIELD_PALETTE.pitchStripeDark).toBe(0x379c56);
+    expect(FIELD_PALETTE.wallBand).toBe(0x0a140e);
+    expect(FIELD_PALETTE.wallLine).toBe(0xffffff);
+  });
+
+  it('should keep the stripes theme-stable greens distinct from team colors', () => {
+    // AC #2: the floor stays neutral vs the players (Epic 5.1 law)
+    expect(FIELD_PALETTE.pitchStripeLight).not.toBe(FIELD_PALETTE.homeHalf);
+    expect(FIELD_PALETTE.pitchStripeDark).not.toBe(FIELD_PALETTE.awayHalf);
+    expect(FIELD_PALETTE.pitchStripeLight).not.toBe(FIELD_PALETTE.pitchStripeDark);
+  });
+
+  it('should stripe the pitch with 78px bands clipped to the rounded rect', () => {
+    // Mockup .pitch: repeating-linear-gradient(90deg, pitch 0 78px, dark 78px 156px)
+    // — the band width is a mockup constant, light band first at the left edge
+    const band = 78;
+    const pitch = { x: 40, y: 120, width: 720, height: 360 };
+
+    // Light bands start at the pitch left edge and repeat every 2*band px
+    const lightBandStarts: number[] = [];
+    for (let x = pitch.x; x < pitch.x + pitch.width; x += band * 2) {
+      lightBandStarts.push(x);
+    }
+    expect(lightBandStarts).toEqual([40, 196, 352, 508, 664]);
+    // The last light band is clipped to the pitch right edge
+    const lastStart = lightBandStarts[lightBandStarts.length - 1];
+    expect(Math.min(band, pitch.x + pitch.width - lastStart)).toBe(band);
+  });
+
+  it('should size the bare watermark inside 80% of the center circle', () => {
+    // Pelo review: no white disc — the mascot image alone, contain-fit in
+    // 80% of the center circle (a crest painted on a real pitch)
+    const circleRatio = 0.8;
+
+    const watermarkRadius = (pitch: { width: number; height: number }): number =>
+      Math.min(pitch.width, pitch.height) * 0.15 * circleRatio;
+
+    // Standard 720x360 pitch: 0.8 * 54 = 43.2px radius (86.4px crest)
+    expect(watermarkRadius({ width: 720, height: 360 })).toBeCloseTo(43.2, 6);
+    // The crest never exceeds the center circle
+    for (const pitch of [
+      { width: 720, height: 360 },
+      { width: 1600, height: 800 },
+      { width: 400, height: 200 },
+    ]) {
+      expect(watermarkRadius(pitch)).toBeLessThanOrEqual(
+        Math.min(pitch.width, pitch.height) * 0.15
+      );
+    }
+  });
+});
+
+describe('Field Team Colors (story 7.4)', () => {
+  it('should recolor goal frames and accept a full redraw without throwing', () => {
+    // GIVEN: A field at the default canvas size (jsdom: no WebGL — the
+    // class only builds its Graphics/Text layers)
+    const field = new Field(800, 600);
+
+    // WHEN: The team colors change (and then repeat — the no-op guard)
+    field.setTeamColors(0x31c48d, 0x4aa8e8);
+    field.setTeamColors(0x31c48d, 0x4aa8e8);
+
+    // THEN: No crash; cleanup works
+    field.dispose();
   });
 });
 

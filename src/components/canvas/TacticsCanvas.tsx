@@ -14,6 +14,8 @@ import {
   useCallback,
 } from 'react';
 import { Game } from './engine';
+import { PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from './engine/Player';
+import { hexToTeamColor } from '@/lib/teamColors';
 import type {
   TacticData,
   Position,
@@ -54,14 +56,14 @@ export interface TacticsCanvasProps {
   /** Callback quand la simulation est terminée */
   onSimulationComplete?: (result: SimulationResult) => void;
 
-  /** Callback quand un script est déposé sur un joueur */
-  onScriptDropped?: (playerId: string, scriptId: string) => void;
-
   /** Callback after a script is actually assigned in the engine */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
 
   /** Callback when a player drag-move completes (auto-save trigger) */
   onPlayerMoved?: (playerId: string, position: Position) => void;
+
+  /** Callback when a drag session's first movement occurs (story 7.5) */
+  onPlayerDragStart?: () => void;
 
   /** Callback when the selection is cleared by clicking empty pitch */
   onPlayerDeselected?: () => void;
@@ -103,6 +105,18 @@ export interface TacticsCanvasHandle {
 
   /** Mirror the persistent selection onto the sprites (null clears it) */
   setSelectedPlayer: (playerId: string | null) => void;
+
+  /**
+   * Team customization (story 7.4): recolor both sides live. Hex strings
+   * from the API (#rrggbb); undefined falls back to the UX constants.
+   */
+  setTeamColors: (homeHex: string | undefined, awayHex: string | undefined) => void;
+
+  /** Script tags under edit-mode players (story 7.5): playerId -> name | null */
+  setScriptLabels: (labels: Record<string, string | null>) => void;
+
+  /** Remove the script of ONE player via the picker (story 7.5) */
+  detachPlayerScript: (playerId: string) => void;
 }
 
 // ============================================================================
@@ -110,20 +124,20 @@ export interface TacticsCanvasHandle {
 // ============================================================================
 
 export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>(
-  (
-      {
-        onPlayerSelected,
-        onPlayerHovered,
-        onFrameChanged,
-        onGoalScored,
-        onSimulationComplete,
-        onScriptDropped,
-        onScriptAssigned,
-        onPlayerMoved,
-        onPlayerDeselected,
-      },
-    ref
-  ) => {
+    (
+        {
+          onPlayerSelected,
+          onPlayerHovered,
+          onFrameChanged,
+          onGoalScored,
+          onSimulationComplete,
+          onScriptAssigned,
+          onPlayerMoved,
+          onPlayerDragStart,
+          onPlayerDeselected,
+        },
+      ref
+    ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const gameRef = useRef<Game | null>(null);
 
@@ -166,6 +180,9 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         },
         onPlayerMoved: (playerId, position) => {
           onPlayerMoved?.(playerId, position);
+        },
+        onPlayerDragStart: () => {
+          onPlayerDragStart?.();
         },
         onPlayerDeselected: () => {
           onPlayerDeselected?.();
@@ -256,46 +273,29 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         // data-match-players
         containerRef.current?.setAttribute('data-selected-player', playerId ?? '');
       },
+      setTeamColors: (homeHex: string | undefined, awayHex: string | undefined) => {
+        gameRef.current?.setTeamColors(
+          hexToTeamColor(homeHex, PLAYER_HOME_COLOR),
+          hexToTeamColor(awayHex, PLAYER_AWAY_COLOR)
+        );
+      },
+      setScriptLabels: (labels: Record<string, string | null>) => {
+        gameRef.current?.setScriptLabels(labels);
+      },
+      detachPlayerScript: (playerId: string) => {
+        gameRef.current?.detachPlayerScript(playerId);
+      },
     }));
 
     // Gestion du drag & drop
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    }, []);
-
-    const handleDrop = useCallback(
-      (e: React.DragEvent) => {
-        e.preventDefault();
-
-        try {
-          const data = JSON.parse(e.dataTransfer.getData('application/json'));
-
-          if (data.type === 'script' && containerRef.current && gameRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const playerId = gameRef.current.hitTestPlayer(x, y);
-
-            if (playerId) {
-              gameRef.current.assignScript(playerId, data.scriptId);
-              onScriptDropped?.(playerId, data.scriptId);
-            }
-          }
-        } catch {
-          // Ignorer les drops invalides
-        }
-      },
-      [onScriptDropped]
-    );
+    // (story 7.5: script assignment moved to the on-pitch picker — the
+    // HTML5 drag-and-drop path is gone; player drag-moves are handled by
+    // the engine's pointer events)
 
     return (
       <div
         ref={containerRef}
         data-testid="field-canvas"
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
         style={{
           width: '100%',
           height: '100%',

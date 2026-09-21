@@ -37,9 +37,13 @@ vi.mock('@monaco-editor/react', () => ({
   loader: {
     config: vi.fn(),
     // Shape the instance the component's singleton effect consumes
-    // (monacoSetup registers the Game API lib on the same namespace).
+    // (monacoSetup registers the Game API lib on the same namespace,
+    // defineLaRondeThemes registers the La Ronde editor themes).
     init: vi.fn(() =>
       Promise.resolve({
+        editor: {
+          defineTheme: vi.fn(),
+        },
         typescript: {
           ScriptTarget: { ES2020: 7 },
           javascriptDefaults: {
@@ -98,13 +102,13 @@ describe('MonacoEditor Component', () => {
       expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
     });
 
-    it('should render with correct background color', () => {
+    it('should render with the theme panel background', () => {
       // WHEN: Rendering the component
       render(<MonacoEditor {...defaultProps} />);
 
-      // THEN: Should have VSCode dark background
+      // THEN: The wrapper rides the La Ronde panel token
       const container = screen.getByTestId('monaco-editor');
-      expect(container).toHaveStyle({ backgroundColor: '#1e1e1e' });
+      expect(container).toHaveStyle({ backgroundColor: 'var(--panel)' });
     });
 
     it('should pass value to Monaco Editor', () => {
@@ -122,14 +126,14 @@ describe('MonacoEditor Component', () => {
       );
     });
 
-    it('should pass vs-dark theme to Monaco Editor', () => {
-      // WHEN: Rendering the component
+    it('should pass the La Ronde light theme to Monaco Editor', () => {
+      // WHEN: Rendering the component (themeStore defaults to light)
       render(<MonacoEditor {...defaultProps} />);
 
-      // THEN: Monaco should receive vs-dark theme
+      // THEN: Monaco should receive the solarized-flavored La Ronde theme
       expect(mockEditorComponent).toHaveBeenCalledWith(
         expect.objectContaining({
-          theme: 'vs-dark',
+          theme: 'la-ronde',
         })
       );
     });
@@ -171,7 +175,7 @@ describe('MonacoEditor Component', () => {
             minimap: { enabled: false },
             fontSize: 14,
             lineNumbers: 'on',
-            wordWrap: 'on',
+            wordWrap: 'off',
             automaticLayout: true,
           }),
         })

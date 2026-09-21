@@ -676,4 +676,136 @@ class TacticTest extends TestCase
             ->assertJsonPath('wins', 9)
             ->assertJsonPath('losses', 2);
     }
+
+    // ------------------------------------------------------------------
+    // Team customization (Epic 7, story 7.4)
+    // ------------------------------------------------------------------
+
+    public function test_tactic_has_default_team_colors_and_null_crest(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Defaults']);
+
+        $this->assertSame('#ff6b1a', $tactic->color_primary);
+        $this->assertSame('#1a8cff', $tactic->color_secondary);
+        $this->assertNull($tactic->crest);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson("/api/tactics/{$tactic->id}")
+            ->assertOk()
+            ->assertJsonPath('colorPrimary', '#ff6b1a')
+            ->assertJsonPath('colorSecondary', '#1a8cff')
+            ->assertJsonPath('crest', null);
+    }
+
+    public function test_create_tactic_persists_custom_colors_and_crest(): void
+    {
+        $user = User::factory()->create();
+
+        $payload = $this->formationPayload($user);
+        $payload['color_primary'] = '#31c48d';
+        $payload['color_secondary'] = '#4aa8e8';
+        $payload['crest'] = '🦊';
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('colorPrimary', '#31c48d')
+            ->assertJsonPath('colorSecondary', '#4aa8e8')
+            ->assertJsonPath('crest', '🦊');
+
+        $this->assertDatabaseHas('tactics', [
+            'name' => '1-2-2 Formation',
+            'color_primary' => '#31c48d',
+            'color_secondary' => '#4aa8e8',
+            'crest' => '🦊',
+        ]);
+    }
+
+    public function test_create_tactic_validates_hex_colors(): void
+    {
+        $user = User::factory()->create();
+
+        $payload = $this->formationPayload($user);
+        $payload['color_primary'] = 'corail';
+        $payload['color_secondary'] = '#12345'; // 5 digits
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['color_primary', 'color_secondary']);
+    }
+
+    public function test_create_tactic_validates_crest_whitelist(): void
+    {
+        $user = User::factory()->create();
+
+        $payload = $this->formationPayload($user);
+        $payload['crest'] = '🦕';
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['crest']);
+    }
+
+    public function test_update_tactic_partial_colors_and_crest(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create([
+            'name' => 'Painted',
+            'color_primary' => '#ff6b1a',
+            'color_secondary' => '#1a8cff',
+            'crest' => '⚽',
+        ]);
+
+        // Absent color keys keep the current values (partial-update law)
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['color_primary' => '#ffc244'])
+            ->assertStatus(200)
+            ->assertJsonPath('colorPrimary', '#ffc244')
+            ->assertJsonPath('colorSecondary', '#1a8cff')
+            ->assertJsonPath('crest', '⚽');
+
+        // Crest null clears the crest; colors survive
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['crest' => null])
+            ->assertStatus(200)
+            ->assertJsonPath('crest', null)
+            ->assertJsonPath('colorPrimary', '#ffc244');
+
+        // A new crest can be set later
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['crest' => '🐙'])
+            ->assertStatus(200)
+            ->assertJsonPath('crest', '🐙');
+
+        $this->assertDatabaseHas('tactics', [
+            'id' => $tactic->id,
+            'color_primary' => '#ffc244',
+            'color_secondary' => '#1a8cff',
+            'crest' => '🐙',
+        ]);
+    }
+
+    public function test_update_tactic_validates_colors_and_crest(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Guarded']);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", [
+                'color_primary' => '#ff6b1a',
+                'crest' => 'x',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['crest']);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", [
+                'color_secondary' => 'blue',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['color_secondary']);
+    }
 }

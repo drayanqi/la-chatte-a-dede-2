@@ -235,8 +235,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     height: '48px',
     padding: '0 16px',
-    backgroundColor: '#2d2d2d',
-    borderTop: '1px solid #3c3c3c',
+    backgroundColor: 'var(--panel)',
+    borderTop: '1px solid var(--line)',
     gap: '16px',
   },
   controls: {
@@ -251,7 +251,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    color: '#cccccc',
+    color: 'var(--muted)',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
@@ -263,7 +263,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0e639c',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
     border: 'none',
     borderRadius: '50%',
@@ -271,16 +271,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
   },
   timeDisplay: {
-    fontFamily: 'monospace',
+    fontFamily: 'var(--mono)',
     fontSize: '13px',
-    color: '#cccccc',
+    color: 'var(--ink)',
     whiteSpace: 'nowrap',
   },
   timeSeparator: {
-    color: '#666666',
+    color: 'var(--muted)',
   },
   totalTime: {
-    color: '#888888',
+    color: 'var(--muted)',
   },
   progressContainer: {
     flex: 1,
@@ -292,14 +292,14 @@ const styles: Record<string, React.CSSProperties> = {
     userSelect: 'none',
   },
   focusRing: {
-    outline: '2px solid #0e639c',
+    outline: '2px solid var(--corail)',
     outlineOffset: '2px',
   },
   progressTrack: {
     position: 'relative',
     width: '100%',
     height: '4px',
-    backgroundColor: '#3c3c3c',
+    backgroundColor: 'var(--line)',
     borderRadius: '2px',
   },
   progressFill: {
@@ -307,7 +307,7 @@ const styles: Record<string, React.CSSProperties> = {
     top: 0,
     left: 0,
     height: '100%',
-    backgroundColor: '#0e639c',
+    backgroundColor: 'var(--corail)',
     borderRadius: '2px',
   },
   goalMarker: {
@@ -332,9 +332,9 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 3,
   },
   frameCounter: {
-    fontFamily: 'monospace',
+    fontFamily: 'var(--mono)',
     fontSize: '11px',
-    color: '#666666',
+    color: 'var(--muted)',
     minWidth: '120px',
     textAlign: 'right',
   },

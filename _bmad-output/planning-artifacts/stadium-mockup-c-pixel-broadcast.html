@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Direction C · Pixel Broadcast 16-bit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12122a; --panel:#1d1d42; --panel2:#242450; --edge:#3b3b7a; --edge2:#55559b;
+  --yellow:#ffd400; --red:#ff3355; --green:#00c46a; --cyan:#29e0ff; --white:#f4f4ff; --dim:#9a9ad0;
+  --home:#ffd400; --away:#29e0ff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--white);
+  font-family:'VT323',monospace;font-size:21px;line-height:1.35;min-height:100vh;
+}
+.px{font-family:'Press Start 2P',monospace;line-height:1.7}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 90px}
+
+/* scanline atmosphere over everything */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:90;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 2px, transparent 2px 5px);
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:91;
+  background:radial-gradient(120% 90% at 50% 40%, transparent 60%, rgba(0,0,10,.5) 100%);
+}
+
+.ribbon{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:12px 16px;font-size:12px;color:#0c0c20;background:var(--yellow);
+  border-bottom:4px solid #0c0c20;box-shadow:0 4px 0 rgba(0,0,0,.4);
+}
+.ribbon b{background:var(--red);color:#fff;padding:4px 8px}
+
+/* panels: hard edges, no radius, chunky borders */
+.panel{background:var(--panel);border:3px solid var(--edge);box-shadow:6px 6px 0 rgba(0,0,0,.45)}
+.panel h3{
+  font-size:12px;letter-spacing:1px;color:var(--yellow);
+  padding:14px 18px 12px;border-bottom:3px solid var(--edge);display:flex;gap:10px;align-items:center
+}
+.panel h3 .hint{margin-left:auto;color:var(--dim);font-family:'VT323';font-size:16px;letter-spacing:0}
+
+/* ---------- nav ---------- */
+.appnav{
+  display:flex;align-items:center;gap:20px;padding:12px 18px;margin-top:20px;
+  background:var(--panel);border:3px solid var(--edge);box-shadow:6px 6px 0 rgba(0,0,0,.45);
+}
+.brand{display:flex;align-items:center;gap:14px}
+.crest{
+  width:46px;height:46px;display:grid;place-items:center;position:relative;overflow:hidden;
+  background:#0c0c20;border:3px solid var(--yellow);box-shadow:3px 3px 0 rgba(0,0,0,.5);
+}
+.crest img{width:80%;height:80%;object-fit:contain;position:relative;z-index:1;image-rendering:pixelated}
+.crest-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;z-index:0}
+.brand-name{font-size:14px;color:var(--white);text-shadow:3px 3px 0 rgba(0,0,0,.6)}
+.brand-name .c1{color:var(--yellow)}
+.nav-pills{display:flex;gap:10px;margin-left:10px}
+.nav-pill{
+  font-family:'Press Start 2P';font-size:10px;padding:12px 18px;cursor:pointer;
+  color:var(--dim);background:var(--panel2);border:3px solid var(--edge);
+}
+.nav-pill.active{color:#0c0c20;background:var(--yellow);border-color:#0c0c20;box-shadow:3px 3px 0 rgba(0,0,0,.5)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.avatar{
+  width:40px;height:40px;display:grid;place-items:center;font-family:'Press Start 2P';font-size:13px;
+  background:var(--cyan);color:#0c0c20;border:3px solid #0c0c20;box-shadow:3px 3px 0 rgba(0,0,0,.5)
+}
+.username{font-size:18px;color:var(--dim)}
+
+/* ---------- labels ---------- */
+.sec-label{margin:36px 0 14px;font-size:11px;color:var(--cyan)}
+.sec-label b{color:var(--yellow)}
+
+/* ---------- broadcast scoreboard ---------- */
+.scoreboard{
+  display:flex;align-items:stretch;justify-content:center;gap:0;
+  border:3px solid #0c0c20;box-shadow:6px 6px 0 rgba(0,0,0,.45);margin-bottom:18px;
+}
+.sb-block{padding:12px 22px;display:flex;align-items:center;gap:12px}
+.sb-team{font-size:12px;background:var(--panel2);border-right:3px solid #0c0c20;border-left:3px solid #0c0c20}
+.sb-crest{width:30px;height:30px;display:grid;place-items:center;font-size:15px;background:#0c0c20;border:2px solid var(--edge2)}
+.sb-score{font-size:16px;background:var(--red);color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.5)}
+.sb-time{font-size:12px;background:var(--yellow);color:#0c0c20}
+.sb-live{font-size:10px;color:#fff;background:var(--green);gap:8px}
+.live-dot{width:10px;height:10px;background:#fff;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- play grid ---------- */
+.play-grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
+.col{display:flex;flex-direction:column;gap:20px}
+
+/* arcade menu */
+.menu-list{padding:10px 0}
+.menu-row{
+  display:flex;align-items:center;gap:14px;padding:11px 20px;cursor:pointer;
+  border-left:6px solid transparent;
+}
+.menu-row:hover{background:var(--panel2);border-left-color:var(--yellow)}
+.menu-row.sel{border-left-color:var(--yellow);background:var(--panel2)}
+.menu-cursor{width:20px;color:var(--yellow);font-size:12px;visibility:hidden}
+.menu-row.sel .menu-cursor,.menu-row:hover .menu-cursor{visibility:visible;animation:blink 1.2s steps(2) infinite}
+.menu-crest{width:32px;height:32px;display:grid;place-items:center;font-size:16px;background:#0c0c20;border:2px solid var(--edge2)}
+.menu-name{font-size:11px;letter-spacing:1px}
+.menu-sub{font-family:'VT323';font-size:16px;color:var(--dim);margin-top:4px}
+.menu-elo{margin-left:auto;font-family:'VT323';font-size:19px;color:var(--yellow)}
+.press-start{
+  display:block;width:100%;font-family:'Press Start 2P';font-size:16px;color:#0c0c20;
+  background:var(--yellow);border:3px solid #0c0c20;box-shadow:0 6px 0 #8a7000, 6px 6px 0 rgba(0,0,0,.45);
+  padding:22px;cursor:pointer;letter-spacing:2px;animation:blink 1.4s steps(2) infinite;
+}
+.press-start:active{transform:translateY(4px);box-shadow:0 2px 0 #8a7000, 6px 6px 0 rgba(0,0,0,.45)}
+.fighting-as{display:flex;align-items:center;gap:10px;padding:12px 20px;font-size:18px;color:var(--dim);border-top:3px solid var(--edge)}
+.fighting-as b{color:var(--white)}
+
+/* CRT results */
+.crt-panel{position:relative}
+.crt-panel::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(0,255,180,.05) 0 2px, transparent 2px 4px);
+}
+.term{padding:8px 0 12px}
+.term-row{display:flex;gap:12px;align-items:baseline;padding:7px 20px;font-size:19px;color:#7df0c0}
+.term-row .k{color:#3d8f6d}
+.term-row .w{color:#fff}
+.term-row .d{color:var(--red)}
+.term-row .t{margin-left:auto;color:#4d6b5d;font-size:16px}
+.rank-row{display:flex;align-items:center;gap:12px;padding:9px 20px;font-size:11px}
+.rank-n{color:var(--cyan);width:30px}
+.rank-name{letter-spacing:1px}
+.rank-name .you{color:#0c0c20;background:var(--cyan);padding:2px 6px;font-size:8px;margin-left:8px}
+.rank-elo{margin-left:auto;color:var(--yellow);font-family:'VT323';font-size:20px}
+.rank-row.r1{background:rgba(255,212,0,.08)}
+
+/* ---------- teams ---------- */
+.teambar{display:flex;align-items:center;gap:16px;padding:14px 18px;margin-bottom:20px}
+.casier-btn{
+  display:inline-flex;align-items:center;gap:14px;cursor:pointer;
+  background:var(--panel2);border:3px solid var(--edge2);padding:8px 16px 8px 8px;
+  position:relative;box-shadow:4px 4px 0 rgba(0,0,0,.45);
+}
+.casier-crest{width:38px;height:38px;display:grid;place-items:center;font-size:18px;background:var(--yellow);border:3px solid #0c0c20}
+.casier-name{font-family:'Press Start 2P';font-size:11px}
+.casier-chev{color:var(--yellow);font-family:'Press Start 2P';font-size:10px}
+
+/* choose-your-team casier */
+.casier-pop{
+  position:absolute;top:calc(100% + 12px);left:0;z-index:30;width:330px;
+  background:#0c0c20;border:3px solid var(--yellow);box-shadow:8px 8px 0 rgba(0,0,0,.6);
+  padding:14px;display:flex;flex-direction:column;gap:12px;
+}
+.casier-title{font-size:10px;color:var(--yellow);text-align:center;letter-spacing:1px}
+.casier-card{
+  display:flex;align-items:center;gap:12px;padding:10px;cursor:pointer;
+  background:var(--panel2);border:3px solid var(--edge);position:relative;
+}
+.casier-card.active{border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan)}
+.casier-card.active::before,.casier-card.active::after{
+  content:"";position:absolute;width:10px;height:10px;border:3px solid var(--cyan);
+}
+.casier-card.active::before{top:-6px;left:-6px;border-right:none;border-bottom:none}
+.casier-card.active::after{bottom:-6px;right:-6px;border-left:none;border-top:none}
+.cc-crest{width:40px;height:40px;display:grid;place-items:center;font-size:20px;border:2px solid #0c0c20}
+.casier-card b{font-family:'Press Start 2P';font-size:10px;font-weight:400}
+.casier-card .wl{margin-left:auto;font-family:'VT323';font-size:16px;color:var(--dim)}
+.casier-card .rdy{font-family:'VT323';font-size:15px;color:#0c0c20;background:var(--green);padding:1px 8px}
+.casier-card.new{justify-content:center;color:var(--yellow);border-style:dashed}
+.casier-note{position:absolute;top:calc(100% + 178px);left:2px;font-size:16px;color:var(--dim);font-style:italic}
+
+.ready-toggle{
+  font-family:'Press Start 2P';font-size:10px;color:#062b18;background:var(--green);
+  border:3px solid #0c0c20;box-shadow:0 4px 0 #0a6e3c, 4px 4px 0 rgba(0,0,0,.45);padding:13px 18px;cursor:pointer;
+}
+.btn-ghost{
+  font-family:'Press Start 2P';font-size:10px;color:var(--white);background:var(--panel2);
+  border:3px solid var(--edge2);box-shadow:4px 4px 0 rgba(0,0,0,.45);padding:13px 18px;cursor:pointer;
+}
+.spacer{flex:1}
+.teams-grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+
+/* ---------- CRT pitch ---------- */
+.stadium{position:relative;background:#0c0c20;border:3px solid var(--edge);box-shadow:8px 8px 0 rgba(0,0,0,.5);overflow:hidden}
+.stadium::after{
+  content:"";position:absolute;inset:0;z-index:20;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 3px, transparent 3px 6px),
+             radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(0,0,12,.55) 100%);
+}
+.ticker{position:relative;z-index:21;background:#0c0c20;border-top:3px solid var(--edge);border-bottom:3px solid var(--edge);overflow:hidden;height:38px}
+.ticker-track{display:flex;white-space:nowrap;height:100%;align-items:center;animation:tick 20s linear infinite}
+.ticker-track span{font-family:'Press Start 2P';font-size:10px;color:var(--yellow);padding-right:48px}
+.ticker-track .star{color:var(--red)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.field-c{
+  position:relative;margin:0 auto;width:min(660px,92%);
+  height:400px;margin-top:0;margin-bottom:0;
+  background:
+    repeating-linear-gradient(90deg, #1f8c46 0 55px, #1a7d3e 55px 110px);
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.9);
+}
+.pline{position:absolute;border:2px solid rgba(255,255,255,.95)}
+.pline.mid{left:50%;top:4px;bottom:4px;border-width:0 0 0 2px}
+.pline.circle{left:50%;top:50%;width:96px;height:96px;border-radius:50%;transform:translate(-50%,-50%)}
+.pline.arc-l{left:-38px;top:50%;width:76px;height:140px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%)}
+.pline.arc-r{right:-38px;top:50%;width:76px;height:140px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0)}
+.pspot{position:absolute;left:50%;top:50%;width:6px;height:6px;background:rgba(255,255,255,.95);transform:translate(-50%,-50%)}
+.goal-c{
+  position:absolute;top:50%;transform:translateY(-50%);width:22px;height:88px;z-index:2;
+  background:#f4f4ff;border:3px solid #0c0c20;
+}
+.goal-c.home{left:-30px;box-shadow:-5px 0 0 var(--home)}
+.goal-c.away{right:-30px;box-shadow:5px 0 0 var(--away)}
+.sprite{position:absolute;z-index:4;transform:translate(-50%,-50%);text-align:center}
+.s-body{
+  width:26px;height:26px;margin:0 auto;position:relative;
+  background:var(--home);border:3px solid #0c0c20;box-shadow:inset -5px -5px 0 rgba(0,0,0,.28);
+}
+.s-body.away{background:var(--away)}
+.s-num{position:absolute;inset:0;display:grid;place-items:center;font-family:'Press Start 2P';font-size:9px;color:#0c0c20;text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.s-shadow{width:26px;height:6px;margin:3px auto 0;background:rgba(0,0,0,.35)}
+.s-label{font-family:'VT323';font-size:15px;color:#eaf7c8;text-shadow:2px 2px 0 rgba(0,0,0,.8);white-space:nowrap}
+
+/* side panels */
+.side{display:flex;flex-direction:column;gap:20px}
+.script-row{display:flex;align-items:center;gap:12px;padding:10px 20px;font-size:19px;border-top:2px solid var(--edge)}
+.script-row:first-of-type{border-top:none}
+.script-row .cur{color:var(--yellow);font-family:'Press Start 2P';font-size:10px;width:16px}
+.script-name{font-family:'Press Start 2P';font-size:10px;letter-spacing:1px}
+.script-row.active .script-name{color:var(--green)}
+.badge{margin-left:auto;font-family:'VT323';font-size:15px;padding:1px 8px;border:2px solid var(--edge2);color:var(--dim)}
+.badge.ok{color:#0c0c20;background:var(--green);border-color:#0c0c20}
+.badge.err{color:#fff;background:var(--red);border-color:#0c0c20}
+.code{
+  margin:6px 16px 16px;padding:14px;font-size:18px;line-height:1.45;white-space:pre;
+  font-family:'VT323',monospace;background:#04140d;color:#7df0c0;border:3px solid var(--edge);
+  text-shadow:0 0 6px rgba(125,240,192,.35);overflow:hidden;
+}
+.code .kw{color:#ffd400}.code .fn{color:#29e0ff}.code .cm{color:#4d6b5d}
+.custom-body{padding:4px 20px 18px}
+.custom-row{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:17px;color:var(--dim)}
+.custom-row .k{font-family:'Press Start 2P';font-size:9px;color:var(--cyan);width:90px}
+.swatch{width:30px;height:30px;border:3px solid #0c0c20;box-shadow:3px 3px 0 rgba(0,0,0,.5)}
+.swatch.sel{outline:3px solid var(--white);outline-offset:2px}
+.emoji-opt{width:32px;height:32px;display:grid;place-items:center;font-size:16px;background:var(--panel2);border:2px solid var(--edge2)}
+.emoji-opt.sel{border-color:var(--yellow);background:#3a3a1a}
+.custom-note{margin-top:14px;font-size:16px;color:var(--dim);font-style:italic}
+.footer-note{margin-top:52px;text-align:center;color:var(--dim);font-size:17px}
+.footer-note b{color:var(--yellow)}
+</style>
+</head>
+<body>
+
+<div class="ribbon">DIRECTION <b>C</b> · PIXEL BROADCAST — Mega Drive &amp; match télé de 1994 · terrain pixel sous CRT, menus en « SELECT » d'arcade</div>
+
+<div class="wrap">
+
+  <!-- NAV -->
+  <header class="appnav">
+    <div class="brand">
+      <span class="crest"><span class="crest-fallback">🐱</span><img src="../../src/assets/watermark.png" alt="DD"></span>
+      <span class="brand-name px">LACHATA<span class="c1">DEDE</span></span>
+    </div>
+    <nav class="nav-pills">
+      <button class="nav-pill">EQUIPES</button>
+      <button class="nav-pill active">JOUER</button>
+    </nav>
+    <div class="nav-right">
+      <span class="username">@Pelo</span>
+      <span class="avatar">P</span>
+    </div>
+  </header>
+
+  <!-- PAGE JOUER -->
+  <div class="sec-label px">PAGE <b>JOUER</b> — L'ACCUEIL</div>
+
+  <div class="scoreboard">
+    <div class="sb-block sb-live px"><span class="live-dot"></span>LIVE</div>
+    <div class="sb-block sb-team px"><span class="sb-crest">🔶</span>PRESSING&nbsp;804</div>
+    <div class="sb-block sb-score px">2 - 1</div>
+    <div class="sb-block sb-team px">KAARIS&nbsp;FC<span class="sb-crest">🦁</span></div>
+    <div class="sb-block sb-time px">12:34</div>
+  </div>
+
+  <div class="play-grid">
+    <div class="col">
+
+      <section class="panel">
+        <h3 class="px">SELECT MATCH <span class="hint">adversaires prêts — la simu tourne même s'ils dorment</span></h3>
+        <div class="menu-list">
+          <div class="menu-row sel">
+            <span class="menu-cursor px">►</span>
+            <span class="menu-crest">⚡</span>
+            <div><div class="menu-name px">QUICK MATCH</div><div class="menu-sub">adversaire prêt au hasard — ton elo en jeu</div></div>
+            <span class="menu-elo">elo ±25</span>
+          </div>
+          <div class="menu-row">
+            <span class="menu-cursor px">►</span>
+            <span class="menu-crest">🦁</span>
+            <div><div class="menu-name px">KAARIS FC</div><div class="menu-sub">18 victoires · 4 défaites</div></div>
+            <span class="menu-elo">1022</span>
+          </div>
+          <div class="menu-row">
+            <span class="menu-cursor px">►</span>
+            <span class="menu-crest">🧊</span>
+            <div><div class="menu-name px">GLACIER UNITED</div><div class="menu-sub">9 victoires · 11 défaites</div></div>
+            <span class="menu-elo">988</span>
+          </div>
+          <div class="menu-row">
+            <span class="menu-cursor px">►</span>
+            <span class="menu-crest">👑</span>
+            <div><div class="menu-name px">LES BLEUS DE DD</div><div class="menu-sub">22 victoires · 2 défaites</div></div>
+            <span class="menu-elo">1187</span>
+          </div>
+        </div>
+        <div class="fighting-as">avec <b>PRESSING 804</b> · 1004 elo <span style="color:var(--yellow)">[CHANGER ▼]</span></div>
+        <div style="padding:14px 20px 18px">
+          <button class="press-start">▶ PRESS START</button>
+        </div>
+      </section>
+
+    </div>
+
+    <aside class="col">
+      <section class="panel crt-panel">
+        <h3 class="px">RESULTS <span class="hint">derniers matchs</span></h3>
+        <div class="term">
+          <div class="term-row"><span class="k">V</span><span class="w">3-1</span> vs GLACIER U. <span style="color:#7df0c0">+12 elo</span><span class="t">2h</span></div>
+          <div class="term-row"><span class="d">D</span><span class="w">1-2</span> vs KAARIS FC <span style="color:#ff8ba0">−9 elo</span><span class="t">hier</span></div>
+          <div class="term-row"><span class="k">V</span><span class="w">2-0</span> vs BLEUS DD <span style="color:#7df0c0">+18 elo</span><span class="t">hier</span></div>
+          <div class="term-row"><span class="d">D</span><span class="w">0-4</span> vs KAARIS FC <span style="color:#ff8ba0">−11 elo</span><span class="t">mar.</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3 class="px">RANKINGS <span class="hint">top tactiques</span></h3>
+        <div class="rank-row r1"><span class="rank-n px">01</span><span class="rank-name px">BLEUS DE DD<span class="you">TOI</span></span><span class="rank-elo">1187</span></div>
+        <div class="rank-row"><span class="rank-n px">02</span><span class="rank-name px">KAARIS FC</span><span class="rank-elo">1022</span></div>
+        <div class="rank-row"><span class="rank-n px">03</span><span class="rank-name px">PRESSING 804<span class="you">TOI</span></span><span class="rank-elo">1004</span></div>
+        <div class="rank-row"><span class="rank-n px">04</span><span class="rank-name px">GLACIER U.</span><span class="rank-elo">988</span></div>
+        <div class="rank-row"><span class="rank-n px">05</span><span class="rank-name px">TIKI-TAKA 2009</span><span class="rank-elo">961</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- PAGE EQUIPES -->
+  <div class="sec-label px">PAGE <b>EQUIPES</b> — LE VESTIAIRE</div>
+
+  <section class="panel teambar">
+    <button class="casier-btn">
+      <span class="casier-crest">🔶</span><span class="casier-name">PRESSING 804</span><span class="casier-chev">▼</span>
+      <div class="casier-pop">
+        <div class="casier-title px">CHOOSE YOUR TEAM</div>
+        <div class="casier-card active">
+          <span class="cc-crest" style="background:var(--yellow)">🔶</span>
+          <b>PRESSING 804</b><span class="wl">12W·3L</span><span class="rdy">PRÊTE</span>
+        </div>
+        <div class="casier-card">
+          <span class="cc-crest" style="background:var(--cyan)">🧊</span>
+          <b>GLACIER U.</b><span class="wl">4W·8L</span>
+        </div>
+        <div class="casier-card new"><b>＋ NEW TEAM</b></div>
+      </div>
+    </button>
+    <span class="casier-note">← le casier, façon écran de sélection de combat</span>
+    <button class="ready-toggle">⚔ PRETE</button>
+    <span class="spacer"></span>
+    <button class="btn-ghost">▶ TEST VS BOT</button>
+  </section>
+
+  <div class="teams-grid">
+
+    <section class="stadium">
+      <div class="field-c">
+        <div class="pline arc-l"></div><div class="pline arc-r"></div>
+        <div class="pline circle"></div>
+        <div class="pline mid"></div>
+        <div class="pspot"></div>
+        <div class="goal-c home"></div><div class="goal-c away"></div>
+        <div class="sprite" style="left:8%;top:50%"><div class="s-body"><span class="s-num">1</span></div><div class="s-shadow"></div><div class="s-label">gardien.js</div></div>
+        <div class="sprite" style="left:24%;top:22%"><div class="s-body"><span class="s-num">2</span></div><div class="s-shadow"></div><div class="s-label">pressing.js</div></div>
+        <div class="sprite" style="left:24%;top:78%"><div class="s-body"><span class="s-num">3</span></div><div class="s-shadow"></div><div class="s-label">pressing.js</div></div>
+        <div class="sprite" style="left:40%;top:38%"><div class="s-body"><span class="s-num">4</span></div><div class="s-shadow"></div><div class="s-label">tiki.js</div></div>
+        <div class="sprite" style="left:40%;top:62%"><div class="s-body"><span class="s-num">5</span></div><div class="s-shadow"></div><div class="s-label">tiki.js</div></div>
+        <div class="sprite" style="left:92%;top:50%"><div class="s-body away"><span class="s-num">1</span></div><div class="s-shadow"></div></div>
+        <div class="sprite" style="left:76%;top:24%"><div class="s-body away"><span class="s-num">8</span></div><div class="s-shadow"></div></div>
+        <div class="sprite" style="left:76%;top:76%"><div class="s-body away"><span class="s-num">10</span></div><div class="s-shadow"></div></div>
+        <div class="sprite" style="left:58%;top:36%"><div class="s-body away"><span class="s-num">7</span></div><div class="s-shadow"></div></div>
+        <div class="sprite" style="left:58%;top:64%"><div class="s-body away"><span class="s-num">9</span></div><div class="s-shadow"></div></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-track">
+          <span>LACHATADEDE</span><span class="star">★</span><span>LA CHAT A DIDIER</span><span class="star">★</span>
+          <span>QUICK MATCH</span><span class="star">★</span><span>PRESSING 804 12W-3L</span><span class="star">★</span>
+          <span>LACHATADEDE</span><span class="star">★</span><span>LA CHAT A DIDIER</span><span class="star">★</span>
+          <span>QUICK MATCH</span><span class="star">★</span><span>PRESSING 804 12W-3L</span><span class="star">★</span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h3 class="px">SCRIPTS.DAT <span class="hint" style="color:var(--yellow);font-family:'Press Start 2P';font-size:8px">＋ NEW</span></h3>
+        <div class="script-row active"><span class="cur">►</span><span class="script-name">pressing.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="cur">►</span><span class="script-name">tiki-taka.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="cur">►</span><span class="script-name">gardien.js</span><span class="badge ok">1 joueur</span></div>
+        <div class="script-row"><span class="cur">►</span><span class="script-name">catenaccio.js</span><span class="badge err">ERREUR</span></div>
+      </section>
+
+      <section class="panel">
+        <h3 class="px">EDITOR</h3>
+        <pre class="code"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) <span class="kw">=></span> {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </section>
+
+      <section class="panel">
+        <h3 class="px">PERSONNALISER</h3>
+        <div class="custom-body">
+          <div class="custom-row"><span class="k">COULEUR 1</span>
+            <span class="swatch sel" style="background:#ffd400"></span>
+            <span class="swatch" style="background:#ff3355"></span>
+            <span class="swatch" style="background:#00c46a"></span>
+            <span class="swatch" style="background:#29e0ff"></span>
+          </div>
+          <div class="custom-row"><span class="k">BLASON</span>
+            <span class="emoji-opt sel">🔶</span><span class="emoji-opt">🦁</span><span class="emoji-opt">⚡</span><span class="emoji-opt">🐱</span><span class="emoji-opt">👑</span>
+          </div>
+          <div class="custom-note">Tes couleurs = tes sprites sur le terrain. Le blason suit le maillot.</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footer-note">DIRECTION C — <b>pixel &amp; broadcast 90's</b> · sprites carrés, scanlines, PRESS START · zéro arrondi, zéro dégradé</div>
+</div>
+</body>
+</html>

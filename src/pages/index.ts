@@ -1,3 +1,7 @@
 export { RegisterPage } from './RegisterPage';
 export { LoginPage } from './LoginPage';
-export { WorkspacePage } from './WorkspacePage';
+export { PlayPage } from './PlayPage';
+export { TeamsPage } from './TeamsPage';
+export { MatchPage } from './MatchPage';
+export { PalmaresPage } from './PalmaresPage';
+export { LeaderboardPage } from './LeaderboardPage';

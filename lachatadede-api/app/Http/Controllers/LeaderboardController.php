@@ -34,6 +34,8 @@ class LeaderboardController extends Controller
             'elo' => $tactic->elo,
             'wins' => $tactic->wins,
             'losses' => $tactic->losses,
+            'crest' => $tactic->crest,
+            'colorPrimary' => $tactic->color_primary,
         ])->values()->all());
     }
 }

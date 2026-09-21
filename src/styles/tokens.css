@@ -1,0 +1,84 @@
+/**
+ * La Ronde v4 — design tokens (source of truth:
+ * planning-artifacts/stadium-mockup-prototype-ronde-v4.html)
+ */
+
+:root {
+  --bg: #e9f5ee;
+  --panel: #ffffff;
+  --panel2: #f4faf6;
+  --ink: #12241b;
+  --muted: #5b7265;
+  --line: rgba(18, 36, 27, 0.12);
+  --corail: #ff6b57;
+  --sun: #ffc244;
+  --mint: #31c48d;
+  --sky: #4aa8e8;
+  --pitch: #3fae62;
+  --pitch-dark: #379c56;
+  --mark: rgba(255, 255, 255, 0.4);
+  --shadow: 0 8px 24px rgba(18, 36, 27, 0.09);
+  --shadow-lg: 0 18px 48px rgba(18, 36, 27, 0.16);
+  --r: 18px;
+  --r-sm: 12px;
+  --r-btn: 13px;
+  --r-modal: 24px;
+  --font: 'Sora', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Monaco', 'Menlo', monospace;
+}
+
+[data-theme='dark'] {
+  --bg: #0e1a13;
+  --panel: #182a1f;
+  --panel2: #13221a;
+  --ink: #eaf6ee;
+  --muted: #8fa89a;
+  --line: rgba(234, 246, 238, 0.12);
+  --pitch: #2e7d4f;
+  --pitch-dark: #286e45;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 500px at 10% -6%, rgba(255, 194, 68, 0.16), transparent 60%),
+    radial-gradient(800px 500px at 92% 108%, rgba(49, 196, 141, 0.13), transparent 60%),
+    var(--bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+@keyframes lachatadede-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

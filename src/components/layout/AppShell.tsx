@@ -1,19 +1,25 @@
 /**
- * AppShell - Main layout with 3 panels
+ * AppShell - Teams page: teambar, scripts, code, pitch, replays
  * OWNER: Dev Team
+ *
+ * (Story 7.5 layout: Scripts | Code | Terrain flex, floating rounded
+ * panels. Scripts and Code keep their mockup defaults (255px / 430px) but
+ * stay resizable via PanelDivider; the widths persist in localStorage.
+ * Script assignment happens via the on-pitch picker. Replay watching still
+ * renders in-place here until the dedicated /match/:id broadcast view
+ * takes over in 7.7.)
  */
 
 import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TacticsCanvas, TacticsCanvasHandle } from '../canvas';
-import { ScriptsPanel } from '../editor/ScriptsPanel';
-import { DebuggerPanel } from '../debugger/DebuggerPanel';
-import { TabBar } from '../tactics';
-import { Header } from './Header';
+import { ScriptsPanel, CodePanel } from '../editor';
+import { Teambar } from '../teams/Teambar';
+import { ScriptPicker } from '../teams/ScriptPicker';
+import { Appbar } from './Appbar';
 import { Timeline } from './Timeline';
-import { PanelDivider } from './PanelDivider';
 import { MatchStatusOverlay } from './MatchStatusOverlay';
-import { RankedView } from '../ranked/RankedView';
-import { LeaderboardView } from '../leaderboard/LeaderboardView';
+import { PanelDivider } from './PanelDivider';
 import {
   useCanvasStore,
   useEditorStore,
@@ -21,29 +27,69 @@ import {
   useTacticsStore,
 } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
-import { usePanelLayout } from '@/hooks/usePanelLayout';
 import { tacticConfigToTacticData, tacticDataToPlayerConfigs } from '@/lib/tacticBridge';
 import { matchPlayerKey } from '@/lib/teamMapping';
 import { computeScore, extractGoalTicks } from '@/lib/score';
 import { shouldTogglePlayback } from '@/lib/playbackShortcuts';
 import { isTypingContext } from '@/lib/keyboard';
+import { computePickerPosition } from '@/lib/pickerPosition';
 import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
-import type { MatchFrame, MatchResult, PlayerFrameState, TeamId } from '@/types';
+import type { MatchFrame, PlayerFrameState, Position, TeamId } from '@/types';
 
 /** How long the goal celebration layer stays mounted (ms) */
 const CELEBRATION_DURATION_MS = 1500;
 
+/** Script assignment counts + labels helper: engine player id for a slot */
+const enginePlayerIdForSlot = (slot: number): string => `home-${slot - 1}`;
+
+// Panel resize bounds (story 7.5): mockup defaults, user-adjustable.
+// The pitch never drops below MIN — the caps shrink on narrow viewports.
+const TEAMS_PANELS_KEY = 'teams_panel_layout';
+const DEFAULT_SCRIPTS_WIDTH = 255;
+const DEFAULT_CODE_WIDTH = 430;
+const MIN_SCRIPTS_WIDTH = 200;
+const MIN_CODE_WIDTH = 320;
+const ABS_MAX_SCRIPTS_WIDTH = 480;
+const ABS_MAX_CODE_WIDTH = 820;
+/** The pitch (flex) never shrinks below this width */
+const MIN_PITCH_WIDTH = 320;
+/** 8px gaps around each divider and panel */
+const LAYOUT_CHROME_WIDTH = 40;
+
+const clampWidth = (width: number, min: number, max: number): number =>
+  Math.min(Math.max(Math.round(width), min), Math.max(min, max));
+
+const loadTeamsPanelWidths = (): { scripts: number; code: number } => {
+  try {
+    const raw = localStorage.getItem(TEAMS_PANELS_KEY);
+    if (!raw) {
+      return { scripts: DEFAULT_SCRIPTS_WIDTH, code: DEFAULT_CODE_WIDTH };
+    }
+    const parsed = JSON.parse(raw) as { scripts?: unknown; code?: unknown };
+    const viewport = typeof window === 'undefined' ? 1440 : window.innerWidth;
+    const maxScripts = viewport - DEFAULT_CODE_WIDTH - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH;
+    const maxCode = viewport - DEFAULT_SCRIPTS_WIDTH - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH;
+    return {
+      scripts: clampWidth(
+        typeof parsed.scripts === 'number' ? parsed.scripts : DEFAULT_SCRIPTS_WIDTH,
+        MIN_SCRIPTS_WIDTH,
+        Math.min(ABS_MAX_SCRIPTS_WIDTH, maxScripts)
+      ),
+      code: clampWidth(
+        typeof parsed.code === 'number' ? parsed.code : DEFAULT_CODE_WIDTH,
+        MIN_CODE_WIDTH,
+        Math.min(ABS_MAX_CODE_WIDTH, maxCode)
+      ),
+    };
+  } catch {
+    return { scripts: DEFAULT_SCRIPTS_WIDTH, code: DEFAULT_CODE_WIDTH };
+  }
+};
+
 export const AppShell: React.FC = () => {
   const canvasRef = useRef<TacticsCanvasHandle>(null);
-
-  // Ranked matchmaking view (Epic 4 v2, story 4.3): a full-screen overlay
-  // ABOVE the workspace — the PixiJS engine and panels stay mounted so
-  // nothing re-initializes on entry/exit (Winston: no route swap)
-  const [rankedOpen, setRankedOpen] = useState(false);
-
-  // Public leaderboard view (story 4.5): same full-screen overlay anatomy,
-  // engine stays mounted underneath
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const pitchPanelRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Loaded match frames (score derivation, from the canvas store) + goal
   // celebration state
@@ -52,16 +98,83 @@ export const AppShell: React.FC = () => {
   const [celebratingTeam, setCelebratingTeam] = useState<TeamId | null>(null);
   const celebrationTimerRef = useRef<number | null>(null);
 
-  // Collapsible/resizable workspace panels (persisted in localStorage)
-  const {
-    layout,
-    resizeLeft,
-    resizeRight,
-    toggleLeft,
-    toggleRight,
-    resetSide,
-    commit,
-  } = usePanelLayout();
+  // Script picker state (story 7.5): the selected edit-mode player and the
+  // frozen picker placement (viewport coords); its current script is derived
+  // from the tactic
+  const [pickerPlayer, setPickerPlayer] = useState<{
+    id: string;
+    number: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Resizable panel widths (story 7.5): mockup defaults, persisted per device
+  const [{ scripts: scriptsWidth, code: codeWidth }, setPanelWidths] = useState(loadTeamsPanelWidths);
+
+  // Latest widths for the drag-end commit (onCommit carries no payload)
+  const panelWidthsRef = useRef({ scripts: scriptsWidth, code: codeWidth });
+  useEffect(() => {
+    panelWidthsRef.current = { scripts: scriptsWidth, code: codeWidth };
+  }, [scriptsWidth, codeWidth]);
+
+  const persistPanelWidths = useCallback((next: { scripts: number; code: number }) => {
+    try {
+      localStorage.setItem(TEAMS_PANELS_KEY, JSON.stringify(next));
+    } catch {
+      // Storage unavailable: the resize still applies for this session
+    }
+  }, []);
+
+  // Live clamp during a drag: the other panel keeps its current width and
+  // the pitch keeps its minimum
+  const clampScriptsWidth = useCallback(
+    (width: number) =>
+      clampWidth(
+        width,
+        MIN_SCRIPTS_WIDTH,
+        Math.min(
+          ABS_MAX_SCRIPTS_WIDTH,
+          window.innerWidth - codeWidth - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH
+        )
+      ),
+    [codeWidth]
+  );
+
+  const clampCodeWidth = useCallback(
+    (width: number) =>
+      clampWidth(
+        width,
+        MIN_CODE_WIDTH,
+        Math.min(
+          ABS_MAX_CODE_WIDTH,
+          window.innerWidth - scriptsWidth - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH
+        )
+      ),
+    [scriptsWidth]
+  );
+
+  const resizeScripts = useCallback(
+    (width: number) => setPanelWidths(({ code }) => ({ code, scripts: clampScriptsWidth(width) })),
+    [clampScriptsWidth]
+  );
+
+  const resizeCode = useCallback(
+    (width: number) => setPanelWidths(({ scripts }) => ({ scripts, code: clampCodeWidth(width) })),
+    [clampCodeWidth]
+  );
+
+  const handleScriptsResizeCommit = useCallback(() => {
+    persistPanelWidths(panelWidthsRef.current);
+  }, [persistPanelWidths]);
+
+  const handleCodeResizeCommit = useCallback(() => {
+    persistPanelWidths(panelWidthsRef.current);
+  }, [persistPanelWidths]);
+
+  const resetPanelWidths = useCallback(() => {
+    setPanelWidths({ scripts: DEFAULT_SCRIPTS_WIDTH, code: DEFAULT_CODE_WIDTH });
+    persistPanelWidths({ scripts: DEFAULT_SCRIPTS_WIDTH, code: DEFAULT_CODE_WIDTH });
+  }, [persistPanelWidths]);
 
   const {
     selectedPlayerId,
@@ -107,6 +220,14 @@ export const AppShell: React.FC = () => {
 
   // Track which tactic id is currently loaded in the canvas
   const loadedTacticIdRef = useRef<string | null>(null);
+
+  // The canvas engine dies with this component (route switch away and
+  // back, StrictMode double-mount): a fresh engine instance must reload
+  // the active tactic even though the id did not change. Declared BEFORE
+  // the load effect so each remount pass clears the dedupe guard first.
+  useEffect(() => {
+    loadedTacticIdRef.current = null;
+  }, []);
 
   // Lineup gating: all 5 slots must exist and have a script assigned
   const lineupComplete = activeTactic
@@ -167,6 +288,12 @@ export const AppShell: React.FC = () => {
     const target = tactics.find((tactic) => tactic.id === activeTacticId);
     if (!target) return;
 
+    // A replay is loading or loaded (deep link / watch navigation lands the
+    // user here mid-load): it owns the canvas when it lands — don't clobber
+    // it with the tactic load, and don't clear the in-flight frames
+    const { isReplayLoading, replayFrames } = useMatchStore.getState();
+    if (isReplayLoading || replayFrames.length > 0) return;
+
     loadedTacticIdRef.current = activeTacticId;
     setSelectedPlayer(null);
     setLogFilter(null);
@@ -219,30 +346,71 @@ export const AppShell: React.FC = () => {
    * - Re-click without logs: historical deselect toggle.
    * The engine never decides semantics — it only reports the click.
    */
-  const handlePlayerSelected = useCallback((playerId: string) => {
-    const canvas = useCanvasStore.getState();
-    const wasSelected = canvas.selectedPlayerId === playerId;
-    const hasLogs = useMatchStore
-      .getState()
-      .replayLogs.some((entry) => matchPlayerKey(entry.team, entry.slot) === playerId);
+  const handlePlayerSelected = useCallback(
+    (playerId: string, _teamId: TeamId, position: Position, _scriptId: string | null) => {
+      const canvas = useCanvasStore.getState();
+      const wasSelected = canvas.selectedPlayerId === playerId;
+      const hasLogs = useMatchStore
+        .getState()
+        .replayLogs.some((entry) => matchPlayerKey(entry.team, entry.slot) === playerId);
 
-    if (wasSelected) {
-      if (hasLogs) {
-        canvas.setLogFilter(canvas.logFilterPlayerId === playerId ? null : playerId);
-      } else {
-        canvas.setSelectedPlayer(null);
+      if (wasSelected) {
+        if (hasLogs) {
+          canvas.setLogFilter(canvas.logFilterPlayerId === playerId ? null : playerId);
+        } else {
+          canvas.setSelectedPlayer(null);
+          setPickerPlayer(null);
+        }
+        return;
       }
-      return;
-    }
 
-    canvas.setSelectedPlayer(playerId);
-    canvas.setLogFilter(hasLogs ? playerId : null);
-  }, []);
+      canvas.setSelectedPlayer(playerId);
+      canvas.setLogFilter(hasLogs ? playerId : null);
+
+      // Story 7.5: the picker targets edit-mode players (replay mode keeps
+      // the selection + log-filter semantics only). The placement is frozen
+      // at selection time (viewport coords, clamped to the pitch panel) —
+      // refs are read here, in an event handler, never during render.
+      // Engine ids: home-{n}.
+      if (useMatchStore.getState().replayFrames.length === 0) {
+        const slot = Number(playerId.split('-')[1]);
+        const rect = pitchPanelRef.current?.getBoundingClientRect();
+        const placement = rect
+          ? computePickerPosition(position.x, position.y, {
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+            })
+          : null;
+
+        if (placement) {
+          setPickerPlayer({
+            id: playerId,
+            number: Number.isNaN(slot) ? 0 : slot + 1,
+            x: placement.x,
+            y: placement.y,
+          });
+        } else {
+          setPickerPlayer(null);
+        }
+      }
+    },
+    []
+  );
 
   const handlePlayerDeselected = useCallback(() => {
     const canvas = useCanvasStore.getState();
     canvas.setSelectedPlayer(null);
     canvas.setLogFilter(null);
+    setPickerPlayer(null);
+  }, []);
+
+  // A drag that actually moves the player hides the picker (story 7.5): the
+  // pointerdown opened it before the engine could tell tap from drag.
+  // The selection ring stays — it is the drag's positional feedback.
+  const handlePlayerDragStart = useCallback(() => {
+    setPickerPlayer(null);
   }, []);
 
   const handlePlayerHovered = useCallback(
@@ -323,20 +491,50 @@ export const AppShell: React.FC = () => {
     setSelectedPlayer(null);
     setLogFilter(null);
     setMatchFrames(replayFrames);
+    // Team colors of the replayed match (story 7.4): challenger paints home,
+    // opponent away. A practice opponent keeps the default palette.
+    canvasRef.current?.setTeamColors(
+      replayMatch?.challengerColorPrimary ?? undefined,
+      replayMatch?.opponentColorPrimary ?? undefined
+    );
     canvasRef.current?.loadFrames(replayFrames);
-  }, [replayFrames, setMatchFrames, setSelectedPlayer, setLogFilter]);
+  }, [replayFrames, replayMatch, setMatchFrames, setSelectedPlayer, setLogFilter]);
 
-  // Watch Replay (story 3.8, AC #1): load the finished match's frames
+  // Live team recolor (story 7.4): an Équipement save updates the active
+  // tactic in place — no reload, the players and goals repaint immediately
+  // (redundant calls are no-ops: the engine skips same-color repaints)
+  useEffect(() => {
+    if (!activeTactic || isReplayMode) return;
+    canvasRef.current?.setTeamColors(activeTactic.colorPrimary, activeTactic.colorSecondary);
+  }, [activeTactic, isReplayMode]);
+
+  // Script tags (story 7.5): engine player id -> assigned script name.
+  // Recomputed when the lineup or the script list changes (renames included).
+  const editorScripts = useEditorStore((state) => state.scripts);
+  const syntaxErrors = useEditorStore((state) => state.syntaxErrors);
+  useEffect(() => {
+    if (!activeTactic || isReplayMode) return;
+
+    const labels: Record<string, string | null> = {};
+    for (const slot of activeTactic.players) {
+      labels[enginePlayerIdForSlot(slot.playerSlot)] = slot.scriptId
+        ? editorScripts.get(slot.scriptId)?.name ?? null
+        : null;
+    }
+    canvasRef.current?.setScriptLabels(labels);
+  }, [activeTactic, editorScripts, isReplayMode]);
+
+  // Watch Replay (story 3.8, AC #1 — 7.5: lands in the /match/:id viewer)
   const handleWatchReplay = useCallback(() => {
     if (!lastMatch || isReplayLoading) return;
-    void loadReplay(lastMatch.id, lastMatch);
-  }, [lastMatch, isReplayLoading, loadReplay]);
+    navigate(`/match/${lastMatch.id}`);
+  }, [lastMatch, isReplayLoading, navigate]);
 
-  // Watch last match (story 3.8, AC #4): one click to the most recent replay
+  // Watch last match (story 3.8, AC #4 — 7.5: lands in the /match/:id viewer)
   const handleWatchLastMatch = useCallback(() => {
     if (!latestMatch || isReplayLoading) return;
-    void loadReplay(latestMatch.id, latestMatch);
-  }, [latestMatch, isReplayLoading, loadReplay]);
+    navigate(`/match/${latestMatch.id}`);
+  }, [latestMatch, isReplayLoading, navigate]);
 
   // Retry after a replay load failure (AC: 3.5 #4 philosophy)
   const handleReplayRetry = useCallback(() => {
@@ -408,13 +606,6 @@ export const AppShell: React.FC = () => {
     persistActiveTacticFromEngine();
   }, [persistActiveTacticFromEngine]);
 
-  const handleScriptDropped = useCallback(
-    (playerId: string, scriptId: string) => {
-      console.log(`Script ${scriptId} assigned to player ${playerId}`);
-    },
-    []
-  );
-
   // After a script deletion: detach player references. The database already
   // nulls tactic_player.script_id (FK nullOnDelete) — we only re-sync local
   // state (engine + tactics cache).
@@ -423,31 +614,35 @@ export const AppShell: React.FC = () => {
     canvasRef.current?.detachScript(scriptId);
   }, []);
 
-  // Practice match start/retry (story 3.5): the replay bindings above share
-  // the same store subscription
+  // Practice match start/retry (story 3.5, handoff story 7.5): the match
+  // runs synchronously, then the route moves to the /match/:id viewer.
+  // A failure stays on the page (error banner + retry).
 
   const handleStartPractice = useCallback(() => {
     if (!activeTactic || !lineupComplete || isSimulating) return;
-    void startPracticeMatch(activeTactic.id);
-  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch]);
+
+    void (async () => {
+      await startPracticeMatch(activeTactic.id);
+      const { lastMatch, matchError } = useMatchStore.getState();
+      if (lastMatch && lastMatch.status === 'completed' && !matchError) {
+        navigate(`/match/${lastMatch.id}`);
+      }
+    })();
+  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch, navigate]);
 
   const handleRetryMatch = useCallback(() => {
     // Same guards as start: a lineup that became incomplete must not fire a
     // doomed request.
     if (!activeTactic || !lineupComplete || isSimulating) return;
-    void startPracticeMatch(activeTactic.id);
-  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch]);
 
-  // Watch replay from the ranked view (story 4.3): the overlay must close
-  // first — the canvas underneath owns the replay rendering
-  const handleRankedWatchReplay = useCallback(
-    (match: MatchResult) => {
-      setRankedOpen(false);
-      if (isReplayLoading) return;
-      void loadReplay(match.id, match);
-    },
-    [isReplayLoading, loadReplay]
-  );
+    void (async () => {
+      await startPracticeMatch(activeTactic.id);
+      const { lastMatch, matchError } = useMatchStore.getState();
+      if (lastMatch && lastMatch.status === 'completed' && !matchError) {
+        navigate(`/match/${lastMatch.id}`);
+      }
+    })();
+  }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch, navigate]);
 
   // Contrôles de lecture
   const handlePlay = useCallback(() => {
@@ -493,7 +688,7 @@ export const AppShell: React.FC = () => {
   // Arrow navigation (story 3.9, AC #3/#4): ±1 tick per press, ±60 ticks
   // (1 second at the engine's 60 fps) with Shift. While paused, the step
   // renders immediately (single frame apply, no play() call).
-  const navigate = useCallback(
+  const stepPlayback = useCallback(
     (direction: 'forward' | 'backward', ticks: number) => {
       const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
         useCanvasStore.getState();
@@ -520,11 +715,6 @@ export const AppShell: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Ranked view or leaderboard open (stories 4.3/4.5): the workspace is
-      // covered — its playback shortcuts must not act on the hidden engine
-      // underneath
-      if (rankedOpen || leaderboardOpen) return;
-
       // Arrow navigation (story 3.9): auto-repeat stays welcome (hold to
       // scrub) — only typing surfaces steal the keys
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -537,7 +727,7 @@ export const AppShell: React.FC = () => {
         if (useCanvasStore.getState().totalFrames === 0) return;
         event.preventDefault();
         const direction = event.key === 'ArrowRight' ? 'forward' : 'backward';
-        navigate(direction, event.shiftKey ? 60 : 1);
+        stepPlayback(direction, event.shiftKey ? 60 : 1);
         return;
       }
 
@@ -552,78 +742,61 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback, navigate, rankedOpen, leaderboardOpen]);
+  }, [togglePlayback, stepPlayback]);
 
   return (
     <div style={styles.container}>
-      {/* Header */}
-      <Header
+      {/* Appbar (La Ronde, story 7.1) */}
+      <Appbar />
+
+      {/* Teambar (story 7.5): pills + caret menu + status + Test vs Bot */}
+      <Teambar
         lineupComplete={lineupComplete}
         isSimulating={isSimulating}
         onStartPractice={handleStartPractice}
-        onOpenRanked={() => setRankedOpen(true)}
-        onOpenLeaderboard={() => setLeaderboardOpen(true)}
       />
 
-      {/* Tactic tabs (between header and field) */}
-      <TabBar />
-
-      {/* Practice match feedback: simulating overlay, result banner or error */}
-      <MatchStatusOverlay
-        isSimulating={isSimulating}
-        match={lastMatch}
-        error={matchError}
-        onRetry={handleRetryMatch}
-        onWatchReplay={handleWatchReplay}
-      />
-
-      {/* Main content */}
+      {/* Main content: Scripts | Code | Terrain flex (story 7.5, resizable) */}
       <div style={styles.main}>
-        {/* Scripts Panel (gauche): resizable, collapsible to a thin strip */}
-        {layout.leftCollapsed ? (
-          <button
-            type="button"
-            data-testid="panel-strip-left"
-            aria-expanded={false}
-            aria-controls="left-panel"
-            onClick={toggleLeft}
-            title="AI Scripts"
-            style={styles.collapsedStripLeft}
-          >
-            <span style={styles.collapsedStripLabel}>AI Scripts</span>
-            <span style={styles.collapsedStripArrow}>{'›'}</span>
-          </button>
-        ) : (
-          <>
-            <div
-              id="left-panel"
-              data-testid="left-panel"
-              style={{ ...styles.leftPanel, width: `${layout.leftWidth}px` }}
-            >
-              <ScriptsPanel onScriptDeleted={handleScriptDeleted} />
-            </div>
-            <PanelDivider
-              side="left"
-              width={layout.leftWidth}
-              onResize={resizeLeft}
-              onCommit={commit}
-              onReset={() => resetSide('left')}
-              onToggle={toggleLeft}
-            />
-          </>
-        )}
+        <div data-testid="left-panel" style={{ ...styles.leftPanel, width: `${scriptsWidth}px` }}>
+          <ScriptsPanel onScriptDeleted={handleScriptDeleted} />
+        </div>
 
-        {/* Canvas (centre) */}
-        <div style={styles.centerPanel}>
+        <PanelDivider
+          side="left"
+          id="scripts"
+          width={scriptsWidth}
+          onResize={resizeScripts}
+          onCommit={handleScriptsResizeCommit}
+          onReset={resetPanelWidths}
+          label="Resize scripts panel"
+        />
+
+        <div data-testid="code-panel-shell" style={{ ...styles.codePanel, width: `${codeWidth}px` }}>
+          <CodePanel />
+        </div>
+
+        <PanelDivider
+          side="left"
+          id="code"
+          width={codeWidth}
+          onResize={resizeCode}
+          onCommit={handleCodeResizeCommit}
+          onReset={resetPanelWidths}
+          label="Resize code panel"
+        />
+
+        {/* Terrain (droite) */}
+        <div data-testid="pitch-panel" ref={pitchPanelRef} style={styles.centerPanel}>
           <TacticsCanvas
             ref={canvasRef}
             onPlayerSelected={handlePlayerSelected}
             onPlayerHovered={handlePlayerHovered}
             onFrameChanged={handleFrameChanged}
             onGoalScored={handleGoalScored}
-            onScriptDropped={handleScriptDropped}
             onScriptAssigned={handleScriptAssigned}
             onPlayerMoved={handlePlayerMoved}
+            onPlayerDragStart={handlePlayerDragStart}
             onPlayerDeselected={handlePlayerDeselected}
           />
 
@@ -647,8 +820,7 @@ export const AppShell: React.FC = () => {
             </button>
           )}
 
-          {/* Watch last match (story 3.8, AC #4): subtle one-click entry to
-              the most recent completed match; never auto-opens the viewer */}
+          {/* Watch last match (story 3.8, AC #4, 7.5: /match/:id handoff) */}
           {latestMatch && !isReplayMode && !isReplayLoading && !replayError && (
             <button
               type="button"
@@ -704,45 +876,63 @@ export const AppShell: React.FC = () => {
             </div>
           )}
 
+          {/* Practice match feedback (story 3.5 + 7.5 handoff): simulating
+              overlay pinned to the pitch, error banner */}
+          <MatchStatusOverlay
+            isSimulating={isSimulating}
+            match={lastMatch}
+            error={matchError}
+            onRetry={handleRetryMatch}
+            onWatchReplay={handleWatchReplay}
+          />
+
+          {/* Script picker (story 7.5): edit mode only, at the frozen
+              placement captured when the player was selected. Gated on the
+              live selection: a tactic switch or replay clears it through
+              the store without a cascading local-state reset. */}
+          {pickerPlayer && selectedPlayerId === pickerPlayer.id && !isReplayMode
+            ? (() => {
+                const currentScriptId =
+                  activeTactic?.players.find(
+                    (slot) => enginePlayerIdForSlot(slot.playerSlot) === pickerPlayer.id
+                  )?.scriptId ?? null;
+
+                const pickerScripts = Array.from(editorScripts.values()).map((script) => ({
+                  id: script.id,
+                  name: script.name,
+                  status: (syntaxErrors.some((error) => error.scriptId === script.id)
+                    ? 'err'
+                    : 'ok') as 'ok' | 'err',
+                  usage: activeTactic
+                    ? activeTactic.players.filter((slot) => slot.scriptId === script.id).length
+                    : 0,
+                }));
+
+                return (
+                  <ScriptPicker
+                    playerNumber={pickerPlayer.number}
+                    x={pickerPlayer.x}
+                    y={pickerPlayer.y}
+                    scripts={pickerScripts}
+                    currentScriptId={currentScriptId}
+                    onAssign={(scriptId) => {
+                      canvasRef.current?.assignScript(pickerPlayer.id, scriptId);
+                    }}
+                    onRemove={() => {
+                      canvasRef.current?.detachPlayerScript(pickerPlayer.id);
+                      persistActiveTacticFromEngine();
+                    }}
+                    onClose={handlePlayerDeselected}
+                  />
+                );
+              })()
+            : null}
+
           {/* Goal celebration layer (presence marker; visuals live in Pixi) */}
           {celebratingTeam && (
             <div data-testid="goal-celebration-layer" style={styles.celebrationLayer} />
           )}
         </div>
-
-        {/* Debugger Panel (droite): resizable, collapsible to a thin strip */}
-        {layout.rightCollapsed ? (
-          <button
-            type="button"
-            data-testid="panel-strip-right"
-            aria-expanded={false}
-            aria-controls="right-panel"
-            onClick={toggleRight}
-            title="Debugger"
-            style={styles.collapsedStripRight}
-          >
-            <span style={styles.collapsedStripLabel}>Debugger</span>
-            <span style={styles.collapsedStripArrow}>{'‹'}</span>
-          </button>
-        ) : (
-          <>
-            <PanelDivider
-              side="right"
-              width={layout.rightWidth}
-              onResize={resizeRight}
-              onCommit={commit}
-              onReset={() => resetSide('right')}
-              onToggle={toggleRight}
-            />
-            <div
-              id="right-panel"
-              data-testid="right-panel"
-              style={{ ...styles.rightPanel, width: `${layout.rightWidth}px` }}
-            >
-              <DebuggerPanel />
-            </div>
-          </>
-        )}
       </div>
 
       {/* Timeline: only in replay mode — there is nothing to pause,
@@ -759,41 +949,8 @@ export const AppShell: React.FC = () => {
           onSeek={handleSeek}
         />
       )}
-
-      {/* Ranked matchmaking view (Epic 4 v2): opaque overlay above the
-          workspace; the engine and panels stay mounted underneath */}
-      <RankedView
-        open={rankedOpen}
-        onClose={() => setRankedOpen(false)}
-        onWatchReplay={handleRankedWatchReplay}
-      />
-
-      {/* Public leaderboard (story 4.5): same opaque overlay anatomy — the
-          engine and panels stay mounted underneath */}
-      <LeaderboardView
-        open={leaderboardOpen}
-        onClose={() => setLeaderboardOpen(false)}
-      />
     </div>
   );
-};
-
-const collapsedStripStyle: React.CSSProperties = {
-  width: '36px',
-  flexShrink: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-  padding: 0,
-  paddingTop: '12px',
-  backgroundColor: '#252526',
-  border: 'none',
-  cursor: 'pointer',
-  overflow: 'hidden',
-  userSelect: 'none',
-  color: 'inherit',
-  fontFamily: 'inherit',
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -802,26 +959,40 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     width: '100%',
     height: '100%',
-    backgroundColor: '#1e1e1e',
-    color: '#ffffff',
+    color: 'var(--ink)',
   },
   main: {
     display: 'flex',
     flex: 1,
     overflow: 'hidden',
+    padding: '8px',
+    gap: '2px',
+    minHeight: 0,
   },
   leftPanel: {
     flexShrink: 0,
-    borderRight: '1px solid #3c3c3c',
+    borderRadius: 'var(--r)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+    boxShadow: 'var(--shadow)',
+    backgroundColor: 'var(--panel)',
+  },
+  codePanel: {
+    flexShrink: 0,
+    borderRadius: 'var(--r)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: 'var(--shadow)',
+    backgroundColor: 'var(--panel)',
   },
   centerPanel: {
     flex: 1,
     minWidth: '320px',
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    borderRadius: 'var(--r)',
+    boxShadow: 'var(--shadow)',
     position: 'relative',
   },
   scoreDisplay: {
@@ -848,15 +1019,17 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: '12px',
     left: '12px',
-    padding: '6px 12px',
-    backgroundColor: 'rgba(37, 37, 38, 0.85)',
-    color: '#cccccc',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
+    padding: '7px 13px',
+    backgroundColor: 'rgba(10, 20, 14, 0.6)',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '11px',
     cursor: 'pointer',
     fontSize: '12px',
+    fontWeight: 700,
     zIndex: 10,
     userSelect: 'none',
+    backdropFilter: 'blur(4px)',
   },
   replayErrorBanner: {
     position: 'absolute',
@@ -867,24 +1040,25 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '12px',
     padding: '8px 16px',
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '8px',
+    backgroundColor: 'var(--panel)',
+    border: '1px solid var(--line)',
+    borderRadius: 'var(--r-btn, 13px)',
+    boxShadow: 'var(--shadow)',
     zIndex: 10,
   },
   replayErrorText: {
     fontSize: '13px',
-    color: '#f48771',
+    color: 'var(--corail)',
   },
   replayErrorRetryButton: {
-    padding: '4px 12px',
-    backgroundColor: '#0e639c',
+    padding: '6px 14px',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--r-btn, 13px)',
     cursor: 'pointer',
     fontSize: '12px',
-    fontWeight: 500,
+    fontWeight: 700,
   },
   replayLoadingOverlay: {
     position: 'fixed',
@@ -892,8 +1066,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 30, 30, 0.75)',
+    backgroundColor: 'rgba(10, 20, 14, 0.55)',
     zIndex: 1600,
+    backdropFilter: 'blur(3px)',
   },
   replayLoadingContent: {
     display: 'flex',
@@ -903,43 +1078,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   replayLoadingText: {
     fontSize: '15px',
-    fontWeight: 600,
+    fontWeight: 700,
     color: '#ffffff',
+    letterSpacing: '0.04em',
   },
   replayCancelButton: {
-    padding: '6px 18px',
-    backgroundColor: '#0e639c',
+    padding: '9px 18px',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--r-btn, 13px)',
     cursor: 'pointer',
     fontSize: '12px',
-    fontWeight: 500,
-  },
-  rightPanel: {
-    flexShrink: 0,
-    borderLeft: '1px solid #3c3c3c',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  collapsedStripLeft: {
-    ...collapsedStripStyle,
-    borderRight: '1px solid #3c3c3c',
-  },
-  collapsedStripRight: {
-    ...collapsedStripStyle,
-    borderLeft: '1px solid #3c3c3c',
-  },
-  collapsedStripLabel: {
-    writingMode: 'vertical-rl',
-    fontSize: '12px',
-    color: '#cccccc',
-    letterSpacing: '1px',
-    whiteSpace: 'nowrap',
-  },
-  collapsedStripArrow: {
-    fontSize: '14px',
-    color: '#9d9d9d',
+    fontWeight: 700,
   },
 };

@@ -45,11 +45,36 @@ class LeaderboardTest extends TestCase
             ->assertJsonCount(4);
 
         $this->assertSame([
-            ['rank' => 1, 'id' => $response->json('0.id'), 'name' => 'Gold Fighter', 'owner' => 'gold', 'elo' => 1300, 'wins' => 5, 'losses' => 0],
-            ['rank' => 2, 'id' => $response->json('1.id'), 'name' => 'Silver Fighter', 'owner' => 'silver', 'elo' => 1100, 'wins' => 3, 'losses' => 1],
-            ['rank' => 3, 'id' => $mine->id, 'name' => 'My Fighter', 'owner' => $me->username, 'elo' => 1000, 'wins' => 0, 'losses' => 1],
-            ['rank' => 4, 'id' => $response->json('3.id'), 'name' => 'Bronze Fighter', 'owner' => 'bronze', 'elo' => 900, 'wins' => 1, 'losses' => 2],
+            ['rank' => 1, 'id' => $response->json('0.id'), 'name' => 'Gold Fighter', 'owner' => 'gold', 'elo' => 1300, 'wins' => 5, 'losses' => 0, 'crest' => null, 'colorPrimary' => '#ff6b1a'],
+            ['rank' => 2, 'id' => $response->json('1.id'), 'name' => 'Silver Fighter', 'owner' => 'silver', 'elo' => 1100, 'wins' => 3, 'losses' => 1, 'crest' => null, 'colorPrimary' => '#ff6b1a'],
+            ['rank' => 3, 'id' => $mine->id, 'name' => 'My Fighter', 'owner' => $me->username, 'elo' => 1000, 'wins' => 0, 'losses' => 1, 'crest' => null, 'colorPrimary' => '#ff6b1a'],
+            ['rank' => 4, 'id' => $response->json('3.id'), 'name' => 'Bronze Fighter', 'owner' => 'bronze', 'elo' => 900, 'wins' => 1, 'losses' => 2, 'crest' => null, 'colorPrimary' => '#ff6b1a'],
         ], $response->json());
+    }
+
+    public function test_leaderboard_exposes_crest_and_color_primary(): void
+    {
+        $me = User::factory()->create();
+        $rival = User::factory()->create();
+
+        $this->createUserTactic($rival, 'Foxes', [
+            'elo' => 1200,
+            'color_primary' => '#31c48d',
+            'crest' => '🦊',
+        ]);
+        $this->createUserTactic($me, 'Mines', ['elo' => 1000]);
+
+        $response = $this->actingAs($me, 'sanctum')
+            ->getJson('/api/leaderboard')
+            ->assertOk()
+            ->assertJsonCount(2);
+
+        // Each row carries its team identity (story 7.4): explicit values on
+        // the customized tactic, column defaults on the untouched one
+        $this->assertSame('🦊', $response->json('0.crest'));
+        $this->assertSame('#31c48d', $response->json('0.colorPrimary'));
+        $this->assertSame(null, $response->json('1.crest'));
+        $this->assertSame('#ff6b1a', $response->json('1.colorPrimary'));
     }
 
     public function test_system_tactics_are_excluded(): void
@@ -137,10 +162,11 @@ class LeaderboardTest extends TestCase
             ->assertJsonCount(2)
             ->json('1');
 
-        // Exact shape: rank + the census columns, NOTHING else (NFR9: no
-        // players, no scripts, no ids beyond the tactic's own)
+        // Exact shape: rank + the census columns + team identity (story 7.4),
+        // NOTHING else (NFR9: no players, no scripts, no ids beyond the
+        // tactic's own)
         $this->assertSame(
-            ['rank', 'id', 'name', 'owner', 'elo', 'wins', 'losses'],
+            ['rank', 'id', 'name', 'owner', 'elo', 'wins', 'losses', 'crest', 'colorPrimary'],
             array_keys($row)
         );
         $this->assertSame(2, $row['rank']);

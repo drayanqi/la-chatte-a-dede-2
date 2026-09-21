@@ -62,6 +62,9 @@ export const tacticConfigToTacticData = (config: TacticConfig): TacticData => {
     players,
     ball: { x: 50, y: 50 },
     scripts: {},
+    // Team customization (story 7.4): the engine recolors sprites + goals
+    colorPrimary: config.colorPrimary,
+    colorSecondary: config.colorSecondary,
   };
 };
 

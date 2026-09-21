@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
-import type { TacticConfig, TacticPlayerConfig } from '@/types';
+import type { TacticConfig, TacticCustomizationPatch, TacticPlayerConfig } from '@/types';
 
 interface TacticsState {
   // Saved tactics
@@ -38,6 +38,7 @@ interface TacticsState {
     name?: string;
     slots?: TacticPlayerConfig[];
     isReady?: boolean;
+    customization?: TacticCustomizationPatch;
   } | null;
   pendingCreate: boolean;
 }
@@ -45,15 +46,17 @@ interface TacticsState {
 interface TacticsActions {
   // API operations
   fetchTactics: () => Promise<void>;
-  saveTactic: (name: string, slots: TacticPlayerConfig[]) => Promise<void>;
+  saveTactic: (name: string, slots: TacticPlayerConfig[]) => Promise<TacticConfig | null>;
   updateTactic: (
     id: string,
     name?: string,
     slots?: TacticPlayerConfig[],
-    isReady?: boolean
+    isReady?: boolean,
+    customization?: TacticCustomizationPatch
   ) => Promise<void>;
-  createTactic: () => Promise<TacticConfig | null>;
+  createTactic: (name?: string) => Promise<TacticConfig | null>;
   deleteTactic: (id: string) => Promise<boolean>;
+  duplicateTactic: (id: string) => Promise<TacticConfig | null>;
 
   // Selection
   selectTactic: (id: string | null) => void;
@@ -94,7 +97,8 @@ const runPendingWork = (): void => {
       state.pendingUpdate.id,
       state.pendingUpdate.name,
       state.pendingUpdate.slots,
-      state.pendingUpdate.isReady
+      state.pendingUpdate.isReady,
+      state.pendingUpdate.customization
     );
   } else if (state.pendingCreate) {
     useTacticsStore.setState({ pendingCreate: false });
@@ -222,12 +226,12 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
 
     if (!token) {
       set({ tacticsError: 'Not authenticated', isSavingTactic: false });
-      return;
+      return null;
     }
 
     // Prevent concurrent saves (double-click would create duplicate tactics)
     if (get().isSavingTactic) {
-      return;
+      return null;
     }
 
     set({ isSavingTactic: true, tacticsError: null });
@@ -253,25 +257,33 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
         tacticsError: null,
       }));
       safeSetItem(LAST_ACTIVE_KEY, newTactic.id);
+      return newTactic;
     } catch (error) {
       if (error instanceof ApiError) {
         set({
           tacticsError: error.message || 'Failed to save tactic',
           isSavingTactic: false,
         });
-        return;
+        return null;
       }
       console.error('Error saving tactic:', error);
       set({
         tacticsError: 'Failed to save tactic. Please try again.',
         isSavingTactic: false,
       });
+      return null;
     } finally {
       runPendingWork();
     }
   },
 
-  updateTactic: async (id: string, name?: string, slots?: TacticPlayerConfig[], isReady?: boolean) => {
+  updateTactic: async (
+    id: string,
+    name?: string,
+    slots?: TacticPlayerConfig[],
+    isReady?: boolean,
+    customization?: TacticCustomizationPatch
+  ) => {
     const token = localStorage.getItem('auth_token');
 
     if (!token) {
@@ -290,8 +302,9 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
               name: name ?? prev.name,
               slots: slots ?? prev.slots,
               isReady: isReady ?? prev.isReady,
+              customization: customization ?? prev.customization,
             }
-          : { id, name, slots, isReady };
+          : { id, name, slots, isReady, customization };
       set({ pendingUpdate });
       return;
     }
@@ -308,6 +321,19 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       }
       if (isReady !== undefined) {
         body.is_ready = isReady;
+      }
+      if (customization) {
+        // has() semantics server-side: an absent key keeps the current
+        // value; crest null clears it (story 7.4)
+        if (customization.colorPrimary !== undefined) {
+          body.color_primary = customization.colorPrimary;
+        }
+        if (customization.colorSecondary !== undefined) {
+          body.color_secondary = customization.colorSecondary;
+        }
+        if (customization.crest !== undefined) {
+          body.crest = customization.crest;
+        }
       }
 
       const response = await apiFetch(`/tactics/${id}`, {
@@ -356,7 +382,7 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     }
   },
 
-  createTactic: async () => {
+  createTactic: async (name?: string) => {
     const token = localStorage.getItem('auth_token');
 
     if (!token) {
@@ -372,12 +398,12 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     set({ isSavingTactic: true, tacticsError: null });
 
     try {
-      const name = `Tactic ${get().tactics.length + 1}`;
+      const finalName = name?.trim() || `Tactic ${get().tactics.length + 1}`;
 
       const response = await apiFetch('/tactics', {
         method: 'POST',
         body: JSON.stringify({
-          name,
+          name: finalName,
           players: slotsToPayload(DEFAULT_FORMATION),
         }),
       });
@@ -487,12 +513,22 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
     }
   },
 
+  /**
+   * Duplique une équipe (story 7.5): POST d'une copie nommée "X (copie)"
+   * avec la même line-up. La copie démarre en Brouillon (isReady n'est
+   * pas copié) et devient l'équipe active — même pipeline que createTactic.
+   */
+  duplicateTactic: async (id: string) => {
+    const source = get().tactics.find((tactic) => tactic.id === id);
+    if (!source) return null;
+    return get().saveTactic(`${source.name} (copie)`, source.players);
+  },
+
   selectTactic: (id) =>
     set((state) => {
       // Ignore ids that do not exist in the list; null always deselects
       const activeTacticId =
         id === null || state.tactics.some((tactic) => tactic.id === id) ? id : state.activeTacticId;
-
       // Remember the selection so a reload restores it (story 3.2 AC #6)
       if (activeTacticId !== null && activeTacticId !== state.activeTacticId) {
         safeSetItem(LAST_ACTIVE_KEY, activeTacticId);

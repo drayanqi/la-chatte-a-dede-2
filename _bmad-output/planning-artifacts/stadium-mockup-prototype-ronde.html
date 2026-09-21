@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Prototype complet (design La Ronde)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eaf6ee; --halo1:rgba(70,190,120,.18); --halo2:rgba(255,150,90,.15);
+  --card:#ffffff; --card2:#f2faf5; --ink:#173024; --muted:#7ca28e; --line:rgba(23,48,36,.1);
+  --pitch:#3fae62; --pitch2:#36a057; --coral:#ff6b57; --coral-d:#e04e3a; --sun:#ffc244; --mint:#31c48d; --mint-d:#1f9e6f;
+  --blue:#3b82c4; --shadow:0 14px 34px rgba(23,48,36,.14);
+}
+body.dark{
+  --bg:#12241b; --halo1:rgba(63,174,98,.22); --halo2:rgba(255,107,87,.12);
+  --card:#1c3529; --card2:#22402f; --ink:#e8f5ec; --muted:#7fae95; --line:rgba(232,245,236,.12);
+  --pitch:#2e8a4c; --pitch2:#277a42; --coral:#ff7a67; --coral-d:#d1553f; --sun:#ffc244; --mint:#3ad197; --mint-d:#239c78;
+  --blue:#5aa3d8; --shadow:0 14px 34px rgba(0,0,0,.45);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Sora',sans-serif;min-height:100vh;transition:background .3s,color .3s}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(560px 420px at 78% -8%,var(--halo1),transparent 70%),
+             radial-gradient(520px 420px at 6% 88%,var(--halo2),transparent 70%)}
+h1,h2,h3{font-weight:800;letter-spacing:-.3px}
+button{font-family:'Sora'}
+
+/* ===== nav du prototype ===== */
+.pnav{position:sticky;top:0;z-index:95;display:flex;align-items:center;gap:6px;padding:10px 16px;flex-wrap:wrap;
+  background:var(--card);box-shadow:var(--shadow);border-radius:0 0 20px 20px}
+.pnav .pl{font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:999px;cursor:pointer;color:var(--muted);background:var(--card2);border:1.5px solid var(--line)}
+.pnav .pl.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pnav .tt{font-weight:800;font-size:13px;margin-right:8px;display:flex;align-items:center;gap:7px}
+.pnav .tt .dot{width:26px;height:26px;border-radius:50%;background:conic-gradient(var(--coral) 0 25%,var(--sun) 0 50%,var(--mint) 0 75%,var(--coral) 0);display:grid;place-items:center;font-size:13px}
+.pnav .sep{width:1.5px;height:24px;background:var(--line);margin:0 6px}
+.pnav .moon{margin-left:auto;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--line);background:var(--card2);font-size:15px;cursor:pointer}
+.screen{display:none}
+.screen.on{display:block;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px 90px;position:relative;z-index:1}
+
+/* ===== nav app (fine, centrée — style La Ronde) ===== */
+.nav{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.nav .logo{display:flex;align-items:center;gap:10px;margin-right:14px;font-weight:800;font-size:16.5px;cursor:pointer}
+.logo .ball{width:40px;height:40px;border-radius:50%;background:conic-gradient(var(--coral) 0 25%,var(--sun) 0 50%,var(--mint) 0 75%,var(--coral) 0);border:3px solid var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:16px;overflow:hidden}
+.logo .ball img{width:100%;height:100%;object-fit:cover}
+.nav-link{padding:10px 22px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;border:1.5px solid transparent}
+.nav-link:hover{color:var(--ink);border-color:var(--line)}
+.nav-link.active{background:var(--ink);color:var(--bg)}
+.nav .user{display:flex;align-items:center;gap:9px;margin-left:14px;font-weight:700;font-size:13px;cursor:pointer;position:relative}
+.user .ava{width:38px;height:38px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-weight:800;border:2.5px solid var(--card);box-shadow:var(--shadow)}
+.usermenu{position:absolute;top:calc(100% + 10px);right:0;width:230px;border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:14px;z-index:50;text-align:left}
+.usermenu .em{font-size:11.5px;font-weight:600;color:var(--muted)}
+.usermenu .pt{font-size:13px;font-weight:800;margin-top:2px}
+.usermenu .act{margin-top:10px;width:100%;border:none;border-radius:12px;padding:10px;background:var(--card2);font-weight:700;font-size:12.5px;color:var(--coral-d);cursor:pointer}
+body.dark .usermenu .act{color:var(--coral)}
+
+/* ===== cartes / chips / pills ===== */
+.chip{font-size:12px;font-weight:700;padding:7px 15px;border-radius:999px;background:var(--card2);cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:6px;border:1.5px solid transparent}
+.chip.on{background:var(--ink);color:var(--bg)}
+.chip.err{background:var(--coral);color:#fff}
+.chip .sq{width:10px;height:10px;border-radius:50%}
+.casiers{display:flex;gap:10px;flex-wrap:wrap}
+.cas{display:flex;align-items:center;gap:10px;padding:8px 16px 8px 9px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);cursor:pointer;font-weight:800;font-size:13.5px;border:2px solid transparent}
+.cas.on{border-color:var(--coral)}
+.cas .cc{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%);border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.18)}
+.cas .rdy{font-size:9.5px;font-weight:800;color:#fff;background:var(--mint);border-radius:999px;padding:2px 9px}
+.cas.new{color:var(--coral);border-style:dashed;border-color:var(--muted);box-shadow:none;background:transparent}
+.ready-toggle{font-size:14px;font-weight:800;color:#fff;background:var(--coral);border:none;border-radius:999px;padding:11px 26px;cursor:pointer;box-shadow:0 8px 18px rgba(224,78,58,.35)}
+.ready-toggle.mint{background:var(--mint);box-shadow:0 8px 18px rgba(31,158,111,.35)}
+.btn-quiet{font-weight:700;font-size:13px;color:var(--muted);background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:11px 20px;cursor:pointer}
+
+/* ===== TERRAIN (plat, style La Ronde) ===== */
+.pitch-card{position:relative;border-radius:26px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+.pitch{position:relative;height:100%;background:repeating-linear-gradient(90deg,var(--pitch) 0 54px,var(--pitch2) 54px 108px)}
+.ln{position:absolute;border:2.5px solid rgba(255,255,255,.8);border-radius:6px}
+.ln.mid{left:50%;top:8px;bottom:8px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:112px;height:112px;border-radius:50%;transform:translate(-50%,-50%)}
+.ln.arcl{left:-34px;top:50%;width:66px;height:144px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%)}
+.ln.arcr{right:-34px;top:50%;width:66px;height:144px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0)}
+.spot{position:absolute;left:50%;top:50%;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:86px;border-radius:8px;background:rgba(255,255,255,.4);border:2.5px solid rgba(255,255,255,.85)}
+.pl{position:absolute;transform:translate(-50%,-50%);z-index:4;text-align:center}
+.p-body{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 4px 10px rgba(0,0,0,.3)}
+.p-body.away{background:radial-gradient(circle at 32% 26%,#9db6d8,#4a6b8a 74%)}
+.p-body.sel{outline:3px dashed var(--sun);outline-offset:3px}
+.p-num{font-weight:800;font-size:13px;color:#fff}
+.p-tag{display:inline-block;margin-top:5px;padding:1px 9px;border-radius:999px;background:rgba(0,0,0,.35);color:#fff;font-size:9px;font-weight:700;backdrop-filter:blur(2px)}
+
+/* ===== JOUER : la ronde ===== */
+.arena{position:relative;margin-top:30px}
+.arena-center{max-width:660px;margin:0 auto;text-align:center}
+.vs-title{display:inline-block;font-weight:800;font-size:12px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase}
+.arena h1{font-size:40px;margin:10px 0 6px}
+.arena h1 b{color:var(--coral)}
+.arena .sub{color:var(--muted);font-size:14px;font-weight:600;max-width:440px;margin:0 auto}
+.arena .pitch-card{margin:24px auto 0;max-width:660px}
+.arena .pitch{height:330px}
+.big-cta{margin:22px auto 0;display:block;font-size:18px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(180deg,var(--coral),var(--coral-d));border:none;padding:18px 70px;border-radius:999px;box-shadow:0 12px 26px rgba(224,78,58,.4)}
+.big-cta:hover{transform:translateY(-2px)}
+.big-cta:active{transform:translateY(2px)}
+.float-card{position:absolute;width:250px;border-radius:22px;background:var(--card);box-shadow:var(--shadow);padding:16px;text-align:left;z-index:5}
+.float-card .fc-head{display:flex;align-items:center;gap:11px}
+.fc-crest{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.18);flex:none}
+.fc-name{font-weight:800;font-size:15px}
+.fc-wl{font-size:11.5px;color:var(--muted);font-weight:600}
+.fc-elo{margin-left:auto;font-weight:800;font-size:13px;background:var(--card2);border-radius:999px;padding:4px 12px}
+.fc-bar{height:6px;border-radius:3px;background:var(--card2);margin:12px 0 10px;overflow:hidden}
+.fc-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--mint),var(--sun))}
+.fc-foot{display:flex;align-items:center;justify-content:space-between}
+.fc-vs{font-size:11px;font-weight:800;color:var(--muted)}
+.fc-btn{font-size:13px;font-weight:800;color:#fff;background:var(--ink);border:none;border-radius:999px;padding:8px 20px;cursor:pointer}
+body.dark .fc-btn{background:var(--coral)}
+.fc1{left:-24px;top:120px;transform:rotate(-3deg)}
+.fc2{right:-24px;top:56px;transform:rotate(2.5deg)}
+.fc3{right:40px;bottom:-40px;transform:rotate(-2deg)}
+.hist-band{margin-top:80px}
+.band-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.band-head h3{font-size:17px}
+.band-head .hint{color:var(--muted);font-size:12px;font-weight:600}
+.band-head .link{margin-left:auto;font-weight:800;font-size:13px;color:var(--coral);cursor:pointer}
+.hist-cards{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+.h-card{flex:0 0 200px;border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:14px 16px}
+.h-top{display:flex;align-items:center;gap:9px;font-weight:800;font-size:14px}
+.h-res{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
+.h-res.win{background:var(--mint)}
+.h-res.loss{background:var(--muted)}
+.h-res.draw{background:var(--sun);color:var(--ink)}
+.h-vs{color:var(--muted);font-size:12px;font-weight:600;margin-top:6px}
+.h-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.h-elo{font-weight:800;font-size:13px}
+.h-elo.plus{color:var(--mint)}.h-elo.minus{color:var(--coral)}
+.h-time{font-size:11px;color:var(--muted);font-weight:600}
+.lb-rail{position:fixed;right:20px;top:120px;z-index:20;width:64px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.lb-rail .lb-title{writing-mode:vertical-rl;font-size:10px;font-weight:800;letter-spacing:2px;color:var(--muted);margin-bottom:8px;text-transform:uppercase}
+.lb-ava{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:16px;border:2.5px solid var(--card);box-shadow:0 3px 8px rgba(0,0,0,.15);position:relative;margin-bottom:6px;cursor:pointer}
+.lb-ava .rk{position:absolute;bottom:-4px;right:-4px;width:17px;height:17px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:9.5px;font-weight:800;display:grid;place-items:center;border:2px solid var(--card)}
+.lb-ava.me::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2.5px solid var(--coral)}
+
+/* ===== ÉQUIPES : 3 colonnes fidèles à l'app ===== */
+.tabbar{display:flex;align-items:center;gap:8px;margin-top:20px;flex-wrap:wrap}
+.tabbar .tabs{display:flex;gap:6px;background:var(--card);border-radius:999px;padding:6px;box-shadow:var(--shadow);flex-wrap:wrap}
+.ttab{display:flex;align-items:center;gap:9px;padding:8px 18px 8px 9px;border-radius:999px;font-weight:800;font-size:13.5px;cursor:pointer}
+.ttab.on{background:var(--ink);color:var(--bg)}
+.ttab .cc{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%)}
+.ttab .rdy{font-size:9px;font-weight:800;color:#fff;background:var(--mint);border-radius:999px;padding:2px 8px}
+.ttab.new{color:var(--coral);background:var(--card2)}
+.tabbar .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.workspace{display:grid;grid-template-columns:250px minmax(0,1fr) 300px;gap:18px;margin-top:18px;align-items:stretch}
+.panel{border-radius:24px;background:var(--card);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;min-height:520px}
+.panel h3{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panel h3 .add{margin-left:auto;font-size:11px;color:var(--mint);font-weight:800;cursor:pointer;letter-spacing:0}
+.script-row{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:14px;font-weight:700;font-size:13.5px}
+.script-row:hover{background:var(--card2)}
+.script-row .sq{width:28px;height:28px;border-radius:10px;flex:none}
+.script-row .cnt{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--muted);background:var(--card2);border-radius:999px;padding:3px 10px}
+.script-row .cnt.err{color:#fff;background:var(--coral)}
+.pitch-col{display:flex;flex-direction:column;gap:12px}
+.pitch-col .pitch-card{flex:1}
+.pitch-col .pitch{height:100%;min-height:480px}
+.codebox{border-radius:16px;background:var(--ink);padding:14px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11.5px;line-height:1.75;white-space:pre;color:#eaf6ee;overflow:hidden;flex:1}
+body.dark .codebox{background:#0f1e16}
+.codebox .kw{color:var(--sun)}.codebox .fn{color:#8fd8f5}.codebox .cm{color:#7ca28e;font-style:italic}
+.save-ind{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;color:var(--mint);margin-top:10px}
+.save-ind i{width:8px;height:8px;border-radius:50%;background:var(--mint)}
+.dock{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:10px;background:var(--card);border-radius:999px;padding:10px 14px;box-shadow:var(--shadow);align-items:center}
+.dock-btn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:20px;cursor:pointer;border:1.5px solid var(--line);background:var(--card2)}
+.dock-btn.on{background:var(--ink);color:var(--bg)}
+.dock-sep{width:1.5px;height:30px;background:var(--line)}
+.dock-play{font-size:13px;font-weight:800;color:#fff;background:var(--coral);border:none;border-radius:999px;padding:12px 24px;cursor:pointer}
+.custom-pop{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);z-index:41;width:400px;border-radius:24px;background:var(--card);box-shadow:var(--shadow);padding:20px}
+.custom-pop h3{font-size:15px;margin-bottom:4px}
+.custom-pop .hint{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;font-weight:700}
+.row .k{width:70px;color:var(--muted)}
+.sw{width:32px;height:32px;border-radius:50%;cursor:pointer;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.sw.sel{outline:3px solid var(--coral);outline-offset:2px}
+.emo{width:34px;height:34px;display:grid;place-items:center;font-size:15px;border-radius:12px;background:var(--card2);cursor:pointer}
+.emo.sel{background:var(--sun)}
+
+/* ===== ranked ===== */
+.sec-head{display:flex;align-items:baseline;gap:12px;margin:26px 0 14px}
+.sec-head h3{font-size:18px}
+.sec-head .hint{font-size:12px;font-weight:600;color:var(--muted)}
+.fighters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.fighter-row{display:flex;align-items:center;gap:11px;padding:10px 16px 10px 10px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:13.5px}
+.fighter-row.on{outline:2.5px solid var(--coral)}
+.fighter-row .cc{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%)}
+.fighter-row .pts{color:var(--muted);font-size:12px}
+.opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.opp-card{display:flex;align-items:center;gap:13px;border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:15px 17px}
+.opp-card .cc{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--card2);flex:none}
+.opp-card .nm{font-weight:800;font-size:14.5px}
+.opp-card .wl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px}
+.opp-card .elo{margin-left:auto;font-weight:800;font-size:13px;background:var(--card2);border-radius:999px;padding:4px 13px}
+.opp-card .btn{margin-left:8px;border:none;border-radius:999px;padding:9px 18px;font-weight:800;font-size:12px;cursor:pointer;color:#fff;background:var(--ink)}
+body.dark .opp-card .btn{background:var(--coral)}
+.opp-card .btn.hot{background:var(--coral)}
+.qm-card{display:flex;align-items:center;gap:16px;border-radius:22px;background:linear-gradient(120deg,var(--coral),var(--coral-d));color:#fff;padding:18px 22px;box-shadow:0 12px 26px rgba(224,78,58,.35)}
+.qm-card .dice{width:52px;height:52px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px}
+.qm-card .t{font-weight:800;font-size:16px}
+.qm-card .d{font-size:12px;font-weight:600;opacity:.85;margin-top:2px}
+.qm-card .btn{margin-left:auto;border:none;border-radius:999px;padding:12px 26px;font-weight:800;font-size:13px;color:var(--coral-d);background:#fff;cursor:pointer}
+.hist-list{border-radius:22px;background:var(--card);box-shadow:var(--shadow);padding:16px}
+.filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.hist-row{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:14px;font-size:13px;font-weight:700}
+.hist-row:hover{background:var(--card2)}
+.h-res2{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+.h-res2.win{background:var(--mint)}
+.h-res2.loss{background:var(--muted)}
+.h-res2.draw{background:var(--sun);color:var(--ink)}
+.h-vs2{flex:1;color:var(--muted);font-weight:600}
+.h-elo2{font-weight:800;font-size:12px}
+.h-elo2.plus{color:var(--mint)}.h-elo2.minus{color:var(--coral)}
+.h-time2{font-size:10.5px;color:var(--muted);font-weight:700}
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.pager button{border:1.5px solid var(--line);background:var(--card2);border-radius:10px;width:32px;height:32px;cursor:pointer;font-weight:800}
+
+/* ===== leaderboard ===== */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px;align-items:start}
+.podium{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.pod{border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:16px;text-align:center;position:relative}
+.pod .cc{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:22px;margin:0 auto 8px;background:var(--card2)}
+.pod.p1{transform:translateY(-8px)}
+.pod.p1 .cc{background:linear-gradient(135deg,#ffe9a8,var(--sun))}
+.pod .nm{font-weight:800;font-size:14px}
+.pod .pts{font-weight:800;font-size:16px;margin-top:3px}
+.you-b{font-size:9px;font-weight:800;color:#fff;background:var(--coral);border-radius:999px;padding:2px 8px;vertical-align:2px;margin-left:5px}
+.lb-big{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;font-size:13.5px;font-weight:700}
+.lb-big:hover{background:var(--card2)}
+.lb-big .rk{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:12.5px;background:var(--card2)}
+.lb-big .nm{flex:1}
+.lb-big .pt{font-weight:800}
+.lb-big .bar{width:64px;height:7px;border-radius:4px;background:var(--card2)}
+.lb-big .bar i{display:block;height:100%;border-radius:4px;background:var(--coral)}
+
+/* ===== replay ===== */
+.replay-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;margin-top:24px;align-items:start}
+.score-pill{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:14px;background:rgba(0,0,0,.4);border-radius:999px;padding:7px 20px;backdrop-filter:blur(3px)}
+.score-pill .nm{font-weight:800;font-size:13px;color:#fff}
+.score-pill .sc{font-weight:800;font-size:16px;color:#fff}
+.timeline{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--card);border-radius:0 0 24px 24px}
+.play-btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--mint);color:#fff;font-size:15px;cursor:pointer;flex:none;box-shadow:0 6px 14px rgba(31,158,111,.35)}
+.tl-track{flex:1;position:relative;height:8px;border-radius:4px;background:var(--card2)}
+.tl-fill{position:absolute;left:0;top:0;bottom:0;width:42%;border-radius:4px;background:linear-gradient(90deg,var(--mint),var(--blue))}
+.tl-goal{position:absolute;top:-7px;width:22px;height:22px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:10px;transform:translateX(-50%)}
+.tl-frame{font-weight:700;font-size:11.5px;color:var(--muted);flex:none}
+.speed{font-size:11px;font-weight:800;background:var(--card2);border-radius:10px;padding:5px 10px;color:var(--muted);cursor:pointer}
+.logs{border-radius:18px;background:var(--ink);padding:14px 16px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;line-height:1.8;white-space:pre;color:#cfe8d8;overflow:hidden}
+body.dark .logs{background:#0f1e16}
+.logs .t{color:var(--muted)}.logs .goal{color:var(--sun)}.logs .warn{color:var(--coral)}
+.logs-bar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.logs-bar h3{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+
+/* ===== celebration ===== */
+.celebrate{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:rgba(10,26,17,.45);backdrop-filter:blur(2px)}
+.celebrate .card{background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:28px 42px;text-align:center;animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.celebrate .emo{font-size:42px}
+.celebrate .t{font-size:21px;font-weight:800;margin-top:8px}
+.celebrate .d{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px}
+.confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:3px;animation:fall linear infinite}
+@keyframes fall{to{transform:translateY(520px) rotate(540deg)}}
+
+/* ===== simulating ===== */
+.sim-wrap{max-width:520px;margin:70px auto 0;text-align:center}
+.sim-ball{width:76px;height:76px;border-radius:50%;margin:0 auto;background:conic-gradient(var(--coral) 0 25%,var(--sun) 0 50%,var(--mint) 0 75%,var(--coral) 0);display:grid;place-items:center;font-size:32px;box-shadow:var(--shadow);animation:spin 1.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sim-wrap h2{margin-top:20px}
+.sim-wrap p{font-size:13px;color:var(--muted);font-weight:600;margin-top:6px}
+.sim-streak{display:flex;gap:8px;justify-content:center;margin-top:22px}
+.sim-streak i{width:14px;height:14px;border-radius:50%;background:var(--card2)}
+.sim-streak i.w{background:var(--mint)}
+.sim-streak i.l{background:var(--coral)}
+
+/* ===== modales ===== */
+.stage{position:relative;border-radius:26px;background:var(--card);box-shadow:var(--shadow);padding:22px;overflow:hidden}
+.stage .dim{color:var(--muted);font-weight:600;font-size:13px}
+.modal{position:absolute;inset:0;background:rgba(10,26,17,.45);display:grid;place-items:center;z-index:20}
+.modal .box{width:340px;border-radius:24px;background:var(--card);box-shadow:var(--shadow);padding:22px}
+.modal h3{font-size:17px;margin-bottom:4px}
+.modal .sub{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:14px}
+.field{margin-bottom:12px;text-align:left}
+.field label{display:block;font-size:10.5px;font-weight:800;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.field input{width:100%;border:1.5px solid var(--line);background:var(--card2);border-radius:14px;padding:12px 14px;font-family:'Sora';font-weight:600;font-size:14px;color:var(--ink)}
+.field input::placeholder{color:var(--muted)}
+.modal .row{display:flex;gap:10px;margin-top:16px}
+.btn-primary{flex:1;border:none;border-radius:14px;padding:13px;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(180deg,var(--mint),var(--mint-d));cursor:pointer}
+.btn-danger{flex:1;border:none;border-radius:14px;padding:13px;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(180deg,var(--coral),var(--coral-d));cursor:pointer}
+.btn-quiet2{border:1.5px solid var(--line);border-radius:14px;padding:13px 20px;font-weight:700;font-size:13.5px;background:var(--card2);color:var(--muted);cursor:pointer}
+.ctx-menu{width:190px;border-radius:16px;background:var(--card);box-shadow:var(--shadow);padding:8px}
+.ctx-item{width:100%;text-align:left;border:none;background:transparent;border-radius:11px;padding:10px 12px;font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
+.ctx-item:hover{background:var(--card2)}
+.ctx-item.danger{color:var(--coral-d)}
+body.dark .ctx-item.danger{color:var(--coral)}
+
+/* ===== auth ===== */
+.auth-wrap{min-height:76vh;display:grid;place-items:center}
+.auth-card{width:400px;border-radius:28px;background:var(--card);box-shadow:var(--shadow);padding:34px;text-align:center}
+.auth-card .ball{width:70px;height:70px;border-radius:50%;margin:0 auto 16px;overflow:hidden;border:4px solid var(--card);box-shadow:var(--shadow)}
+.auth-card .ball img{width:100%;height:100%;object-fit:cover}
+.auth-card h1{font-size:23px}
+.auth-card .sub{font-size:13px;color:var(--muted);font-weight:600;margin:6px 0 22px}
+.auth-card .btn-primary{width:100%}
+.auth-card .alt{margin-top:16px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.auth-card .alt b{color:var(--blue);cursor:pointer}
+
+.footer-note{margin-top:60px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<nav class="pnav">
+  <span class="tt"><span class="dot">⚽</span> Prototype · La Ronde</span>
+  <button class="pl" data-go="s-login" onclick="go('s-login')">Login</button>
+  <button class="pl" data-go="s-register" onclick="go('s-register')">Register</button>
+  <span class="sep"></span>
+  <button class="pl" data-go="s-jouer" onclick="go('s-jouer')">Jouer (accueil)</button>
+  <button class="pl" data-go="s-equipes" onclick="go('s-equipes')">Équipes · Éditeur</button>
+  <button class="pl" data-go="s-equipement" onclick="go('s-equipement')">Équipes · Équipement</button>
+  <button class="pl" data-go="s-ranked" onclick="go('s-ranked')">Ranked</button>
+  <button class="pl" data-go="s-resultat" onclick="go('s-resultat')">Résultat</button>
+  <button class="pl" data-go="s-palmares" onclick="go('s-palmares')">Palmarès</button>
+  <button class="pl" data-go="s-classement" onclick="go('s-classement')">Classement</button>
+  <button class="pl" data-go="s-replay" onclick="go('s-replay')">Replay</button>
+  <button class="pl" data-go="s-but" onclick="go('s-but')">But ! 🎉</button>
+  <button class="pl" data-go="s-simulating" onclick="go('s-simulating')">Simulating</button>
+  <button class="pl" data-go="s-nouvelle-equipe" onclick="go('s-nouvelle-equipe')">Modale · équipe</button>
+  <button class="pl" data-go="s-assigner" onclick="go('s-assigner')">Modale · script→joueur</button>
+  <button class="pl" data-go="s-menus" onclick="go('s-menus')">Menus & suppression</button>
+  <button class="moon" onclick="document.body.classList.toggle('dark')">🌙</button>
+</nav>
+
+<!-- ================= LOGIN ================= -->
+<section class="screen" id="s-login">
+  <div class="wrap">
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <span class="ball"><img src="src/assets/watermark.png" alt="DD"></span>
+        <h1>LACHATADEDE</h1>
+        <p class="sub">Tes scripts, tes joueurs. Bienvenue en 3e mi-temps.</p>
+        <div class="field"><label>Email</label><input placeholder="pelo@lachetadede.gg"></div>
+        <div class="field"><label>Mot de passe</label><input type="password" placeholder="••••••••"></div>
+        <button class="btn-primary">Se connecter</button>
+        <p class="alt">Pas de compte ? <b>S'inscrire</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REGISTER ================= -->
+<section class="screen" id="s-register">
+  <div class="wrap">
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <span class="ball" style="background:conic-gradient(var(--coral) 0 25%,var(--sun) 0 50%,var(--mint) 0 75%,var(--coral) 0);display:grid;place-items:center;font-size:28px">🥳</span>
+        <h1>Rejoindre le club</h1>
+        <p class="sub">Deux minutes d'inscription, une vie de 3e mi-temps.</p>
+        <div class="field"><label>Pseudo</label><input placeholder="Pelo"></div>
+        <div class="field"><label>Email</label><input placeholder="pelo@lachetadede.gg"></div>
+        <div class="field"><label>Mot de passe</label><input type="password" placeholder="••••••••"></div>
+        <div class="field"><label>Confirmer</label><input type="password" placeholder="••••••••"></div>
+        <button class="btn-primary">Créer mon compte</button>
+        <p class="alt">Déjà au club ? <b>Se connecter</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= JOUER (ACCUEIL) ================= -->
+<section class="screen" id="s-jouer">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="nav-link" onclick="go('s-classement')">Classement</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <section class="arena">
+      <div class="arena-center">
+        <span class="vs-title">Quick match</span>
+        <h1>Un adversaire, <b>une balle</b>, 90 secondes</h1>
+        <p class="sub">Tiré au sort parmi les équipes prêtes. Ton élo bouge, ton ego aussi — c'est la 3e mi-temps ici.</p>
+        <div class="pitch-card">
+          <div class="pitch">
+            <div class="ln arcl"></div><div class="ln arcr"></div>
+            <div class="ln cir"></div><div class="ln mid"></div>
+            <div class="spot"></div>
+            <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+            <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+            <div class="pl" style="left:24%;top:26%"><div class="p-body"><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+            <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+            <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+            <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+            <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-num">1</span></div></div>
+            <div class="pl" style="left:76%;top:28%"><div class="p-body away"><span class="p-num">8</span></div></div>
+            <div class="pl" style="left:76%;top:72%"><div class="p-body away"><span class="p-num">10</span></div></div>
+            <div class="pl" style="left:58%;top:36%"><div class="p-body away"><span class="p-num">7</span></div></div>
+            <div class="pl" style="left:58%;top:64%"><div class="p-body away"><span class="p-num">9</span></div></div>
+          </div>
+        </div>
+        <button class="big-cta">Lancer le match ⚡</button>
+      </div>
+
+      <div class="float-card fc1">
+        <div class="fc-head">
+          <span class="fc-crest" style="background:var(--sun)">🦁</span>
+          <div><div class="fc-name">Kaaris FC</div><div class="fc-wl">18V · 4D</div></div>
+          <span class="fc-elo">1022</span>
+        </div>
+        <div class="fc-bar"><i style="width:82%"></i></div>
+        <div class="fc-foot"><span class="fc-vs">forme : chauffée 🔥</span><button class="fc-btn" onclick="go('s-simulating')">Jouer</button></div>
+      </div>
+      <div class="float-card fc2">
+        <div class="fc-head">
+          <span class="fc-crest" style="background:#bfe6ff">🧊</span>
+          <div><div class="fc-name">Glacier United</div><div class="fc-wl">9V · 11D</div></div>
+          <span class="fc-elo">988</span>
+        </div>
+        <div class="fc-bar"><i style="width:45%"></i></div>
+        <div class="fc-foot"><span class="fc-vs">forme : glacée 🥶</span><button class="fc-btn" onclick="go('s-simulating')">Jouer</button></div>
+      </div>
+      <div class="float-card fc3">
+        <div class="fc-head">
+          <span class="fc-crest" style="background:#ffc4d6">👑</span>
+          <div><div class="fc-name">Les Bleus de DD</div><div class="fc-wl">22V · 2D</div></div>
+          <span class="fc-elo">1187</span>
+        </div>
+        <div class="fc-bar"><i style="width:95%"></i></div>
+        <div class="fc-foot"><span class="fc-vs">forme : intouchable 😤</span><button class="fc-btn" onclick="go('s-simulating')">Jouer</button></div>
+      </div>
+    </section>
+
+    <section class="hist-band">
+      <div class="band-head">
+        <h3>Derniers matchs</h3><span class="hint">glisse pour tout voir →</span>
+        <span class="link" onclick="go('s-palmares')">tout l'historique</span>
+      </div>
+      <div class="hist-cards">
+        <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 3 – 1</div><div class="h-vs">vs Glacier United</div><div class="h-bottom"><span class="h-elo plus">+12</span><span class="h-time">il y a 2 h</span></div></div>
+        <div class="h-card"><div class="h-top"><span class="h-res loss">D</span> 1 – 2</div><div class="h-vs">vs Kaaris FC</div><div class="h-bottom"><span class="h-elo minus">−9</span><span class="h-time">hier</span></div></div>
+        <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 2 – 0</div><div class="h-vs">vs Bleus de DD</div><div class="h-bottom"><span class="h-elo plus">+18</span><span class="h-time">hier</span></div></div>
+        <div class="h-card"><div class="h-top"><span class="h-res draw">N</span> 2 – 2</div><div class="h-vs">vs Tiki-taka 2009</div><div class="h-bottom"><span class="h-elo">0</span><span class="h-time">lundi</span></div></div>
+        <div class="h-card"><div class="h-top"><span class="h-res win">V</span> 5 – 3</div><div class="h-vs">vs Tiki-taka 2009</div><div class="h-bottom"><span class="h-elo plus">+7</span><span class="h-time">lundi</span></div></div>
+      </div>
+    </section>
+
+    <aside class="lb-rail">
+      <span class="lb-title">Top 5</span>
+      <span class="lb-ava me" style="background:var(--sun)">👑<span class="rk">1</span></span>
+      <span class="lb-ava" style="background:#ffc4d6">🦁<span class="rk">2</span></span>
+      <span class="lb-ava me" style="background:var(--coral)">🔶<span class="rk">3</span></span>
+      <span class="lb-ava" style="background:#bfe6ff">🧊<span class="rk">4</span></span>
+      <span class="lb-ava" style="background:var(--mint)">⚡<span class="rk">5</span></span>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= ÉQUIPES · ÉDITEUR (3 colonnes fidèles à l'app) ================= -->
+<section class="screen" id="s-equipes">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link active">Équipes</span>
+      <span class="nav-link" onclick="go('s-classement')">Classement</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="tabbar">
+      <div class="tabs">
+        <span class="ttab on"><span class="cc">🔶</span> Pressing 804 <span class="rdy">PRÊT</span></span>
+        <span class="ttab"><span class="cc" style="background:radial-gradient(circle at 32% 26%,#9db6d8,#4a6b8a 74%)">🧊</span> Glacier U.</span>
+        <span class="ttab new" onclick="go('s-nouvelle-equipe')">＋ nouvelle</span>
+      </div>
+      <div class="right">
+        <button class="ready-toggle mint" onclick="go('s-simulating')">▶ Test vs bot</button>
+        <button class="ready-toggle">⚽ Prêt !</button>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <aside class="panel">
+        <h3>📜 Scripts <span class="add">＋ nouveau</span></h3>
+        <div class="script-row"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%)"></span> pressing.js <span class="cnt">2 joueurs</span></div>
+        <div class="script-row"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"></span> tiki-taka.js <span class="cnt">2 joueurs</span></div>
+        <div class="script-row"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#a9d8f5,var(--blue) 74%)"></span> gardien.js <span class="cnt">1 joueur</span></div>
+        <div class="script-row"><span class="sq" style="background:var(--card2)"></span> catenaccio.js <span class="cnt err">HS !</span></div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:auto;padding-top:12px">Clique un joueur sur le terrain pour lui coller un script — ou ouvre le menu du script.</div>
+      </aside>
+
+      <div class="pitch-col">
+        <div class="pitch-card">
+          <div class="pitch">
+            <div class="ln arcl"></div><div class="ln arcr"></div>
+            <div class="ln cir"></div><div class="ln mid"></div>
+            <div class="spot"></div>
+            <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+            <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+            <div class="pl" style="left:24%;top:26%"><div class="p-body sel"><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+            <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+            <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+            <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <h3>⌨️ pressing.js <span class="add">renommer</span></h3>
+        <pre class="codebox"><span class="cm">// pressing.js — le pressing,
+// la vraie vie</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+        <div class="save-ind"><i></i> sauvegardé à l'instant</div>
+      </aside>
+    </div>
+
+    <div class="dock">
+      <span class="dock-btn">📜</span>
+      <span class="dock-btn">⌨️</span>
+      <span class="dock-btn on" onclick="go('s-equipement')">🎨</span>
+      <span class="dock-sep"></span>
+      <button class="dock-play" onclick="go('s-simulating')">▶ Test vs bot</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ÉQUIPES · ÉQUIPEMENT ================= -->
+<section class="screen" id="s-equipement">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link active">Équipes</span>
+      <span class="nav-link" onclick="go('s-classement')">Classement</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="tabbar">
+      <div class="tabs">
+        <span class="ttab on"><span class="cc">🔶</span> Pressing 804 <span class="rdy">PRÊT</span></span>
+        <span class="ttab"><span class="cc" style="background:radial-gradient(circle at 32% 26%,#9db6d8,#4a6b8a 74%)">🧊</span> Glacier U.</span>
+      </div>
+      <div class="right"><button class="ready-toggle">⚽ Prêt !</button></div>
+    </div>
+
+    <div class="workspace">
+      <aside class="panel">
+        <h3>🎨 Équipement</h3>
+        <div class="row"><span class="k">Maillot</span>
+          <span class="sw sel" style="background:var(--coral)"></span>
+          <span class="sw" style="background:var(--sun)"></span>
+          <span class="sw" style="background:var(--mint)"></span>
+          <span class="sw" style="background:var(--blue)"></span>
+          <span class="sw" style="background:#d95c78"></span>
+        </div>
+        <div class="row"><span class="k">Blason</span>
+          <span class="emo sel">🔶</span><span class="emo">🦁</span><span class="emo">⚡</span><span class="emo">🐱</span><span class="emo">👑</span><span class="emo">🧊</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:14px">Ta couleur teinte les maillots et le blason orne le casier. Le numéro reste au centre du cercle.</div>
+      </aside>
+
+      <div class="pitch-col">
+        <div class="pitch-card">
+          <div class="pitch">
+            <div class="ln arcl"></div><div class="ln arcr"></div>
+            <div class="ln cir"></div><div class="ln mid"></div>
+            <div class="spot"></div>
+            <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+            <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div></div>
+            <div class="pl" style="left:24%;top:26%"><div class="p-body"><span class="p-num">2</span></div></div>
+            <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div></div>
+            <div class="pl" style="left:40%;top:38%"><div class="p-body"><span class="p-num">4</span></div></div>
+            <div class="pl" style="left:40%;top:62%"><div class="p-body"><span class="p-num">5</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <h3>⌨️ pressing.js</h3>
+        <pre class="codebox"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+        <div class="save-ind"><i></i> sauvegardé</div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RANKED ================= -->
+<section class="screen" id="s-ranked">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="nav-link" onclick="go('s-classement')">Classement</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="sec-head"><h3>⚔ Tu combats avec</h3><span class="hint">seules les équipes « prêtes » entrent dans le pool</span></div>
+    <div class="fighters">
+      <span class="fighter-row on"><span class="cc">🔶</span> Pressing 804 <span class="pts">1004</span></span>
+      <span class="fighter-row"><span class="cc" style="background:radial-gradient(circle at 32% 26%,#9db6d8,#4a6b8a 74%)">🧊</span> Glacier U. <span class="pts">988</span></span>
+    </div>
+
+    <div class="qm-card">
+      <span class="dice">🎲</span>
+      <div><div class="t">Quick match</div><div class="d">adversaire tiré au sort parmi les prêts — ton élo se joue</div></div>
+      <button class="btn" onclick="go('s-simulating')">Lancer</button>
+    </div>
+
+    <div class="sec-head"><h3>Adversaires prêts</h3><span class="hint">la simu tourne même s'ils dorment</span></div>
+    <div class="opp-grid">
+      <div class="opp-card"><span class="cc">🦁</span><div><div class="nm">Kaaris FC</div><div class="wl">18V · 4D</div></div><span class="elo">1022</span><button class="btn" onclick="go('s-simulating')">Défier</button></div>
+      <div class="opp-card"><span class="cc">🧊</span><div><div class="nm">Glacier United</div><div class="wl">9V · 11D</div></div><span class="elo">988</span><button class="btn" onclick="go('s-simulating')">Défier</button></div>
+      <div class="opp-card"><span class="cc">👑</span><div><div class="nm">Les Bleus de DD</div><div class="wl">22V · 2D</div></div><span class="elo">1187</span><button class="btn hot" onclick="go('s-simulating')">Défier</button></div>
+      <div class="opp-card"><span class="cc">⚡</span><div><div class="nm">Tiki-taka 2009</div><div class="wl">13V · 9D</div></div><span class="elo">961</span><button class="btn" onclick="go('s-simulating')">Défier</button></div>
+    </div>
+
+    <div class="sec-head"><h3>Palmarès récent</h3><span class="hint" onclick="go('s-palmares')" style="cursor:pointer;color:var(--coral);font-weight:800">tout voir →</span></div>
+    <div class="hist-list">
+      <div class="filter-tabs"><span class="chip on">Toutes</span><span class="chip">🔶 Pressing 804</span><span class="chip">🧊 Glacier U.</span></div>
+      <div class="hist-row"><span class="h-res2 win">V</span><span>3 – 1</span><span class="h-vs2">vs Glacier United · 🧊</span><span class="h-elo2 plus">+12</span><span class="h-time2">2 h</span></div>
+      <div class="hist-row"><span class="h-res2 loss">D</span><span>1 – 2</span><span class="h-vs2">vs Kaaris FC · 🔶</span><span class="h-elo2 minus">−9</span><span class="h-time2">hier</span></div>
+      <div class="hist-row"><span class="h-res2 win">V</span><span>2 – 0</span><span class="h-vs2">vs Bleus de DD · 🔶</span><span class="h-elo2 plus">+18</span><span class="h-time2">hier</span></div>
+      <div class="hist-row"><span class="h-res2 draw">N</span><span>2 – 2</span><span class="h-vs2">vs Tiki-taka 2009 · 🧊</span><span class="h-elo2">0</span><span class="h-time2">lundi</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RESULTAT ================= -->
+<section class="screen" id="s-resultat">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div style="max-width:640px;margin:40px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="float-card" style="position:static;transform:none;border-top:5px solid var(--mint)">
+        <div style="font-size:30px">🏆</div>
+        <div class="fc-name" style="font-size:18px;margin-top:6px">Victoire !</div>
+        <div class="fc-wl">Pressing 804 3 — 1 Glacier United</div>
+        <div class="fc-bar"><i style="width:100%;background:var(--mint)"></i></div>
+        <div class="fc-foot"><span class="fc-vs">+12 elo</span><button class="fc-btn" onclick="go('s-replay')">▶ Replay</button></div>
+      </div>
+      <div class="float-card" style="position:static;transform:none;border-top:5px solid var(--coral)">
+        <div style="font-size:30px">💀</div>
+        <div class="fc-name" style="font-size:18px;margin-top:6px">Défaite…</div>
+        <div class="fc-wl">Pressing 804 1 — 2 Kaaris FC</div>
+        <div class="fc-bar"><i style="width:40%;background:var(--coral)"></i></div>
+        <div class="fc-foot"><span class="fc-vs">−9 elo</span><button class="fc-btn" onclick="go('s-replay')">▶ Replay</button></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:22px">
+      <button class="btn-quiet" onclick="go('s-ranked')">⚔ Rejouer ranked</button>
+      <button class="btn-quiet" style="margin-left:10px" onclick="go('s-jouer')">← Accueil</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PALMARES ================= -->
+<section class="screen" id="s-palmares">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div style="max-width:660px;margin:34px auto 0" class="hist-list">
+      <div class="filter-tabs"><span class="chip on">Toutes les équipes</span><span class="chip">🔶 Pressing 804</span><span class="chip">🧊 Glacier U.</span></div>
+      <div class="hist-row"><span class="h-res2 win">V</span><span>3 – 1</span><span class="h-vs2">vs Glacier United · 🧊 Glacier U.</span><span class="h-elo2 plus">+12</span><span class="h-time2">il y a 2 h</span></div>
+      <div class="hist-row"><span class="h-res2 loss">D</span><span>1 – 2</span><span class="h-vs2">vs Kaaris FC · 🔶 Pressing 804</span><span class="h-elo2 minus">−9</span><span class="h-time2">hier</span></div>
+      <div class="hist-row"><span class="h-res2 win">V</span><span>2 – 0</span><span class="h-vs2">vs Les Bleus de DD · 🔶 Pressing 804</span><span class="h-elo2 plus">+18</span><span class="h-time2">hier</span></div>
+      <div class="hist-row"><span class="h-res2 draw">N</span><span>2 – 2</span><span class="h-vs2">vs Tiki-taka 2009 · 🧊 Glacier U.</span><span class="h-elo2">0</span><span class="h-time2">lundi</span></div>
+      <div class="hist-row"><span class="h-res2 win">V</span><span>5 – 3</span><span class="h-vs2">vs Tiki-taka 2009 · 🔶 Pressing 804</span><span class="h-elo2 plus">+7</span><span class="h-time2">lundi</span></div>
+      <div class="hist-row"><span class="h-res2 loss">D</span><span>0 – 4</span><span class="h-vs2">vs Kaaris FC · 🔶 Pressing 804</span><span class="h-elo2 minus">−11</span><span class="h-time2">mardi</span></div>
+      <div class="pager"><button>←</button> page 1 / 7 <button>→</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CLASSEMENT ================= -->
+<section class="screen" id="s-classement">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="nav-link active">Classement</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="duo" style="max-width:860px;margin:34px auto 0">
+      <div>
+        <div class="podium">
+          <div class="pod"><span class="cc">🦁</span><div class="nm">Kaaris FC</div><div class="pts">1022</div></div>
+          <div class="pod p1"><span style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:21px">👑</span><span class="cc">👑</span><div class="nm">Bleus de DD<span class="you-b">TOI</span></div><div class="pts">1187</div></div>
+          <div class="pod"><span class="cc">🔶</span><div class="nm">Pressing 804<span class="you-b">TOI</span></div><div class="pts">1004</div></div>
+        </div>
+        <div class="hist-list" style="padding:12px">
+          <div class="lb-big"><span class="rk">4</span><span class="nm">Glacier United</span><span class="bar"><i style="width:78%"></i></span><span class="pt">988</span></div>
+          <div class="lb-big"><span class="rk">5</span><span class="nm">Tiki-taka 2009</span><span class="bar"><i style="width:75%"></i></span><span class="pt">961</span></div>
+          <div class="lb-big"><span class="rk">6</span><span class="nm">Catenaccio FC</span><span class="bar"><i style="width:70%"></i></span><span class="pt">940</span></div>
+          <div class="lb-big"><span class="rk">7</span><span class="nm">Les Normands</span><span class="bar"><i style="width:66%"></i></span><span class="pt">918</span></div>
+        </div>
+      </div>
+      <div class="hist-list">
+        <div class="filter-tabs" style="margin-bottom:6px"><span class="chip on">Ma forme</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:14px"><i class="h-res2 win">V</i><i class="h-res2 loss">D</i><i class="h-res2 win">V</i><i class="h-res2 win">V</i><i class="h-res2 loss">D</i></div>
+        <div class="hist-row"><span class="h-res2 win">V</span><span>3 – 1</span><span class="h-vs2">vs Glacier U.</span><span class="h-elo2 plus">+12</span></div>
+        <div class="hist-row"><span class="h-res2 loss">D</span><span>1 – 2</span><span class="h-vs2">vs Kaaris FC</span><span class="h-elo2 minus">−9</span></div>
+        <div class="hist-row"><span class="h-res2 win">V</span><span>2 – 0</span><span class="h-vs2">vs Bleus de DD</span><span class="h-elo2 plus">+18</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REPLAY ================= -->
+<section class="screen" id="s-replay">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="replay-grid">
+      <div>
+        <div class="pitch-card" style="border-radius:24px 24px 0 0">
+          <div class="score-pill"><span class="nm">🔶 Pressing 804</span><span class="sc">3 — 1</span><span class="nm">🧊 Glacier U.</span></div>
+          <div class="pitch" style="height:380px">
+            <div class="ln arcl"></div><div class="ln arcr"></div>
+            <div class="ln cir"></div><div class="ln mid"></div>
+            <div class="spot"></div>
+            <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+            <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div></div>
+            <div class="pl" style="left:24%;top:26%"><div class="p-body"><span class="p-num">2</span></div></div>
+            <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div></div>
+            <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">4</span></div></div>
+            <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">5</span></div></div>
+            <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-num">1</span></div></div>
+            <div class="pl" style="left:76%;top:28%"><div class="p-body away"><span class="p-num">8</span></div></div>
+            <div class="pl" style="left:76%;top:72%"><div class="p-body away"><span class="p-num">10</span></div></div>
+            <div class="pl" style="left:58%;top:36%"><div class="p-body away"><span class="p-num">7</span></div></div>
+            <div class="pl" style="left:58%;top:64%"><div class="p-body away"><span class="p-num">9</span></div></div>
+          </div>
+        </div>
+        <div class="timeline">
+          <button class="play-btn">❚❚</button>
+          <div class="tl-track">
+            <div class="tl-fill"></div>
+            <span class="tl-goal" style="left:18%">⚽</span>
+            <span class="tl-goal" style="left:42%">⚽</span>
+            <span class="tl-goal" style="left:78%">⚽</span>
+          </div>
+          <span class="tl-frame">frame 420 / 1000</span>
+          <span class="speed">×1</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn-quiet" onclick="go('s-but')">Voir une célébration 🎉</button>
+          <button class="btn-quiet" onclick="go('s-jouer')">← Retour</button>
+        </div>
+      </div>
+
+      <aside class="panel" style="min-height:0">
+        <div class="logs-bar"><h3>Journal du match</h3><span style="margin-left:auto" class="chip">buts</span></div>
+        <div class="logs"><span class="t">00:00</span>  coup d'envoi — pressing.js vs glacier.js
+<span class="t">08:12</span>  ⚡ tiki-taka.js passe la moitié
+<span class="goal">12:40</span>  <span class="goal">⚽ BUT ! n°4 · tiki-taka.js — 1-0</span>
+<span class="warn">19:05</span>  ⚠ catenaccio.js a planté
+<span class="goal">31:22</span>  <span class="goal">⚽ BUT ! n°2 · pressing.js — 2-0</span>
+<span class="t">45:00</span>  mi-temps — hydratation</div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= BUT ! ================= -->
+<section class="screen" id="s-but">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div style="max-width:760px;margin:34px auto 0">
+      <div class="pitch-card">
+        <div class="pitch" style="height:380px">
+          <div class="ln arcl"></div><div class="ln arcr"></div>
+          <div class="ln cir"></div><div class="ln mid"></div>
+          <div class="spot"></div>
+          <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+          <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div></div>
+          <div class="pl" style="left:24%;top:26%"><div class="p-body"><span class="p-num">2</span></div></div>
+          <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div></div>
+          <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">4</span></div></div>
+          <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-num">5</span></div></div>
+          <div class="confetti">
+            <i style="left:8%;background:var(--coral);animation-duration:2.4s"></i>
+            <i style="left:20%;background:var(--sun);animation-duration:3.1s;animation-delay:.4s"></i>
+            <i style="left:34%;background:var(--mint);animation-duration:2.7s;animation-delay:.9s"></i>
+            <i style="left:48%;background:var(--blue);animation-duration:3.4s;animation-delay:.2s"></i>
+            <i style="left:62%;background:var(--sun);animation-duration:2.5s;animation-delay:1.1s"></i>
+            <i style="left:74%;background:var(--coral);animation-duration:3s;animation-delay:.6s"></i>
+            <i style="left:86%;background:var(--mint);animation-duration:2.8s;animation-delay:1.4s"></i>
+          </div>
+          <div class="celebrate">
+            <div class="card">
+              <span class="emo">⚽🔥</span>
+              <div class="t">BUUUT !</div>
+              <div class="d">numéro 4 · tiki-taka.js — Pressing 804 mène 2-0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px"><button class="btn-quiet" onclick="go('s-replay')">← Retour au replay</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SIMULATING ================= -->
+<section class="screen" id="s-simulating">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link active">Jouer</span>
+      <span class="nav-link" onclick="go('s-equipes')">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="sim-wrap">
+      <div class="sim-ball">⚽</div>
+      <h2>Le match se joue…</h2>
+      <p>Pressing 804 🔶 vs Kaaris FC 🦁 — 90 secondes et c'est joué.</p>
+      <div class="sim-streak"><i class="w"></i><i class="w"></i><i class="l"></i><i class="w"></i><i></i></div>
+      <div style="margin-top:24px"><button class="btn-quiet" onclick="go('s-resultat')">Sauter (démo)</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MODALE NOUVELLE ÉQUIPE ================= -->
+<section class="screen" id="s-nouvelle-equipe">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link active">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="tabbar">
+      <div class="tabs">
+        <span class="ttab on"><span class="cc">🔶</span> Pressing 804 <span class="rdy">PRÊT</span></span>
+        <span class="ttab"><span class="cc" style="background:radial-gradient(circle at 32% 26%,#9db6d8,#4a6b8a 74%)">🧊</span> Glacier U.</span>
+        <span class="ttab new">＋ nouvelle</span>
+      </div>
+    </div>
+
+    <div class="workspace" style="margin-top:14px">
+      <aside class="panel"><h3>📜 Scripts</h3><div class="dim">le vestiaire t'attend…</div></aside>
+      <div class="pitch-col"><div class="pitch-card"><div class="pitch" style="min-height:300px"></div></div></div>
+      <aside class="panel"><h3>⌨️ Éditeur</h3><div class="dim">…</div></aside>
+    </div>
+
+    <div class="dock" style="bottom:60px"></div>
+    <div class="modal" style="position:fixed;inset:0;border-radius:0">
+      <div class="box">
+        <h3>⋊ Nouvelle équipe</h3>
+        <p class="sub">Une équipe, cinq cerveaux, un blason.</p>
+        <div class="field"><label>Nom de l'équipe</label><input placeholder="Pressing 805"></div>
+        <div class="row"><span class="k" style="color:var(--muted)">Maillot</span>
+          <span class="sw sel" style="background:var(--coral)"></span>
+          <span class="sw" style="background:var(--sun)"></span>
+          <span class="sw" style="background:var(--mint)"></span>
+          <span class="sw" style="background:var(--blue)"></span>
+        </div>
+        <div class="row"><span class="k" style="color:var(--muted)">Blason</span>
+          <span class="emo sel">🔶</span><span class="emo">🦁</span><span class="emo">⚡</span><span class="emo">🐱</span><span class="emo">👑</span>
+        </div>
+        <div class="row">
+          <button class="btn-quiet2">Annuler</button>
+          <button class="btn-primary">Créer l'équipe</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MODALE ASSIGNER SCRIPT ================= -->
+<section class="screen" id="s-assigner">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link active">Équipes</span>
+      <span class="user"><span class="ava">P</span> @Pelo ▾</span>
+    </nav>
+
+    <div class="workspace" style="margin-top:20px">
+      <aside class="panel"><h3>📜 Scripts</h3><div class="dim">…</div></aside>
+      <div class="pitch-col">
+        <div class="pitch-card">
+          <div class="pitch" style="min-height:300px">
+            <div class="ln cir"></div><div class="ln mid"></div>
+            <div class="spot"></div>
+            <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+            <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+            <div class="pl" style="left:24%;top:26%"><div class="p-body sel"><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+            <div class="pl" style="left:24%;top:74%"><div class="p-body"><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+          </div>
+        </div>
+      </div>
+      <aside class="panel"><h3>⌨️ Éditeur</h3><div class="dim">…</div></aside>
+    </div>
+
+    <div class="modal" style="position:fixed;inset:0;border-radius:0">
+      <div class="box">
+        <h3>Joueur n°2</h3>
+        <p class="sub">Choisis le script qui pilotera ce joueur.</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="script-row" style="background:var(--card2)"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%)"></span> pressing.js <span style="margin-left:auto;font-size:9.5px;color:#fff;background:var(--mint);border-radius:999px;padding:2px 9px;font-weight:800">ACTUEL</span></div>
+          <div class="script-row"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"></span> tiki-taka.js</div>
+          <div class="script-row"><span class="sq" style="background:radial-gradient(circle at 32% 26%,#a9d8f5,var(--blue) 74%)"></span> gardien.js</div>
+        </div>
+        <div class="row">
+          <button class="btn-quiet2">Annuler</button>
+          <button class="btn-primary">Attribuer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MENUS & SUPPRESSION ================= -->
+<section class="screen" id="s-menus">
+  <div class="wrap">
+    <nav class="nav">
+      <span class="logo" onclick="go('s-jouer')"><span class="ball"><img src="src/assets/watermark.png" alt="DD"></span> LACHATADEDE</span>
+      <span class="nav-link" onclick="go('s-jouer')">Jouer</span>
+      <span class="nav-link active">Équipes</span>
+      <span class="user" style="position:relative">
+        <span class="ava">P</span> @Pelo
+        <div class="usermenu">
+          <div class="em">pelo@lachetadede.gg</div>
+          <div class="pt">1004 points · top 3</div>
+          <button class="act">Se déconnecter</button>
+        </div>
+      </span>
+    </nav>
+
+    <div class="duo" style="max-width:760px;margin:40px auto 0">
+      <div class="stage">
+        <h3 style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Menu script (clic droit)</h3>
+        <div class="script-row" style="background:var(--card2);margin-top:12px">⌨ pressing.js <span style="margin-left:auto;font-size:10px;color:var(--muted)">▸</span></div>
+        <div class="ctx-menu" style="margin:12px 0 0 130px">
+          <button class="ctx-item">✏️ Renommer</button>
+          <button class="ctx-item">⧉ Dupliquer</button>
+          <button class="ctx-item danger">🗑 Supprimer</button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <h3 style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Confirmation de suppression</h3>
+        <p style="font-size:14px;font-weight:700;margin-top:14px">Supprimer <b>catenaccio.js</b> ?</p>
+        <p style="font-size:12px;color:var(--muted);font-weight:600;margin:6px 0 16px">Ce script est attribué à 0 joueur. L'action est définitive.</p>
+        <div class="row">
+          <button class="btn-quiet2">Annuler</button>
+          <button class="btn-danger">Supprimer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note"><b>La Ronde</b> · design appliqué à toutes les pages · terrain plat sans habillage · éditeur à côté du terrain (comme l'app) · numéro seul sur les joueurs · 🌙 light/dark</div>
+  </div>
+</section>
+
+<script>
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  document.querySelectorAll('.pnav .pl').forEach(b=>b.classList.toggle('on',b.dataset.go===id));
+  window.scrollTo({top:0,behavior:'instant'});
+}
+go('s-jouer');
+</script>
+
+</body>
+</html>

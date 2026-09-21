@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Fun 4 · Le Dock (light/dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --card:#ffffff; --soft:#ebeae4; --ink:#22242c; --muted:#9298a4;
+  --coral:#ff6b6b; --coral-d:#e04f4f; --sun:#ffc93c; --teal:#23b5a0; --indigo:#3f4c7e;
+  --pitch1:#5cb86e; --pitch2:#53ab64; --shadow:0 12px 30px rgba(34,36,44,.10);
+}
+body.dark{
+  --bg:#181a20; --card:#22252d; --soft:#2b2f38; --ink:#f1f2f4; --muted:#8b91a0;
+  --coral:#ff7d7d; --coral-d:#d55454; --sun:#ffc93c; --teal:#2cc4ae; --indigo:#8fa2e8;
+  --pitch1:#47945a; --pitch2:#3f8651; --shadow:0 12px 30px rgba(0,0,0,.45);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;transition:background .3s,color .3s}
+.wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:26px;max-width:1280px;margin:0 auto;padding:22px 26px 90px}
+h1,h2,h3{letter-spacing:-.3px}
+
+.ribbon{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:12px;padding:9px;font-size:13px;font-weight:700;background:var(--ink);color:var(--bg);border-radius:14px}
+.ribbon b{color:var(--sun)}
+.mode-toggle{position:fixed;top:12px;right:14px;z-index:99;width:44px;height:44px;border-radius:50%;border:none;background:var(--card);font-size:18px;cursor:pointer;box-shadow:var(--shadow)}
+
+/* ===== sidebar permanente ===== */
+.side{position:sticky;top:22px;align-self:start;border-radius:24px;background:var(--card);box-shadow:var(--shadow);padding:20px 16px;display:flex;flex-direction:column;gap:8px}
+.logo{display:flex;align-items:center;gap:11px;font-weight:800;font-size:16.5px;padding:4px 6px 14px}
+.logo .lg{width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,var(--coral),var(--sun));display:grid;place-items:center;font-size:17px;box-shadow:var(--shadow)}
+.snav{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer}
+.snav:hover{background:var(--soft)}
+.snav.active{background:var(--ink);color:var(--bg)}
+.snav .ic{font-size:16px}
+.s-head{margin:14px 6px 4px;font-size:10.5px;font-weight:800;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.mteam{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:14px;cursor:pointer;font-weight:700;font-size:13.5px}
+.mteam:hover{background:var(--soft)}
+.mteam.on{background:var(--soft);outline:2px solid var(--coral)}
+.mteam .mt{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%);flex:none}
+.mteam .meta{font-size:10.5px;color:var(--muted);font-weight:700;display:block}
+.mteam .pts{margin-left:auto;font-weight:800;font-size:12px}
+.side .me{margin-top:auto;display:flex;align-items:center;gap:11px;padding:12px 10px 4px;border-top:1.5px solid var(--soft)}
+.me .ava{width:38px;height:38px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-weight:800}
+.me .nm{font-weight:800;font-size:13.5px}
+.me .sub{font-size:11px;color:var(--muted);font-weight:700}
+
+/* ===== contenu ===== */
+.main{display:flex;flex-direction:column;gap:22px}
+
+/* bannière VS */
+.vs-banner{
+  display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;border-radius:28px;background:var(--card);
+  box-shadow:var(--shadow);padding:24px 28px;position:relative;overflow:hidden;
+}
+.vs-banner::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(300px 160px at 0% 0%,rgba(255,107,107,.09),transparent 70%),
+  radial-gradient(300px 160px at 100% 100%,rgba(35,181,160,.10),transparent 70%)}
+.vs-side{position:relative;text-align:center}
+.vs-side .who{font-size:10.5px;font-weight:800;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.vs-side .nm{font-weight:800;font-size:21px;margin-top:8px}
+.vs-side .meta{font-size:12px;font-weight:700;color:var(--muted);margin-top:4px}
+.vs-side .crest{width:58px;height:58px;border-radius:20px;display:grid;place-items:center;font-size:26px;margin:10px auto 0;background:linear-gradient(135deg,#ffd9c4,var(--coral));box-shadow:var(--shadow)}
+.vs-side.r .crest{background:linear-gradient(135deg,#c4e8f5,#5a94c8)}
+.vs-mid{position:relative;display:flex;justify-content:center}
+.go-btn{
+  width:96px;height:96px;border-radius:50%;border:none;cursor:pointer;font-family:'Plus Jakarta Sans';
+  font-weight:800;font-size:15px;color:#fff;background:linear-gradient(160deg,var(--coral),var(--coral-d));
+  box-shadow:0 12px 26px rgba(224,79,79,.45);z-index:2;
+}
+.go-btn:hover{transform:scale(1.05)}
+.go-btn:active{transform:scale(.97)}
+.vs-mid .dash{position:absolute;left:0;right:0;top:50%;height:2.5px;background:var(--soft)}
+.switch-line{grid-column:1/-1;position:relative;text-align:center;font-size:12px;font-weight:700;color:var(--muted)}
+.switch-line b{color:var(--teal);cursor:pointer}
+
+/* grille 2x2 adversaires */
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-top:4px}
+.sec-head h3{font-size:17px;font-weight:800}
+.sec-head .hint{font-size:12px;font-weight:600;color:var(--muted)}
+.opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.opp-card{display:flex;align-items:center;gap:14px;border-radius:22px;background:var(--card);box-shadow:var(--shadow);padding:16px 18px}
+.oc-crest{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:24px;flex:none;box-shadow:var(--shadow)}
+.oc-info{min-width:0}
+.oc-name{font-weight:800;font-size:15.5px}
+.oc-wl{font-size:11.5px;font-weight:700;color:var(--muted);margin-top:2px}
+.oc-elo{margin-left:auto;text-align:center;flex:none}
+.oc-elo .v{font-weight:800;font-size:16px}
+.oc-elo .f{font-size:10px;font-weight:800;color:var(--muted)}
+.oc-play{margin-left:14px;flex:none;border:none;cursor:pointer;font-weight:800;font-size:12.5px;color:#fff;background:var(--ink);border-radius:999px;padding:10px 18px}
+body.dark .oc-play{background:var(--coral)}
+
+/* bas : historique + classement côte à côte */
+.bottom-duo{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+.b-card{border-radius:22px;background:var(--card);box-shadow:var(--shadow);padding:18px}
+.b-card h3{font-size:13px;font-weight:800;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.hist-line{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:12px;font-size:13px;font-weight:700}
+.hist-line:hover{background:var(--soft)}
+.hl-res{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff}
+.hl-res.win{background:var(--teal)}
+.hl-res.loss{background:var(--muted)}
+.hl-vs{flex:1;color:var(--muted);font-weight:600}
+.hl-elo{font-weight:800;font-size:12.5px}
+.hl-elo.plus{color:var(--teal)}.hl-elo.minus{color:var(--coral)}
+.hl-time{font-size:10.5px;color:var(--muted);font-weight:700}
+.lb-row2{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:12px;font-size:13px;font-weight:700}
+.lb-row2 .rk{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--soft)}
+.lb-row2.first .rk{background:var(--sun)}
+.lb-row2 .nm{flex:1}
+.lb-row2 .nm .you{font-size:9px;font-weight:800;color:#fff;background:var(--coral);border-radius:999px;padding:1px 8px;margin-left:6px}
+.lb-row2 .pt{font-weight:800}
+.lb-row2 .bar{flex:0 0 64px;height:7px;border-radius:4px;background:var(--soft)}
+.lb-row2 .bar i{display:block;height:100%;border-radius:4px;background:var(--coral)}
+
+/* ===== ÉQUIPES ===== */
+.eq-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.eq-top h2{font-size:20px;font-weight:800}
+.eq-top .rdy-pill{font-size:11.5px;font-weight:800;color:#fff;background:var(--teal);border-radius:999px;padding:6px 16px}
+.eq-top .bot-pill{font-size:12px;font-weight:800;color:var(--muted);background:var(--card);border-radius:999px;padding:8px 16px;box-shadow:var(--shadow);cursor:pointer}
+.eq-main-card{border-radius:28px;background:var(--card);box-shadow:var(--shadow);overflow:hidden;position:relative}
+.eq-main-card .pitchbar{display:flex;align-items:center;gap:12px;padding:14px 18px}
+.eq-main-card .pitchbar .nm{font-weight:800;font-size:15.5px}
+.eq-main-card .pitchbar .mini{font-size:11.5px;font-weight:700;color:var(--muted)}
+.pitch{position:relative;height:330px;background:repeating-linear-gradient(90deg,var(--pitch1) 0 54px,var(--pitch2) 54px 108px)}
+.ln{position:absolute;border:2.5px solid rgba(255,255,255,.85);border-radius:6px}
+.ln.mid{left:50%;top:8px;bottom:8px;border-width:0 0 0 2.5px}
+.ln.cir{left:50%;top:50%;width:108px;height:108px;border-radius:50%;transform:translate(-50%,-50%)}
+.spot{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:86px;border-radius:8px;background:rgba(255,255,255,.4);border:2.5px solid rgba(255,255,255,.85)}
+.pl{position:absolute;transform:translate(-50%,-50%);text-align:center;z-index:4}
+.p-body{width:36px;height:36px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 32% 26%,#ffb0a0,var(--coral) 74%);border:2.5px solid rgba(255,255,255,.95);box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.p-body.sel::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:2.5px dashed var(--sun)}
+.p-body.away{background:radial-gradient(circle at 32% 26%,#c4e8f5,#5a94c8 74%)}
+.p-num{font-weight:800;font-size:14px;color:#fff}
+.p-badge{position:absolute;top:-9px;left:-9px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;background:#fff;box-shadow:var(--shadow)}
+.p-tag{display:inline-block;margin-top:6px;padding:1px 10px;border-radius:999px;background:rgba(34,36,44,.45);color:#fff;font-size:10px;font-weight:700}
+
+/* dock vertical flottant */
+.dockv{
+  position:absolute;right:18px;top:78px;z-index:10;display:flex;flex-direction:column;gap:8px;
+  background:var(--card);border-radius:22px;padding:10px;box-shadow:var(--shadow);
+}
+.dv{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-size:19px;cursor:pointer;background:var(--soft)}
+.dv.on{background:var(--ink);color:var(--bg)}
+body.dark .dv.on{background:var(--coral)}
+.dockv .sep{height:1.5px;background:var(--soft);margin:2px 6px}
+
+/* popover équipement ancré au dock */
+.dock-pop{
+  position:absolute;right:80px;top:78px;z-index:11;width:300px;border-radius:22px;background:var(--card);
+  box-shadow:var(--shadow);padding:18px;
+}
+.dock-pop h3{font-size:14px;font-weight:800;margin-bottom:4px}
+.dock-pop .hint{font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:10px}
+.dp-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;font-weight:700}
+.dp-row .k{width:62px;color:var(--muted)}
+.sw{width:32px;height:32px;border-radius:50%;cursor:pointer;box-shadow:inset 0 -3px 0 rgba(34,36,44,.2)}
+.sw.sel{outline:3px solid var(--coral);outline-offset:2px}
+.emo{width:34px;height:34px;display:grid;place-items:center;font-size:15px;border-radius:11px;background:var(--soft);cursor:pointer}
+.emo.sel{background:var(--sun)}
+.footer-note{grid-column:1/-1;margin-top:10px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+.footer-note b{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<button class="mode-toggle" onclick="document.body.classList.toggle('dark')">🌙</button>
+
+<div class="wrap">
+
+  <div class="ribbon">FUN <b>4 · LE DOCK</b> — agencement neuf : sidebar permanente + bannière VS + dock d'icônes flottant · 🌙 pour le dark</div>
+
+  <!-- sidebar -->
+  <aside class="side">
+    <div class="logo"><span class="lg">⚽</span> LACHATADEDE</div>
+    <span class="snav active"><span class="ic">🏟</span> Jouer</span>
+    <span class="snav"><span class="ic">👥</span> Équipes</span>
+    <div class="s-head">Mes équipes</div>
+    <div class="mteam on"><span class="mt">🔶</span><span>Pressing 804<span class="meta">prête · 12V 3D</span></span><span class="pts">1004</span></div>
+    <div class="mteam"><span class="mt" style="background:radial-gradient(circle at 32% 26%,#c4e8f5,#5a94c8 74%)">🧊</span><span>Glacier U.<span class="meta">4V 8D</span></span><span class="pts">988</span></div>
+    <div class="snav" style="color:var(--teal)"><span class="ic">＋</span> Nouvelle équipe</div>
+    <div class="me"><span class="ava">P</span><span><span class="nm">@Pelo</span><br><span class="sub">2 équipes · top 3</span></span></div>
+  </aside>
+
+  <!-- contenu -->
+  <main class="main">
+
+    <!-- bannière VS -->
+    <section class="vs-banner">
+      <div class="vs-side">
+        <div class="who">Tu joues avec</div>
+        <div class="nm">Pressing 804 🔶</div>
+        <div class="meta">1004 pts · prête</div>
+        <div class="crest">🔶</div>
+      </div>
+      <div class="vs-mid">
+        <span class="dash"></span>
+        <button class="go-btn">GO !</button>
+      </div>
+      <div class="vs-side r">
+        <div class="who">Adversaire</div>
+        <div class="nm">🎲 mystère</div>
+        <div class="meta">ou choisis en bas</div>
+        <div class="crest">❓</div>
+      </div>
+      <div class="switch-line">pas Pressing 804 ? <b>changer d'équipe</b> · ou <b>▶ test vs bot</b></div>
+    </section>
+
+    <!-- grille adversaires -->
+    <div class="sec-head"><h3>Adversaires prêts</h3><span class="hint">la simu tourne même s'ils dorment</span></div>
+    <div class="opp-grid">
+      <div class="opp-card">
+        <span class="oc-crest" style="background:linear-gradient(135deg,#ffe3b3,#ffc98a)">🦁</span>
+        <div class="oc-info"><div class="oc-name">Kaaris FC</div><div class="oc-wl">18V · 4D</div></div>
+        <div class="oc-elo"><div class="v">1022</div><div class="f">ELO</div></div>
+        <button class="oc-play">Jouer</button>
+      </div>
+      <div class="opp-card">
+        <span class="oc-crest" style="background:linear-gradient(135deg,#c4e8f5,#8fc6ec)">🧊</span>
+        <div class="oc-info"><div class="oc-name">Glacier United</div><div class="oc-wl">9V · 11D</div></div>
+        <div class="oc-elo"><div class="v">988</div><div class="f">ELO</div></div>
+        <button class="oc-play">Jouer</button>
+      </div>
+      <div class="opp-card">
+        <span class="oc-crest" style="background:linear-gradient(135deg,#ffd9e6,#ffb7d0)">👑</span>
+        <div class="oc-info"><div class="oc-name">Les Bleus de DD</div><div class="oc-wl">22V · 2D</div></div>
+        <div class="oc-elo"><div class="v">1187</div><div class="f">ELO</div></div>
+        <button class="oc-play">Jouer</button>
+      </div>
+      <div class="opp-card" style="border:2px dashed var(--muted);box-shadow:none;background:transparent;justify-content:center;color:var(--muted);font-weight:800;font-size:13px">
+        ＋ invites-toi : défie une équipe hors ligne
+      </div>
+    </div>
+
+    <!-- bas duo -->
+    <div class="bottom-duo">
+      <div class="b-card">
+        <h3>Derniers matchs</h3>
+        <div class="hist-line"><span class="hl-res win">V</span><span>3 – 1</span><span class="hl-vs">vs Glacier United</span><span class="hl-elo plus">+12</span><span class="hl-time">2 h</span></div>
+        <div class="hist-line"><span class="hl-res loss">D</span><span>1 – 2</span><span class="hl-vs">vs Kaaris FC</span><span class="hl-elo minus">−9</span><span class="hl-time">hier</span></div>
+        <div class="hist-line"><span class="hl-res win">V</span><span>2 – 0</span><span class="hl-vs">vs Bleus de DD</span><span class="hl-elo plus">+18</span><span class="hl-time">hier</span></div>
+        <div class="hist-line"><span class="hl-res loss">D</span><span>0 – 4</span><span class="hl-vs">vs Kaaris FC</span><span class="hl-elo minus">−11</span><span class="hl-time">mar.</span></div>
+      </div>
+      <div class="b-card">
+        <h3>Classement</h3>
+        <div class="lb-row2 first"><span class="rk">1</span><span class="nm">Bleus de DD<span class="you">TOI</span></span><span class="bar"><i style="width:95%"></i></span><span class="pt">1187</span></div>
+        <div class="lb-row2"><span class="rk">2</span><span class="nm">Kaaris FC</span><span class="bar"><i style="width:82%"></i></span><span class="pt">1022</span></div>
+        <div class="lb-row2"><span class="rk">3</span><span class="nm">Pressing 804<span class="you">TOI</span></span><span class="bar"><i style="width:80%"></i></span><span class="pt">1004</span></div>
+        <div class="lb-row2"><span class="rk">4</span><span class="nm">Glacier U.</span><span class="bar"><i style="width:78%"></i></span><span class="pt">988</span></div>
+        <div class="lb-row2"><span class="rk">5</span><span class="nm">Tiki-taka 2009</span><span class="bar"><i style="width:75%"></i></span><span class="pt">961</span></div>
+      </div>
+    </div>
+
+    <div class="footer-note">FUN 4 — <b>le dock</b> · sidebar, bannière VS, dock flottant · light/dark 🌙</div>
+  </main>
+</div>
+
+<!-- ÉQUIPES : réutilise la même sidebar, on montre le terrain + dock -->
+<div class="wrap" style="margin-top:20px">
+  <div class="ribbon" style="max-width:560px;margin:0 auto">PAGE ÉQUIPES — aperçu : terrain plein centre + dock vertical</div>
+</div>
+<div style="max-width:920px;margin:26px auto 0;padding:0 26px">
+  <div class="eq-top" style="margin-bottom:14px">
+    <h2>🔶 Pressing 804</h2>
+    <span class="rdy-pill">PRÊT !</span>
+    <span class="bot-pill" style="margin-left:auto">▶ Test vs bot</span>
+  </div>
+  <div class="eq-main-card">
+    <div class="pitchbar"><span class="nm">L'équipe</span><span class="mini">clique un joueur pour lui coller un script</span></div>
+    <div class="pitch">
+      <div class="ln cir"></div><div class="ln mid"></div>
+      <div class="spot"></div>
+      <div class="goal" style="left:4px"></div><div class="goal" style="right:4px"></div>
+      <div class="pl" style="left:9%;top:50%"><div class="p-body"><span class="p-badge">🧤</span><span class="p-num">1</span></div><span class="p-tag">gardien.js</span></div>
+      <div class="pl" style="left:24%;top:24%"><div class="p-body sel"><span class="p-badge">🔶</span><span class="p-num">2</span></div><span class="p-tag">pressing.js</span></div>
+      <div class="pl" style="left:24%;top:76%"><div class="p-body"><span class="p-badge">🔶</span><span class="p-num">3</span></div><span class="p-tag">pressing.js</span></div>
+      <div class="pl" style="left:40%;top:38%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-badge">⚡</span><span class="p-num">4</span></div><span class="p-tag">tiki-taka.js</span></div>
+      <div class="pl" style="left:40%;top:62%"><div class="p-body" style="background:radial-gradient(circle at 32% 26%,#ffe9a8,var(--sun) 74%)"><span class="p-badge">⚡</span><span class="p-num">5</span></div><span class="p-tag">tiki-taka.js</span></div>
+      <div class="pl" style="left:91%;top:50%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">1</span></div></div>
+      <div class="pl" style="left:76%;top:26%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">8</span></div></div>
+      <div class="pl" style="left:76%;top:74%"><div class="p-body away"><span class="p-badge">🧊</span><span class="p-num">10</span></div></div>
+      <div class="pl" style="left:58%;top:34%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">7</span></div></div>
+      <div class="pl" style="left:58%;top:66%"><div class="p-body away"><span class="p-badge">🦁</span><span class="p-num">9</span></div></div>
+    </div>
+    <div class="dockv">
+      <span class="dv on">🎨</span>
+      <span class="dv">📜</span>
+      <span class="dv">⌨️</span>
+      <span class="sep"></span>
+      <span class="dv">⚙️</span>
+    </div>
+    <div class="dock-pop">
+      <h3>Équipement</h3>
+      <div class="hint">couleur du maillot + blason · numéro au centre, toujours</div>
+      <div class="dp-row"><span class="k">Maillot</span>
+        <span class="sw sel" style="background:var(--coral)"></span>
+        <span class="sw" style="background:var(--sun)"></span>
+        <span class="sw" style="background:var(--teal)"></span>
+        <span class="sw" style="background:#5a94c8"></span>
+      </div>
+      <div class="dp-row"><span class="k">Blason</span>
+        <span class="emo sel">🔶</span><span class="emo">🦁</span><span class="emo">⚡</span><span class="emo">🐱</span><span class="emo">👑</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

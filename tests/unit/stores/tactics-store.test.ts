@@ -1079,4 +1079,130 @@ describe('Tactics Store', () => {
       expect(useTacticsStore.getState().tactics[0]?.id).toBe('tactic-1');
     });
   });
+
+  describe('Team Customization (story 7.4)', () => {
+    it('should send the customization fields on PUT and merge the response', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () =>
+          mockTacticFromApi({
+            colorPrimary: '#31c48d',
+            colorSecondary: '#4aa8e8',
+            crest: '🦊',
+          }),
+      });
+
+      await useTacticsStore.getState().updateTactic('tactic-1', undefined, undefined, undefined, {
+        colorPrimary: '#31c48d',
+        colorSecondary: '#4aa8e8',
+        crest: '🦊',
+      });
+
+      const state = useTacticsStore.getState();
+      expect(state.tactics[0]?.colorPrimary).toBe('#31c48d');
+      expect(state.tactics[0]?.colorSecondary).toBe('#4aa8e8');
+      expect(state.tactics[0]?.crest).toBe('🦊');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics/tactic-1'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({
+            color_primary: '#31c48d',
+            color_secondary: '#4aa8e8',
+            crest: '🦊',
+          }),
+        }),
+      );
+    });
+
+    it('should keep absent customization keys out of the PUT body (has() semantics)', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi({ crest: null }),
+      });
+
+      await useTacticsStore.getState().updateTactic('tactic-1', undefined, undefined, undefined, {
+        crest: null,
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tactics/tactic-1'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ crest: null }),
+        }),
+      );
+    });
+
+    it('should queue the customization and drain it to the next PUT', async () => {
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      useTacticsStore.setState({
+        tactics: [mockTacticFromApi() as unknown as TacticConfig],
+      });
+
+      // Hold the first PUT in flight
+      let resolvePut: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePut = resolve;
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTacticFromApi(),
+      });
+
+      const first = useTacticsStore.getState().updateTactic('tactic-1', 'Renamed');
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(true));
+
+      const second = useTacticsStore.getState().updateTactic(
+        'tactic-1',
+        undefined,
+        undefined,
+        undefined,
+        { colorPrimary: '#ffc244' }
+      );
+
+      // The first PUT runs; the second queues as a fresh pending update
+      // carrying only its customization
+      expect(useTacticsStore.getState().pendingUpdate).toEqual({
+        id: 'tactic-1',
+        name: undefined,
+        slots: undefined,
+        isReady: undefined,
+        customization: { colorPrimary: '#ffc244' },
+      });
+
+      resolvePut!({ ok: true, json: async () => mockTacticFromApi({ name: 'Renamed' }) });
+      await first;
+      await vi.waitFor(() => expect(useTacticsStore.getState().isSavingTactic).toBe(false));
+      await second;
+
+      // The drained pending update carries the customization to the second PUT
+      await vi.waitFor(() => {
+        expect(mockFetch).toHaveBeenNthCalledWith(
+          2,
+          expect.stringContaining('/tactics/tactic-1'),
+          expect.objectContaining({
+            method: 'PUT',
+            body: JSON.stringify({ color_primary: '#ffc244' }),
+          }),
+        );
+      });
+    });
+  });
 });

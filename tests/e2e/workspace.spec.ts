@@ -21,15 +21,16 @@ import {
   suggestionLabels,
 } from '../support/helpers/editor';
 
-// Active highlight (pre-Monaco signal for "file opened in editor"): #37373d
-const ACTIVE_ITEM_BACKGROUND = 'rgb(55, 55, 61)';
+// Active highlight (story 7.5 La Ronde tokens): the row rides --panel2
+// (#f4faf6 in the default light theme) plus a corail inset ring.
+const ACTIVE_ITEM_BACKGROUND = 'rgb(244, 250, 246)';
 
 test.describe('AI Workspace - Scripts (Story 2.1)', () => {
   test('should list existing scripts for the user @P0', async ({ page, userFactory }) => {
     const user = await userFactory.create();
     await seedAuthToken(page, user.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // The backend provisions StarterAI.js on registration
     const scriptsList = page.getByTestId('scripts-list');
@@ -41,7 +42,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
     const user = await userFactory.create();
     await seedAuthToken(page, user.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     const scriptsList = page.getByTestId('scripts-list');
     await expect(scriptsList).toContainText('StarterAI.js');
 
@@ -58,7 +59,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
     const user = await userFactory.create();
     await seedAuthToken(page, user.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     const scriptsList = page.getByTestId('scripts-list');
     await expect(scriptsList).toContainText('StarterAI.js');
 
@@ -75,7 +76,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
     const user = await userFactory.create();
     await seedAuthToken(page, user.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     const scriptsList = page.getByTestId('scripts-list');
     await expect(scriptsList).toContainText('StarterAI.js');
 
@@ -95,7 +96,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
     const user = await userFactory.create();
     await seedAuthToken(page, user.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     const scriptsList = page.getByTestId('scripts-list');
     await expect(scriptsList).toContainText('StarterAI.js');
 
@@ -116,7 +117,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
     const intruder = await userFactory.create();
     await seedAuthToken(page, intruder.token ?? '');
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     const scriptsList = page.getByTestId('scripts-list');
     await expect(scriptsList).toContainText('StarterAI.js');
     await expect(scriptsList).not.toContainText('OwnerSecretAI.js');
@@ -135,7 +136,7 @@ test.describe('AI Workspace - Scripts (Story 2.1)', () => {
       await route.continue();
     });
 
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await expect(page.getByText('Loading scripts...')).toBeVisible();
     await expect(page.getByTestId('scripts-list')).toContainText('StarterAI.js');
   });
@@ -159,7 +160,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
 
     // Wait for scripts to load
     await page.waitForSelector('[data-testid="scripts-list"]');
@@ -189,7 +190,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User opens the file
@@ -220,7 +221,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User opens the file
@@ -252,7 +253,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User opens the file
@@ -283,7 +284,7 @@ test.describe('Story 2.2 - Monaco Editor Integration', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file and wait for Monaco
@@ -330,7 +331,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file
@@ -365,7 +366,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file
@@ -397,7 +398,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file
@@ -441,7 +442,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file and edit
@@ -486,7 +487,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file and make changes
@@ -523,7 +524,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // Wait for scripts to load
   //     await page.waitForSelector('[data-testid="scripts-list"]');
@@ -551,7 +552,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.waitForSelector('[data-testid="scripts-list"]');
   //
   //     // WHEN: User creates a new file
@@ -588,7 +589,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // THEN: File appears in the scripts list
   //     await expect(page.locator('[data-testid="scripts-list"]')).toContainText('TestAI.js');
@@ -611,7 +612,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // Wait for scripts to load
   //     await page.waitForSelector('[data-testid="scripts-list"]');
@@ -652,7 +653,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // Wait for scripts to load
   //     await page.waitForSelector('[data-testid="scripts-list"]');
@@ -683,7 +684,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // WHEN: User clicks delete on the file
   //     await page.click('[data-testid="file-list-item"]:has-text("DeleteMe.js") [data-testid="delete-button"]');
@@ -711,7 +712,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.click('[data-testid="file-list-item"]:has-text("ToDelete.js") [data-testid="delete-button"]');
   //
   //     // WHEN: User confirms deletion
@@ -737,7 +738,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.context().addCookies([
   //       { name: 'auth_token', value: user.token!, domain: 'localhost', path: '/' },
   //     ]);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // WHEN: User clicks delete on the file
   //     await page.click('[data-testid="file-list-item"]:has-text("DeleteMe.js") [data-testid="delete-button"]');
@@ -763,7 +764,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.context().addCookies([
   //       { name: 'auth_token', value: user.token!, domain: 'localhost', path: '/' },
   //     ]);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.click('[data-testid="file-list-item"]:has-text("ToDelete.js") [data-testid="delete-button"]');
   //
   //     // WHEN: User confirms deletion
@@ -793,7 +794,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // WHEN: User opens the file
   //     await page.click(`[data-testid="script-item-${script.id}"]`);
@@ -821,7 +822,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.click(`[data-testid="script-item-${script.id}"]`);
   //
   //     // Wait for editor to load
@@ -855,7 +856,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.click(`[data-testid="script-item-${script.id}"]`);
   //     await page.waitForSelector('.monaco-editor');
   //
@@ -890,7 +891,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, user.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //     await page.click(`[data-testid="script-item-${script.id}"]`);
   //     await page.waitForSelector('.monaco-editor');
   //
@@ -924,7 +925,7 @@ test.describe('Story 2.3 - Save AI File Changes', () => {
   //     await page.evaluate((token) => {
   //       localStorage.setItem('auth_token', token);
   //     }, userB.token);
-  //     await page.goto('/workspace');
+  //     await page.goto('/teams');
   //
   //     // Wait for scripts list to load
   //     await page.waitForSelector('[data-testid="scripts-list"]');
@@ -1170,7 +1171,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file
@@ -1209,7 +1210,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     await page.click(`[data-testid="script-item-${script.id}"]`);
@@ -1258,7 +1259,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     await page.click(`[data-testid="script-item-${script.id}"]`);
@@ -1295,7 +1296,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     await page.click(`[data-testid="script-item-${script.id}"]`);
@@ -1330,7 +1331,7 @@ test.describe('Story 2.5 - Code Error Detection', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     await page.click(`[data-testid="script-item-${script.id}"]`);
@@ -1375,7 +1376,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User right-clicks on the file
@@ -1403,7 +1404,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click to open context menu
@@ -1437,7 +1438,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User double-clicks on the file
@@ -1466,7 +1467,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Double-click to start rename
@@ -1501,7 +1502,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Double-click to start rename
@@ -1536,7 +1537,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Double-click to start rename
@@ -1572,7 +1573,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Double-click to start rename
@@ -1606,7 +1607,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file first
@@ -1647,7 +1648,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Rename the file
@@ -1685,7 +1686,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User right-clicks on the file
@@ -1713,7 +1714,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click to open context menu
@@ -1746,7 +1747,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click and duplicate
@@ -1777,7 +1778,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click and duplicate
@@ -1808,7 +1809,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click and duplicate
@@ -1851,7 +1852,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Duplicate the file
@@ -1892,7 +1893,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Duplicate the file
@@ -1928,7 +1929,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // WHEN: User right-clicks on the file
@@ -1956,7 +1957,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Right-click to open context menu
@@ -1990,7 +1991,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open delete confirmation
@@ -2023,7 +2024,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open delete confirmation
@@ -2056,7 +2057,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open delete confirmation
@@ -2089,7 +2090,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open delete confirmation
@@ -2124,7 +2125,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the file first
@@ -2177,7 +2178,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Open the first file
@@ -2212,7 +2213,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     await page.evaluate((token) => {
       localStorage.setItem('auth_token', token);
     }, user.token);
-    await page.goto('/workspace');
+    await page.goto('/teams');
     await page.waitForSelector('[data-testid="scripts-list"]');
 
     // Delete the file

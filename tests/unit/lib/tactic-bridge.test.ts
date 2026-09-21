@@ -18,7 +18,17 @@ const makeConfig = (positionX: number, positionY = 25): TacticConfig => ({
   id: 'tactic-1',
   name: 'Tactic 1',
   isSystem: false,
+  colorPrimary: '#ff6b1a',
+  colorSecondary: '#1a8cff',
+  crest: null,
   players: [{ playerSlot: 1, positionX, positionY, scriptId: null }],
+});
+
+const makeConfigWithColors = (positionX: number, positionY = 25): TacticConfig => ({
+  ...makeConfig(positionX, positionY),
+  colorPrimary: '#31c48d',
+  colorSecondary: '#4aa8e8',
+  crest: '🦊',
 });
 
 const makeTactic = (x: number, y: number): TacticData => ({
@@ -40,6 +50,13 @@ const makeTactic = (x: number, y: number): TacticData => ({
 
 describe('TacticBridge', () => {
   describe('left-half normalization on load (tacticConfigToTacticData)', () => {
+    it('should carry the team colors into the engine payload (story 7.4)', () => {
+      const data = tacticConfigToTacticData(makeConfigWithColors(25));
+
+      expect(data.colorPrimary).toBe('#31c48d');
+      expect(data.colorSecondary).toBe('#4aa8e8');
+    });
+
     it('should mirror a right-half x across the halfway line', () => {
       // GIVEN: A legacy tactic with a player parked in the opponent's half
       // WHEN: Loading it into the engine

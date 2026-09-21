@@ -26,6 +26,9 @@ class Tactic extends Model
         'elo',
         'wins',
         'losses',
+        'color_primary',
+        'color_secondary',
+        'crest',
     ];
 
     /**
@@ -44,6 +47,16 @@ class Tactic extends Model
             'losses' => 'integer',
         ];
     }
+
+    /**
+     * Team customization defaults (story 7.4): mirror the migration's
+     * column defaults so in-memory instances serialize the same values
+     * the database stores.
+     */
+    protected $attributes = [
+        'color_primary' => '#ff6b1a',
+        'color_secondary' => '#1a8cff',
+    ];
 
     /**
      * A tactic can field a match only with 5 slots, each scripted. Shared

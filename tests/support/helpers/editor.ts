@@ -39,7 +39,7 @@ export async function openWorkspaceScript(
   await page.evaluate((authToken) => {
     localStorage.setItem('auth_token', authToken);
   }, token);
-  await page.goto('/workspace');
+  await page.goto('/teams');
   await page.waitForSelector('[data-testid="scripts-list"]');
   await page.click(`[data-testid="script-item-${scriptId}"]`);
   await page.waitForSelector('.monaco-editor');

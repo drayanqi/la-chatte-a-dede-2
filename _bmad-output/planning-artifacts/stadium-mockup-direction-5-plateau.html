@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LACHATADEDE — Direction 5 · Plateau de jeu vintage (mockup complet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wood:#8a5a33; --wood-d:#6e4525; --board:#f5e7c8; --ink:#3a2a18; --red:#d63a2f; --blue:#2e6fb0; --green:#3f9b4f; --yellow:#f2b422;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:
+    repeating-linear-gradient(90deg, var(--wood) 0 90px, var(--wood-d) 90px 96px),
+    var(--wood);
+  color:var(--ink);font-family:'Nunito',sans-serif;min-height:100vh;
+}
+.wrap{max-width:1240px;margin:0 auto;padding:0 24px 90px}
+h1,h2,h3{font-family:'Lilita One',cursive;font-weight:400;letter-spacing:.5px}
+
+.ribbon{display:flex;align-items:center;justify-content:center;gap:10px;padding:9px;font-size:13px;font-weight:900;background:var(--ink);color:var(--board)}
+.ribbon b{color:var(--yellow)}
+
+/* nav = couvercle de boîte */
+.appnav{
+  display:flex;align-items:center;gap:20px;margin-top:20px;padding:14px 22px;
+  background:var(--board);border:4px solid var(--ink);border-radius:14px;
+  box-shadow:0 6px 0 var(--ink), inset 0 0 0 4px var(--board), inset 0 0 0 6px rgba(58,42,24,.25);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.token{
+  width:48px;height:48px;border-radius:50%;overflow:hidden;position:relative;display:grid;place-items:center;
+  background:radial-gradient(circle at 32% 26%, #ff8a6a, var(--red) 68%);border:3px solid var(--ink);
+}
+.token img{width:80%;height:80%;object-fit:contain;position:relative;z-index:1}
+.token-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;z-index:0}
+.token::after{content:"";position:absolute;top:8%;left:14%;width:38%;height:26%;border-radius:50%;background:rgba(255,255,255,.5);z-index:2}
+.brand-name{font-family:'Lilita One';font-size:22px}
+.brand-name .dd{color:var(--red)}
+.nav-pills{display:flex;gap:8px;margin-left:6px}
+.nav-pill{font-family:'Lilita One';font-size:15px;padding:9px 22px;border-radius:999px;cursor:pointer;color:var(--ink);background:transparent;border:3px solid transparent}
+.nav-pill:hover{border-color:var(--ink)}
+.nav-pill.active{background:var(--red);color:#fff;border-color:var(--ink);box-shadow:0 3px 0 var(--ink)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-weight:800}
+.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:'Lilita One';font-size:16px;background:var(--blue);color:#fff;border:3px solid var(--ink)}
+
+.sec-rule{display:flex;align-items:center;gap:14px;margin:38px 0 18px}
+.sec-rule h2{font-size:24px}
+.sec-rule .chip{font-family:'Nunito';font-weight:900;font-size:11px;background:var(--yellow);border:3px solid var(--ink);border-radius:999px;padding:3px 14px}
+.sec-rule::after{content:"";flex:1;height:4px;border-radius:2px;background:var(--ink)}
+
+/* play */
+.play-grid{display:grid;grid-template-columns:1fr 350px;gap:26px;align-items:start}
+.col{display:flex;flex-direction:column;gap:26px}
+
+.hero{
+  position:relative;padding:38px 36px;border:4px solid var(--ink);border-radius:20px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(242,180,34,.5) 0 40px, transparent 41px),
+    repeating-linear-gradient(45deg, rgba(46,111,176,.08) 0 26px, transparent 26px 52px),
+    var(--board);
+  box-shadow:0 6px 0 var(--ink);
+}
+.hero-kicker{display:inline-block;font-weight:900;font-size:12px;background:var(--ink);color:var(--board);padding:5px 16px;border-radius:999px}
+.hero h1{font-size:52px;line-height:1;margin:16px 0 10px}
+.hero h1 .rd{color:var(--red)}
+.hero .sub{font-weight:800;font-size:15px;max-width:430px}
+.fighting-as{display:flex;align-items:center;gap:12px;margin-top:18px;font-weight:800}
+.team-chip{
+  display:inline-flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;cursor:pointer;
+  border:3px solid var(--ink);background:#fff;font-weight:900;font-size:14px;font-family:'Nunito';
+}
+.team-dot{width:13px;height:13px;border-radius:50%;background:var(--red);border:2px solid var(--ink)}
+.cta{
+  position:absolute;right:32px;bottom:32px;font-family:'Lilita One';font-size:26px;color:#fff;
+  background:var(--green);border:4px solid var(--ink);padding:18px 38px;border-radius:999px;cursor:pointer;
+  box-shadow:0 6px 0 var(--ink);transform:rotate(-2deg);
+}
+.cta:hover{transform:rotate(-2deg) translateY(-2px);box-shadow:0 8px 0 var(--ink)}
+.cta:active{transform:rotate(-2deg) translateY(4px);box-shadow:0 2px 0 var(--ink)}
+
+.panel{padding:20px 22px;border:4px solid var(--ink);border-radius:16px;background:var(--board);box-shadow:0 5px 0 var(--ink)}
+.panel h3{font-size:19px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.panel h3 .hint{margin-left:auto;font-family:'Nunito';font-weight:800;font-size:11px;color:#a08a64}
+.opp-row{
+  display:flex;align-items:center;gap:13px;padding:11px 12px;margin-bottom:11px;border-radius:12px;
+  border:3px solid var(--ink);background:#fffdf4;
+}
+.opp-row:last-child{margin-bottom:0}
+.opp-emoji{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-size:21px;border:3px solid var(--ink);background:var(--yellow);flex:none}
+.vs-tag{font-family:'Lilita One';font-size:13px;color:#fff;background:var(--blue);border:3px solid var(--ink);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none}
+.opp-name{font-family:'Lilita One';font-size:17px}
+.opp-wl{font-size:12px;font-weight:800;color:#a08a64}
+.opp-elo{margin-left:auto;font-weight:900;font-size:13px;background:var(--board);border:3px solid var(--ink);padding:3px 12px;border-radius:999px}
+.play-sm{font-family:'Lilita One';font-size:14px;color:#fff;background:var(--green);border:3px solid var(--ink);padding:7px 18px;border-radius:999px;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
+.play-sm:hover{transform:translateY(-1px)}
+
+.hist-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:3px dotted #d8c49a;font-size:14px;font-weight:800}
+.hist-row:last-child{border-bottom:none}
+.res-badge{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;font-family:'Lilita One';font-size:14px;border:3px solid var(--ink)}
+.res-badge.win{background:var(--green);color:#fff}
+.res-badge.loss{background:#e8d9b8;color:#a08a64}
+.hist-vs{flex:1;font-weight:700;color:#6d5c40}
+.hist-elo{font-weight:900}
+.hist-elo.plus{color:var(--green)}.hist-elo.minus{color:var(--red)}
+.hist-time{color:#b7a67f;font-size:11px;font-weight:800}
+
+.lb-row{display:flex;align-items:center;gap:12px;padding:9px 4px;font-weight:800;border-bottom:3px dotted #d8c49a}
+.lb-row:last-child{border-bottom:none}
+.lb-rank{width:34px;height:34px;display:grid;place-items:center;font-family:'Lilita One';font-size:15px;border:3px solid var(--ink);border-radius:50%;background:#fffdf4}
+.lb-row.r1 .lb-rank{background:var(--yellow)}
+.lb-row.r2 .lb-rank{background:#d9d3c2}
+.lb-row.r3 .lb-rank{background:#e0a878;color:#fff}
+.lb-name{flex:1;font-size:14px}
+.lb-name .you{font-size:10px;font-weight:900;color:#fff;background:var(--red);padding:2px 10px;border-radius:999px;margin-left:8px}
+.lb-elo{font-weight:900}
+
+/* teams */
+.teambar{display:flex;align-items:center;gap:16px;padding:13px 20px;margin-bottom:26px;border:4px solid var(--ink);border-radius:16px;background:var(--board);box-shadow:0 5px 0 var(--ink)}
+.casier-btn{display:inline-flex;align-items:center;gap:12px;padding:7px 18px 7px 8px;border-radius:999px;cursor:pointer;position:relative;border:3px solid var(--ink);background:#fff;font-weight:900;font-size:15px;font-family:'Nunito'}
+.casier-crest{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:17px;border:3px solid var(--ink);background:radial-gradient(circle at 32% 26%,#ff8a6a,var(--red) 68%)}
+.casier-chev{font-size:12px}
+.casier-pop{position:absolute;top:calc(100% + 12px);left:0;z-index:30;width:330px;border:4px solid var(--ink);border-radius:16px;background:var(--board);padding:16px;box-shadow:0 6px 0 var(--ink)}
+.casier-title{font-family:'Lilita One';font-size:17px;text-align:center;margin-bottom:10px}
+.casier-card{display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border-radius:12px;cursor:pointer;border:3px solid var(--ink);background:#fffdf4}
+.casier-card.active{background:var(--yellow);box-shadow:0 3px 0 var(--ink)}
+.cc-crest{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;border:3px solid var(--ink);background:radial-gradient(circle at 32% 26%,#ff8a6a,var(--red) 68%)}
+.casier-card b{font-family:'Lilita One';font-weight:400;font-size:15px}
+.casier-card .wl{margin-left:auto;font-size:11px;font-weight:800;color:#a08a64}
+.casier-card .rdy{font-size:10px;font-weight:900;color:#fff;background:var(--green);border:2px solid var(--ink);padding:2px 10px;border-radius:999px}
+.casier-card.new{justify-content:center;color:var(--blue);font-family:'Lilita One';font-size:15px;border-style:dashed}
+.ready-toggle{font-family:'Lilita One';font-size:16px;color:#fff;background:var(--red);border:3px solid var(--ink);padding:10px 24px;border-radius:999px;cursor:pointer;box-shadow:0 4px 0 var(--ink)}
+.btn-ghost{font-weight:900;font-size:13px;color:var(--ink);background:#fff;border:3px solid var(--ink);padding:9px 20px;border-radius:999px;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
+.spacer{flex:1}
+.teams-grid{display:grid;grid-template-columns:1fr 330px;gap:26px;align-items:start}
+
+/* pitch : plateau de jeu */
+.stadium{position:relative;padding:26px;border:4px solid var(--ink);border-radius:20px;background:var(--board);box-shadow:0 6px 0 var(--ink)}
+.score-track{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.bead{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:'Lilita One';font-size:13px;border:3px solid var(--ink);background:#fffdf4}
+.bead.us{background:var(--red);color:#fff}
+.bead.them{background:var(--blue);color:#fff}
+.bead-line{flex:1;height:4px;background:repeating-linear-gradient(90deg,var(--ink) 0 8px,transparent 8px 14px)}
+.spinner{
+  position:absolute;top:-24px;right:-18px;z-index:5;width:86px;height:86px;border-radius:50%;
+  background:conic-gradient(var(--red) 0 90deg, var(--blue) 90deg 180deg, var(--yellow) 180deg 270deg, var(--green) 270deg 360deg);
+  border:4px solid var(--ink);box-shadow:0 5px 0 var(--ink);display:grid;place-items:center;transform:rotate(10deg);
+}
+.spinner::after{content:"🎲";font-size:30px;background:#fffdf4;width:46px;height:46px;border-radius:50%;border:3px solid var(--ink);display:grid;place-items:center}
+.field-b{
+  position:relative;margin:0 auto;width:100%;max-width:640px;height:400px;border-radius:14px;overflow:hidden;
+  background:repeating-linear-gradient(90deg,#79c46b 0 56px,#6fba61 56px 112px);
+  border:5px solid var(--ink);
+}
+.ln{position:absolute;border:3px solid rgba(255,255,255,.9)}
+.ln.mid{left:50%;top:6px;bottom:6px;border-width:0 0 0 3px}
+.ln.cir{left:50%;top:50%;width:132px;height:132px;border-radius:50%;transform:translate(-50%,-50%)}
+.ln.arcl{left:-40px;top:50%;width:80px;height:160px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 0 0 50%)}
+.ln.arcr{right:-40px;top:50%;width:80px;height:160px;border-radius:50%;transform:translateY(-50%);clip-path:inset(0 50% 0 0)}
+.spot{position:absolute;left:50%;top:50%;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.9);transform:translate(-50%,-50%)}
+.goal-b{position:absolute;top:50%;transform:translateY(-50%);width:26px;height:100px;z-index:2;border:4px solid var(--ink);background:repeating-linear-gradient(180deg,#fff 0 4px,#d9d2c0 4px 8px)}
+.bplayer{position:absolute;z-index:4;transform:translate(-50%,-50%);text-align:center}
+.b-body{
+  width:42px;height:42px;border-radius:50%;margin:0 auto;position:relative;display:grid;place-items:center;
+  background:radial-gradient(circle at 32% 26%, #ff8a6a, var(--red) 68%);
+  border:3px solid var(--ink);box-shadow:0 5px 0 rgba(58,42,24,.4);
+}
+.b-body::after{content:"";position:absolute;top:8%;left:14%;width:38%;height:26%;border-radius:50%;background:rgba(255,255,255,.5)}
+.b-body.away{background:radial-gradient(circle at 32% 26%, #6fa8e0, var(--blue) 68%)}
+.b-num{font-family:'Lilita One';font-size:17px;color:#fff;position:relative;z-index:1;text-shadow:1px 2px 0 rgba(0,0,0,.3)}
+.b-badge{position:absolute;top:-10px;left:-10px;width:21px;height:21px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:var(--yellow);border:3px solid var(--ink);z-index:2}
+.b-label{display:inline-block;margin-top:9px;padding:2px 14px;border-radius:999px;background:#fffdf4;border:3px solid var(--ink);font-weight:900;font-size:11px}
+
+.side{display:flex;flex-direction:column;gap:26px}
+.script-row{display:flex;align-items:center;gap:12px;padding:10px 10px;margin-bottom:10px;border-radius:12px;border:3px solid var(--ink);background:#fffdf4;font-weight:900;font-size:14px}
+.script-row:last-child{margin-bottom:0}
+.script-ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;border:3px solid var(--ink);font-size:15px;background:var(--yellow);flex:none}
+.script-name{font-family:'Lilita One';font-size:15px}
+.badge{margin-left:auto;font-size:10px;font-weight:900;border:2px solid var(--ink);padding:2px 11px;border-radius:999px;background:var(--board)}
+.badge.ok{background:#dcefd0}
+.badge.err{background:#f6d8d4;color:var(--red)}
+.code{margin:2px 2px 4px;padding:18px;border-radius:12px;background:#3a2a18;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;line-height:1.8;white-space:pre;color:#f5e7c8;overflow:hidden}
+.code .kw{color:var(--yellow)}.code .fn{color:#9cc8f0}.code .cm{color:#a08a64;font-style:italic}
+.custom-body{padding:2px 4px}
+.custom-row{display:flex;align-items:center;gap:12px;margin-top:14px;font-weight:900;font-size:13px}
+.custom-row .k{width:80px;color:#a08a64}
+.swatch{width:36px;height:36px;border-radius:50%;border:3px solid var(--ink);cursor:pointer}
+.swatch.sel{outline:4px solid var(--yellow);outline-offset:2px}
+.emoji-opt{width:38px;height:38px;display:grid;place-items:center;font-size:18px;background:#fffdf4;border:3px solid var(--ink);border-radius:10px;cursor:pointer}
+.emoji-opt.sel{background:var(--yellow);transform:rotate(-6deg)}
+.custom-note{margin-top:16px;font-size:12px;font-weight:700;color:#a08a64}
+.footer-note{margin-top:56px;text-align:center;font-weight:800;color:#e8d9b8}
+.footer-note b{color:var(--yellow)}
+</style>
+</head>
+<body>
+
+<div class="ribbon">DIRECTION <b>5 · PLATEAU DE JEU</b> — mockup complet · bois, carton, pions plastiques, spinner et dés</div>
+
+<div class="wrap">
+
+  <header class="appnav">
+    <div class="brand">
+      <span class="token"><span class="token-fallback">🐱</span><img src="../../src/assets/watermark.png" alt="DD"></span>
+      <span class="brand-name">LACHATA<span class="dd">DEDE</span></span>
+    </div>
+    <nav class="nav-pills">
+      <button class="nav-pill">Équipes</button>
+      <button class="nav-pill active">Jouer</button>
+    </nav>
+    <div class="nav-right">
+      <span>@Pelo</span>
+      <span class="avatar">P</span>
+    </div>
+  </header>
+
+  <div class="sec-rule"><h2>Tour de jeu</h2><span class="chip">MANCHE EN COURS</span></div>
+
+  <div class="play-grid">
+    <div class="col">
+
+      <section class="hero">
+        <span class="hero-kicker">RAPIDE · UNE PARTIE · SANS PIQUE-NIQUE</span>
+        <h1>À toi de <span class="rd">jouer !</span></h1>
+        <p class="sub">Un adversaire prêt est tiré au sort comme une carte chance. Ton élo avance (ou recule) d'autant de cases.</p>
+        <div class="fighting-as">
+          avec ton pion
+          <button class="team-chip"><span class="team-dot"></span> 🔶 Pressing 804 <span style="color:#a08a64">1004</span> ▾</button>
+        </div>
+        <button class="cta">🎲 Lancer le match</button>
+      </section>
+
+      <section class="panel">
+        <h3>Adversaires prêts <span class="hint">la simu tourne même s'ils dorment</span></h3>
+        <div class="opp-row">
+          <span class="opp-emoji">🦁</span><span class="vs-tag">VS</span>
+          <div><div class="opp-name">Kaaris FC</div><div class="opp-wl">18 victoires · 4 défaites</div></div>
+          <span class="opp-elo">1022</span>
+          <button class="play-sm">Jouer</button>
+        </div>
+        <div class="opp-row" style="transform:rotate(.4deg)">
+          <span class="opp-emoji" style="background:#bfe0f5">🧊</span><span class="vs-tag" style="background:var(--red)">VS</span>
+          <div><div class="opp-name">Glacier United</div><div class="opp-wl">9 victoires · 11 défaites</div></div>
+          <span class="opp-elo">988</span>
+          <button class="play-sm">Jouer</button>
+        </div>
+        <div class="opp-row" style="transform:rotate(-.3deg)">
+          <span class="opp-emoji" style="background:#f5c8dc">👑</span><span class="vs-tag">VS</span>
+          <div><div class="opp-name">Les Bleus de DD</div><div class="opp-wl">22 victoires · 2 défaites</div></div>
+          <span class="opp-elo">1187</span>
+          <button class="play-sm">Jouer</button>
+        </div>
+      </section>
+
+    </div>
+
+    <aside class="col">
+      <section class="panel" style="transform:rotate(.4deg)">
+        <h3>Feuille de scores <span class="hint">10 derniers</span></h3>
+        <div class="hist-row"><span class="res-badge win">V</span><span>3 – 1</span><span class="hist-vs">vs Glacier United</span><span class="hist-elo plus">+12</span><span class="hist-time">2 h</span></div>
+        <div class="hist-row"><span class="res-badge loss">D</span><span>1 – 2</span><span class="hist-vs">vs Kaaris FC</span><span class="hist-elo minus">−9</span><span class="hist-time">hier</span></div>
+        <div class="hist-row"><span class="res-badge win">V</span><span>2 – 0</span><span class="hist-vs">vs Bleus de DD</span><span class="hist-elo plus">+18</span><span class="hist-time">hier</span></div>
+        <div class="hist-row"><span class="res-badge loss">D</span><span>0 – 4</span><span class="hist-vs">vs Kaaris FC</span><span class="hist-elo minus">−11</span><span class="hist-time">mar.</span></div>
+      </section>
+
+      <section class="panel" style="transform:rotate(-.3deg)">
+        <h3>Classement <span class="hint">la piste de score</span></h3>
+        <div class="lb-row r1"><span class="lb-rank">1</span><span class="lb-name">Les Bleus de DD<span class="you">TOI</span></span><span class="lb-elo">1187</span></div>
+        <div class="lb-row r2"><span class="lb-rank">2</span><span class="lb-name">Kaaris FC</span><span class="lb-elo">1022</span></div>
+        <div class="lb-row r3"><span class="lb-rank">3</span><span class="lb-name">Pressing 804<span class="you">TOI</span></span><span class="lb-elo">1004</span></div>
+        <div class="lb-row"><span class="lb-rank">4</span><span class="lb-name">Glacier United</span><span class="lb-elo">988</span></div>
+        <div class="lb-row"><span class="lb-rank">5</span><span class="lb-name">Tiki-taka 2009</span><span class="lb-elo">961</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="sec-rule"><h2>Équipes</h2><span class="chip" style="background:var(--blue);color:#fff">TA BOÎTE</span></div>
+
+  <section class="teambar">
+    <button class="casier-btn">
+      <span class="casier-crest">🔶</span> Pressing 804 <span class="casier-chev">▾</span>
+      <div class="casier-pop">
+        <div class="casier-title">Le casier à boîtes</div>
+        <div class="casier-card active">
+          <span class="cc-crest">🔶</span><b>Pressing 804</b><span class="wl">12W·3L</span><span class="rdy">PRÊT !</span>
+        </div>
+        <div class="casier-card">
+          <span class="cc-crest" style="background:radial-gradient(circle at 32% 26%,#6fa8e0,var(--blue) 68%)">🧊</span>
+          <b>Glacier U.</b><span class="wl">4W·8L</span>
+        </div>
+        <div class="casier-card new">＋ Nouvelle boîte</div>
+      </div>
+    </button>
+    <button class="ready-toggle">⚽ Prêt !</button>
+    <span class="spacer"></span>
+    <button class="btn-ghost">▶ Mode solo</button>
+  </section>
+
+  <div class="teams-grid">
+
+    <section class="stadium">
+      <div class="spinner"></div>
+      <div class="score-track">
+        <span class="bead us">3</span><span class="bead-line"></span>
+        <span class="bead">–</span>
+        <span class="bead-line"></span><span class="bead them">1</span>
+      </div>
+      <div class="field-b">
+        <div class="ln arcl"></div><div class="ln arcr"></div>
+        <div class="ln cir"></div>
+        <div class="ln mid"></div>
+        <div class="spot"></div>
+        <div class="goal-b" style="left:2px"></div><div class="goal-b" style="right:2px"></div>
+        <div class="bplayer" style="left:8%;top:50%"><div class="b-body"><span class="b-badge">🧤</span><span class="b-num">1</span></div><div class="b-label">gardien.js</div></div>
+        <div class="bplayer" style="left:24%;top:22%"><div class="b-body"><span class="b-badge">🔶</span><span class="b-num">2</span></div><div class="b-label">pressing.js</div></div>
+        <div class="bplayer" style="left:24%;top:78%"><div class="b-body"><span class="b-badge">🔶</span><span class="b-num">3</span></div><div class="b-label">pressing.js</div></div>
+        <div class="bplayer" style="left:40%;top:38%"><div class="b-body"><span class="b-badge">⚡</span><span class="b-num">4</span></div><div class="b-label">tiki-taka.js</div></div>
+        <div class="bplayer" style="left:40%;top:62%"><div class="b-body"><span class="b-badge">⚡</span><span class="b-num">5</span></div><div class="b-label">tiki-taka.js</div></div>
+        <div class="bplayer" style="left:92%;top:50%"><div class="b-body away"><span class="b-badge">🧊</span><span class="b-num">1</span></div></div>
+        <div class="bplayer" style="left:76%;top:24%"><div class="b-body away"><span class="b-badge">🧊</span><span class="b-num">8</span></div></div>
+        <div class="bplayer" style="left:76%;top:76%"><div class="b-body away"><span class="b-badge">🧊</span><span class="b-num">10</span></div></div>
+        <div class="bplayer" style="left:58%;top:36%"><div class="b-body away"><span class="b-badge">🦁</span><span class="b-num">7</span></div></div>
+        <div class="bplayer" style="left:58%;top:64%"><div class="b-body away"><span class="b-badge">🦁</span><span class="b-num">9</span></div></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h3>Règles du jeu <span class="hint">＋ nouvelle règle</span></h3>
+        <div class="script-row"><span class="script-ico">🔶</span><span class="script-name">pressing.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#bfe0f5">⚡</span><span class="script-name">tiki-taka.js</span><span class="badge ok">2 joueurs</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#f5c8dc">🧤</span><span class="script-name">gardien.js</span><span class="badge ok">1 joueur</span></div>
+        <div class="script-row"><span class="script-ico" style="background:#d8c49a">🕳</span><span class="script-name">catenaccio.js</span><span class="badge err">HS !</span></div>
+      </section>
+
+      <section class="panel" style="transform:rotate(.3deg)">
+        <h3>Le livret</h3>
+        <pre class="code"><span class="cm">// pressing.js</span>
+<span class="kw">const</span> onTick = (ctx) => {
+  <span class="kw">if</span> (ctx.me.<span class="fn">canTackle</span>(ctx.ball))
+    <span class="kw">return</span> ctx.<span class="fn">tackle</span>();
+  <span class="kw">return</span> ctx.<span class="fn">chase</span>(ctx.ball);
+}</pre>
+      </section>
+
+      <section class="panel" style="transform:rotate(-.3deg)">
+        <h3>Ton pion</h3>
+        <div class="custom-body">
+          <div class="custom-row"><span class="k">Couleur</span>
+            <span class="swatch sel" style="background:var(--red)"></span>
+            <span class="swatch" style="background:var(--blue)"></span>
+            <span class="swatch" style="background:var(--green)"></span>
+            <span class="swatch" style="background:var(--yellow)"></span>
+          </div>
+          <div class="custom-row"><span class="k">Blason</span>
+            <span class="emoji-opt sel">🔶</span><span class="emoji-opt">🦁</span><span class="emoji-opt">⚡</span><span class="emoji-opt">🐱</span><span class="emoji-opt">👑</span>
+          </div>
+          <div class="custom-note">Ta couleur = ton pion sur le plateau. Le numéro reste au centre du pion, règle du livret.</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footer-note">DIRECTION 5 — <b>plateau de jeu</b> · bois, carton, pions, spinner, dés · comparez avec les 4 autres nouvelles directions</div>
+</div>
+</body>
+</html>

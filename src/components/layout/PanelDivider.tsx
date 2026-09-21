@@ -1,5 +1,5 @@
 /**
- * PanelDivider - Draggable divider between the canvas and a workspace panel
+ * PanelDivider - Draggable divider between two workspace panels (story 7.5)
  * OWNER: Dev Team
  *
  * 6px vertical hit area with a col-resize cursor and hover highlight.
@@ -7,9 +7,9 @@
  * pointer-move, past a small jitter threshold) and persists once via
  * onCommit on pointer-up — plain clicks and double-clicks never resize
  * or persist. Pointercancel and unmount restore the global userSelect.
- * The chevron button toggles collapse and never starts a drag or resets
- * (stopPropagation on pointer-down and double-click); double-clicking
- * the divider body resets the panel width.
+ * Double-clicking the divider body resets the panel width. The 7.5
+ * floating layout has no collapse affordance (chevron removed); colors
+ * follow the La Ronde tokens.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -18,7 +18,12 @@ import { useEffect, useRef, useState } from 'react';
 const DRAG_THRESHOLD = 3;
 
 export interface PanelDividerProps {
-  /** Which workspace panel this divider sits next to */
+  /**
+   * Drag direction semantics: 'left' = the panel sits LEFT of the divider
+   * (its right edge follows the cursor: +Δ widens), 'right' = the panel
+   * sits RIGHT of the divider (its left edge follows the cursor: +Δ
+   * narrows).
+   */
   side: 'left' | 'right';
   /** Current width of the panel being resized (drag start reference) */
   width: number;
@@ -28,8 +33,10 @@ export interface PanelDividerProps {
   onCommit: () => void;
   /** Double-click on the divider body: reset the panel width */
   onReset: () => void;
-  /** Chevron button click: collapse/expand the panel */
-  onToggle: () => void;
+  /** Accessible label (which panel this divider resizes) */
+  label: string;
+  /** Unique testid suffix (defaults to the side) */
+  id?: string;
 }
 
 export const PanelDivider: React.FC<PanelDividerProps> = ({
@@ -38,7 +45,8 @@ export const PanelDivider: React.FC<PanelDividerProps> = ({
   onResize,
   onCommit,
   onReset,
-  onToggle,
+  label,
+  id,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -98,28 +106,12 @@ export const PanelDivider: React.FC<PanelDividerProps> = ({
     }
   };
 
-  const handleChevronPointerDown = (
-    event: React.PointerEvent<HTMLButtonElement>
-  ) => {
-    // Never let the chevron start a resize drag
-    event.stopPropagation();
-  };
-
-  const handleChevronDoubleClick = (
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    // A double-click on the chevron must not reset the panel width
-    event.stopPropagation();
-  };
-
-  const panelLabel = side === 'left' ? 'AI Scripts' : 'Debugger';
-
   return (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label={side === 'left' ? 'Resize AI Scripts panel' : 'Resize Debugger panel'}
-      data-testid={`panel-divider-${side}`}
+      aria-label={label}
+      data-testid={`panel-divider-${id ?? side}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
@@ -129,23 +121,9 @@ export const PanelDivider: React.FC<PanelDividerProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         ...styles.divider,
-        backgroundColor: isDragging ? '#0a84ff' : isHovered ? '#3c3c3c' : 'transparent',
+        backgroundColor: isDragging ? 'var(--corail)' : isHovered ? 'var(--line)' : 'transparent',
       }}
-    >
-      <button
-        type="button"
-        data-testid={`panel-divider-${side}-toggle`}
-        aria-label={`Collapse ${panelLabel} panel`}
-        aria-expanded={true}
-        aria-controls={side === 'left' ? 'left-panel' : 'right-panel'}
-        onPointerDown={handleChevronPointerDown}
-        onDoubleClick={handleChevronDoubleClick}
-        onClick={onToggle}
-        style={styles.chevron}
-      >
-        {side === 'left' ? '‹' : '›'}
-      </button>
-    </div>
+    />
   );
 };
 
@@ -158,16 +136,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'col-resize',
     flexShrink: 0,
     touchAction: 'none',
-  },
-  chevron: {
-    background: 'none',
-    border: 'none',
-    color: '#9d9d9d',
-    cursor: 'pointer',
-    fontSize: '18px',
-    lineHeight: 1,
-    padding: '12px 7px',
-    flexShrink: 0,
-    fontFamily: 'inherit',
+    borderRadius: '3px',
   },
 };

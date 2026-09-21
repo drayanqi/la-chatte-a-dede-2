@@ -104,6 +104,25 @@ describe('RankedStore', () => {
       expect(useRankedStore.getState().opponentsError).toBeNull();
     });
 
+    it('keeps the team identity + owner census the lobby cards render (story 7.6)', async () => {
+      // The mapping lives server-side (RankedMatchService); the store must
+      // pass crest / colorPrimary / ownerTacticsCount through untouched
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [
+          makeOpponent({ crest: '🦊', colorPrimary: '#31c48d', ownerTacticsCount: 5 }),
+        ],
+      });
+
+      await useRankedStore.getState().fetchOpponents();
+
+      const [opponent] = useRankedStore.getState().opponents;
+      expect(opponent.crest).toBe('🦊');
+      expect(opponent.colorPrimary).toBe('#31c48d');
+      expect(opponent.ownerTacticsCount).toBe(5);
+    });
+
     it('should surface the API message on failure', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
