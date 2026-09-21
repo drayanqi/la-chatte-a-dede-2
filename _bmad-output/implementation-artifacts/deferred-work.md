@@ -105,3 +105,8 @@
 ## Deferred from: code review of 4-1-ranked-queue-and-matchmaking (2026-09-17)
 
 - **`MatchSerializer::toArray($match->fresh())` accepts a nullable that TypeError's** — `fresh()` is nullable but the serializer's parameter is not (lachatadede-api/app/Http/Controllers/MatchController.php:96, app/Http/Serializers/MatchSerializer.php); a concurrent delete of the just-created row would 500 instead of degrading gracefully. Pre-existing risk the 4.1 serializer extraction moved behavior-identically; matches are never deleted in-app, so `fresh()` after a same-request create cannot realistically be null — guard it (or widen the param to `?GameMatch`) if a delete path ever lands.
+
+## Deferred from: code review of 4-5-public-leaderboard.md (2026-09-21)
+
+- **Cache the hot read endpoint** — `LeaderboardController@index` re-runs the full ranking query + eager load on every leaderboard open; elo only changes on match settlement, so a 30–60s `Cache::remember` is free correctness. The story deliberately kept the surface minimal (pure read, no pagination, no ceremony); revisit when NFR11 scale (~500 tactics) grows or the board becomes a landing surface.
+- **Overlay a11y parity with RankedView** — LeaderboardView has no Escape-to-close (AppShell swallows all keys while an overlay is open), no focus trap/initial focus/restore on close, rows are unsemantic divs without list semantics, and loading/error states have no aria-live. Identical gaps exist in RankedView (4.3); fix both overlays in one epic-level a11y pass instead of diverging them.

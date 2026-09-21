@@ -17,7 +17,7 @@ import { waitFor } from '@testing-library/react';
 import { useRankedStore } from '@/stores/rankedStore';
 import { useTacticsStore } from '@/stores/tacticsStore';
 import { ApiError } from '@/lib/apiClient';
-import type { RankedOpponent, TacticConfig } from '@/types';
+import type { LeaderboardEntry, RankedOpponent, TacticConfig } from '@/types';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -29,6 +29,17 @@ const makeOpponent = (overrides: Partial<RankedOpponent> = {}): RankedOpponent =
   elo: 1043,
   wins: 2,
   losses: 1,
+  ...overrides,
+});
+
+const makeLeaderboardEntry = (overrides: Partial<LeaderboardEntry> = {}): LeaderboardEntry => ({
+  rank: 1,
+  id: 'entry-1',
+  name: 'Top Tactic',
+  owner: 'champ',
+  elo: 1300,
+  wins: 5,
+  losses: 0,
   ...overrides,
 });
 
@@ -531,6 +542,133 @@ describe('RankedStore', () => {
       ]);
       expect(useRankedStore.getState().historyPage).toBe(1);
       expect(useRankedStore.getState().historyTacticId).toBe('tactic-9');
+    });
+  });
+
+  describe('fetchLeaderboard (story 4.5)', () => {
+    it('should fetch the board and keep the server order as-received', async () => {
+      const board = [
+        makeLeaderboardEntry(),
+        makeLeaderboardEntry({ rank: 2, id: 'entry-2', name: 'Second', elo: 900 }),
+      ];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        // Deliberately NOT elo-sorted: the client renders payload order,
+        // the server owns ranking
+        json: async () => board,
+      });
+
+      await useRankedStore.getState().fetchLeaderboard();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/leaderboard'),
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) })
+      );
+      expect(useRankedStore.getState().leaderboardEntries).toEqual(board);
+      expect(useRankedStore.getState().leaderboardEntries.map((entry) => entry.id)).toEqual([
+        'entry-1',
+        'entry-2',
+      ]);
+      expect(useRankedStore.getState().isLoadingLeaderboard).toBe(false);
+      expect(useRankedStore.getState().leaderboardError).toBeNull();
+    });
+
+    it('should surface the API message on failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ message: 'Server exploded' }),
+      });
+
+      await useRankedStore.getState().fetchLeaderboard();
+
+      expect(useRankedStore.getState().leaderboardError).toBe('Server exploded');
+      expect(useRankedStore.getState().isLoadingLeaderboard).toBe(false);
+    });
+
+    it('should fall back to a human message on non-JSON failures', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error('not json');
+        },
+      });
+
+      await useRankedStore.getState().fetchLeaderboard();
+
+      expect(useRankedStore.getState().leaderboardError).toBe(
+        'Could not load the leaderboard. Please try again.'
+      );
+    });
+
+    it('should log out on a dead session with the loading flag already cleared', async () => {
+      const logoutSpy = vi.fn();
+      const authStore = await import('@/stores/authStore');
+      const spy = vi
+        .spyOn(authStore.useAuthStore.getState(), 'logout')
+        .mockImplementation(logoutSpy);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ message: 'Unauthenticated.' }),
+      });
+
+      await useRankedStore.getState().fetchLeaderboard();
+
+      expect(logoutSpy).toHaveBeenCalled();
+      // 4.4 review lesson: assert the POST-state — the flag must be false
+      // even if logout stops resetting the ranked store
+      expect(useRankedStore.getState().isLoadingLeaderboard).toBe(false);
+
+      spy.mockRestore();
+      expect(authStore.useAuthStore.getState().logout).not.toBe(logoutSpy);
+    });
+
+    it('should drop a stale response superseded by a newer fetch', async () => {
+      let resolveFirst: (value: unknown) => void = () => {};
+      mockFetch.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [makeLeaderboardEntry({ rank: 1, id: 'entry-new' })],
+      });
+
+      const first = useRankedStore.getState().fetchLeaderboard();
+      const second = useRankedStore.getState().fetchLeaderboard();
+      await second;
+
+      // The stale first response lands after the second settled
+      resolveFirst({
+        ok: true,
+        status: 200,
+        json: async () => [makeLeaderboardEntry({ rank: 1, id: 'entry-stale' })],
+      });
+      await first;
+
+      expect(useRankedStore.getState().leaderboardEntries.map((entry) => entry.id)).toEqual([
+        'entry-new',
+      ]);
+    });
+
+    it('should clear the leaderboard slice on reset', () => {
+      useRankedStore.setState({
+        leaderboardEntries: [makeLeaderboardEntry()],
+        isLoadingLeaderboard: true,
+        leaderboardError: 'boom',
+      });
+      useRankedStore.getState().reset();
+
+      expect(useRankedStore.getState().leaderboardEntries).toEqual([]);
+      expect(useRankedStore.getState().isLoadingLeaderboard).toBe(false);
+      expect(useRankedStore.getState().leaderboardError).toBeNull();
     });
   });
 

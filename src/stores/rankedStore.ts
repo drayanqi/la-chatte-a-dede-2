@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { apiFetch, ApiError, getApiError } from '@/lib/apiClient';
-import type { MatchResult, RankedOpponent } from '@/types';
+import type { LeaderboardEntry, MatchResult, RankedOpponent } from '@/types';
 
 interface RankedState {
   // The challengeable pool (ready tactics of other players, elo desc)
@@ -30,6 +30,11 @@ interface RankedState {
   historyPage: number;
   historyLastPage: number;
   historyTacticId: string | null;
+
+  // Public leaderboard (story 4.5): every non-system tactic, server-ranked
+  leaderboardEntries: LeaderboardEntry[];
+  isLoadingLeaderboard: boolean;
+  leaderboardError: string | null;
 }
 
 interface RankedActions {
@@ -47,6 +52,9 @@ interface RankedActions {
 
   /** History: append the next page (one "Load more" pagination) */
   loadMoreHistory: () => Promise<void>;
+
+  /** Refreshes the public leaderboard (on view open, every time) */
+  fetchLeaderboard: () => Promise<void>;
 
   /** Clears the result banner (the pool refresh is the caller's next fetch) */
   clearResult: () => void;
@@ -72,11 +80,15 @@ const initialState: RankedState = {
   historyPage: 1,
   historyLastPage: 1,
   historyTacticId: null,
+  leaderboardEntries: [],
+  isLoadingLeaderboard: false,
+  leaderboardError: null,
 };
 
 const OPPONENTS_FALLBACK_MESSAGE = 'Could not load opponents. Please try again.';
 const MATCH_FALLBACK_MESSAGE = 'Could not start the match. Please try again.';
 const HISTORY_FALLBACK_MESSAGE = 'Could not load match history. Please try again.';
+const LEADERBOARD_FALLBACK_MESSAGE = 'Could not load the leaderboard. Please try again.';
 
 /** Laravel's flat paginator envelope (fetchLatestMatch precedent) */
 interface MatchPagePayload {
@@ -92,6 +104,10 @@ let playSeq = 0;
 // Same philosophy for the history slice: page-1 fetches and appends share one
 // token so a newer fetch/filter change always invalidates in-flight writes
 let historySeq = 0;
+
+// The leaderboard has one refetch trigger (view open) — but two rapid
+// open/close cycles can still overlap: same stale-write guard
+let leaderboardSeq = 0;
 
 const handleDeadSession = async (): Promise<void> => {
   // Dynamic import: authStore already imports this store's reset — a
@@ -314,9 +330,43 @@ export const useRankedStore = create<RankedState & RankedActions>((set, get) => 
     }
   },
 
+  fetchLeaderboard: async () => {
+    const seq = ++leaderboardSeq;
+
+    set({ isLoadingLeaderboard: true, leaderboardError: null });
+
+    try {
+      const response = await apiFetch('/leaderboard');
+      const entries = (await response.json()) as LeaderboardEntry[];
+
+      if (seq !== leaderboardSeq) return;
+
+      // As-received: the server owns the ranking (rank + order), the client
+      // never re-sorts
+      set({ leaderboardEntries: entries, isLoadingLeaderboard: false });
+    } catch (error) {
+      // 401 clears the loading flag BEFORE the logout return (4.4 review
+      // finding: the dead-session path must not leave a spinner behind)
+      if (error instanceof ApiError && error.status === 401) {
+        set({ isLoadingLeaderboard: false });
+        await handleDeadSession();
+        return;
+      }
+
+      if (seq !== leaderboardSeq) return;
+
+      const message = error instanceof ApiError ? getApiError(error) : '';
+      set({
+        leaderboardError: message || LEADERBOARD_FALLBACK_MESSAGE,
+        isLoadingLeaderboard: false,
+      });
+    }
+  },
+
   reset: () => {
     playSeq++;
     historySeq++;
+    leaderboardSeq++;
     set(initialState);
   },
 }));

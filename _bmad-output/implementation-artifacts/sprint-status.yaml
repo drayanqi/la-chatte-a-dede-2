@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-20
+last_updated: 2026-09-21
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -82,7 +82,7 @@ development_status:
   4-2-ranked-match-engine: done
   4-3-ranked-matchmaking-view: done
   4-4-match-history-and-results: done
-  4-5-public-leaderboard: backlog
+  4-5-public-leaderboard: done
   epic-4-retrospective: optional
 
   # Epic 6: Production Deployment on Infomaniak VPS (planned 2026-09-20 — party-mode;

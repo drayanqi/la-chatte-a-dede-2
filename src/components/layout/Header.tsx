@@ -16,6 +16,8 @@ interface HeaderProps {
   onStartPractice: () => void;
   /** Open the ranked matchmaking view (Epic 4 v2, story 4.3 wiring) */
   onOpenRanked: () => void;
+  /** Open the public leaderboard view (story 4.5 wiring) */
+  onOpenLeaderboard: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSimulating,
   onStartPractice,
   onOpenRanked,
+  onOpenLeaderboard,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const userSectionRef = useRef<HTMLDivElement | null>(null);
@@ -82,6 +85,13 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenRanked}
           >
             ⚔ Ranked
+          </button>
+          <button
+            data-testid="leaderboard-nav-button"
+            style={styles.button}
+            onClick={onOpenLeaderboard}
+          >
+            🏆 Leaderboard
           </button>
           {!lineupComplete && (
             <span data-testid="lineup-incomplete-message" style={styles.helperMessage}>

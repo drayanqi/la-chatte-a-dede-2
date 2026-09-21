@@ -228,6 +228,22 @@ export interface RankedOpponent {
   losses: number;
 }
 
+/**
+ * One row of the public leaderboard (GET /api/leaderboard, story 4.5).
+ * `rank` is computed server-side (1-based, elo desc with deterministic
+ * tie-breaks) — the client renders rows in payload order and never
+ * re-sorts or recomputes ranks.
+ */
+export interface LeaderboardEntry {
+  rank: number;
+  id: string;
+  name: string;
+  owner: string | null;
+  elo: number;
+  wins: number;
+  losses: number;
+}
+
 // ============================================================================
 // DEBUGGER
 // ============================================================================

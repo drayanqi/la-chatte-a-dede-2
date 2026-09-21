@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\MatchController;
 use App\Http\Controllers\MatchmakingController;
 use App\Http\Controllers\ScriptController;
@@ -38,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/matches', [MatchController::class, 'store']);
     Route::get('/matches/{id}', [MatchController::class, 'show']);
     Route::get('/matches/{id}/frames', [MatchController::class, 'frames']);
+
+    // Public leaderboard (story 4.5): "public" = every user, not anonymous
+    Route::get('/leaderboard', [LeaderboardController::class, 'index']);
 
     // Ranked matchmaking API (Epic 4 v2). Simulations run synchronously in
     // the request: rate limit per IP so a runaway client cannot starve the

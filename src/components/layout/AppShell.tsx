@@ -13,6 +13,7 @@ import { Timeline } from './Timeline';
 import { PanelDivider } from './PanelDivider';
 import { MatchStatusOverlay } from './MatchStatusOverlay';
 import { RankedView } from '../ranked/RankedView';
+import { LeaderboardView } from '../leaderboard/LeaderboardView';
 import {
   useCanvasStore,
   useEditorStore,
@@ -39,6 +40,10 @@ export const AppShell: React.FC = () => {
   // ABOVE the workspace — the PixiJS engine and panels stay mounted so
   // nothing re-initializes on entry/exit (Winston: no route swap)
   const [rankedOpen, setRankedOpen] = useState(false);
+
+  // Public leaderboard view (story 4.5): same full-screen overlay anatomy,
+  // engine stays mounted underneath
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   // Loaded match frames (score derivation, from the canvas store) + goal
   // celebration state
@@ -515,9 +520,10 @@ export const AppShell: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Ranked view open (story 4.3): the workspace is covered — its
-      // playback shortcuts must not act on the hidden engine underneath
-      if (rankedOpen) return;
+      // Ranked view or leaderboard open (stories 4.3/4.5): the workspace is
+      // covered — its playback shortcuts must not act on the hidden engine
+      // underneath
+      if (rankedOpen || leaderboardOpen) return;
 
       // Arrow navigation (story 3.9): auto-repeat stays welcome (hold to
       // scrub) — only typing surfaces steal the keys
@@ -546,7 +552,7 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayback, navigate, rankedOpen]);
+  }, [togglePlayback, navigate, rankedOpen, leaderboardOpen]);
 
   return (
     <div style={styles.container}>
@@ -556,6 +562,7 @@ export const AppShell: React.FC = () => {
         isSimulating={isSimulating}
         onStartPractice={handleStartPractice}
         onOpenRanked={() => setRankedOpen(true)}
+        onOpenLeaderboard={() => setLeaderboardOpen(true)}
       />
 
       {/* Tactic tabs (between header and field) */}
@@ -759,6 +766,13 @@ export const AppShell: React.FC = () => {
         open={rankedOpen}
         onClose={() => setRankedOpen(false)}
         onWatchReplay={handleRankedWatchReplay}
+      />
+
+      {/* Public leaderboard (story 4.5): same opaque overlay anatomy — the
+          engine and panels stay mounted underneath */}
+      <LeaderboardView
+        open={leaderboardOpen}
+        onClose={() => setLeaderboardOpen(false)}
       />
     </div>
   );
