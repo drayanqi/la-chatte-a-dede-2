@@ -174,7 +174,24 @@ export interface MatchGoalEvent {
   scorerSlot: number;
 }
 
-export type MatchFrameEvent = MatchGoalEvent;
+export interface MatchShotEvent {
+  type: 'shot';
+  team: MatchTeam;
+  shooterSlot: number;
+  /** Honest direct-trajectory verdict computed by the engine (story 7.9) */
+  onTarget: boolean;
+}
+
+/** Pelo's law: a camp change — a teammate pickup is never a turnover */
+export interface MatchTurnoverEvent {
+  type: 'turnover';
+  /** Team that won the ball */
+  team: MatchTeam;
+  takerSlot: number;
+  fromTeam: MatchTeam;
+}
+
+export type MatchFrameEvent = MatchGoalEvent | MatchShotEvent | MatchTurnoverEvent;
 
 /** Structured log entry attached to a frame (debug panel, story 3.10) */
 export interface MatchFrameLog {
@@ -195,6 +212,32 @@ export interface MatchFrame {
   players: MatchFramePlayer[];
   events: MatchFrameEvent[];
   logs: MatchFrameLog[];
+}
+
+/** Per-team telemetry aggregates, engine truth (story 7.9) */
+export interface MatchTeamStats {
+  possessionTicks: number;
+  /** TIRS (shot law): on-target kicks only — a non-cadré kick is a passe */
+  shots: number;
+  /** Passes tentées + completed (optional: replays predating the pass law) */
+  passes?: number;
+  passesCompleted?: number;
+  turnovers: number;
+}
+
+export interface MatchPlayerStats {
+  team: MatchTeam;
+  slot: number;
+  /** Distance covered in field units (1 unit = 1 m for display) */
+  distance: number;
+  shots: number;
+}
+
+export interface MatchStats {
+  teams: { challenger: MatchTeamStats; opponent: MatchTeamStats };
+  players: MatchPlayerStats[];
+  /** Challenger possession share % per 300-tick bin (5s) — sparkline source */
+  possessionTimeline: number[];
 }
 
 /**
@@ -230,11 +273,13 @@ export interface MatchResult {
 
 /**
  * The simulation frame file as written by the engine and served raw by
- * GET /api/matches/{id}/frames (story 3.8). Only the consumed key is
- * declared; the engine owns the full shape (SimulationFrameFile).
+ * GET /api/matches/{id}/frames (story 3.8). `stats` arrived with story 7.9:
+ * older replays (and any payload the engine has not re-simulated) carry no
+ * stats block — consumers must degrade gracefully, never crash.
  */
 export interface MatchFramesFile {
   frames: MatchFrame[];
+  stats?: MatchStats | null;
 }
 
 // ----------------------------------------------------------------------------

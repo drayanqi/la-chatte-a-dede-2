@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Ronde v4 — Replay · Sidepanel Stats (3 agencements)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e9f5ee; --panel:#ffffff; --panel2:#f4faf6; --ink:#12241b; --muted:#5b7265;
+  --line:rgba(18,36,27,.12); --corail:#ff6b57; --sun:#ffc244; --mint:#31c48d;
+  --sky:#4aa8e8; --pitch:#3fae62; --pitch-dark:#379c56; --mark:rgba(255,255,255,.4);
+  --r:18px; --r-sm:12px;
+  --shadow:0 8px 24px rgba(18,36,27,.09); --shadow-lg:0 18px 48px rgba(18,36,27,.16);
+  --home:#e4573f; --away:#3d8fd1;
+}
+[data-theme="dark"]{
+  --bg:#0e1a13; --panel:#182a1f; --panel2:#13221a; --ink:#eaf6ee; --muted:#8fa89a;
+  --line:rgba(234,246,238,.12); --pitch:#2e7d4f; --pitch-dark:#286e45;
+  --shadow:0 8px 24px rgba(0,0,0,.4); --shadow-lg:0 18px 48px rgba(0,0,0,.55);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Sora,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ===== NAV PROTOTYPE ===== */
+#proto{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;gap:4px;align-items:center;
+  padding:5px 10px;background:#12241b;color:#eaf6ee;font-size:11px;overflow-x:auto}
+#proto b{margin-right:8px;color:var(--sun);font-size:10px;letter-spacing:.08em}
+#proto button{color:#cfe3d6;padding:3px 8px;border-radius:8px;font-size:11px;white-space:nowrap}
+#proto button.on{background:var(--corail);color:#fff}
+#proto .sep{width:1px;height:14px;background:rgba(255,255,255,.2);margin:0 4px}
+#proto .spacer{flex:1}
+
+/* ===== SCREENS ===== */
+.screen{display:none;flex-direction:column;height:100vh;padding-top:30px}
+.screen.on{display:flex}
+
+/* ===== APP BAR ===== */
+.appbar{flex:none;display:flex;align-items:center;gap:10px;margin:8px 8px 0;height:52px;padding:0 14px;
+  background:var(--panel);border-radius:16px;box-shadow:var(--shadow)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px;letter-spacing:.06em}
+.navlink{font-size:12px;font-weight:600;color:var(--muted);padding:7px 13px;border-radius:11px}
+.spacer{flex:1}
+.iconbtn{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;font-size:14px;color:var(--muted)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-weight:700;font-size:12px;color:#12241b}
+
+/* ===== STAGE MATCH ===== */
+.mstage{flex:1;display:flex;min-height:0;gap:8px;padding:8px 8px 0;position:relative}
+.panel{background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.pitchpanel{flex:1;position:relative}
+.drawer{width:300px;flex:none}
+
+/* terrain */
+.pitch{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--pitch) 0 78px,var(--pitch-dark) 78px 156px)}
+.pmark{position:absolute;inset:0}
+.pmark .midline{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--mark)}
+.pmark .mid{position:absolute;width:120px;height:120px;left:50%;top:50%;transform:translate(-50%,-50%);border:2px solid var(--mark);border-radius:50%}
+.pmark .boxL,.pmark .boxR{position:absolute;top:50%;transform:translateY(-50%);width:110px;height:300px;border:2px solid var(--mark)}
+.pmark .boxL{left:0;border-left:none;border-radius:0 12px 12px 0}
+.pmark .boxR{right:0;border-right:none;border-radius:12px 0 0 12px}
+.pmark .goalL,.pmark .goalR{position:absolute;top:50%;transform:translateY(-50%);width:8px;height:200px;background:var(--mark)}
+.pmark .goalL{left:0;border-radius:0 6px 6px 0}
+.pmark .goalR{right:0;border-radius:6px 0 0 6px}
+.walls{position:absolute;inset:0;box-shadow:inset 0 0 0 6px rgba(10,20,14,.16),inset 0 0 0 9px rgba(255,255,255,.42);pointer-events:none}
+.blason{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:104px;height:104px;border-radius:50%;
+  background:rgba(255,255,255,.94);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.2);pointer-events:none}
+.blason img{width:86px;height:86px;object-fit:contain}
+.player{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px;z-index:2}
+.player::before{content:'';position:absolute;top:24px;left:50%;transform:translateX(-50%);width:30px;height:10px;border-radius:50%;background:rgba(0,0,0,.2);filter:blur(3px);z-index:0}
+.pnum{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;position:relative;z-index:1;
+  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.38), rgba(255,255,255,0) 45%);
+  box-shadow:0 3px 7px rgba(0,0,0,.3), inset 0 -4px 8px rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,255,255,.85);
+  text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.t-red .pnum{background:var(--home)}.t-blue .pnum{background:var(--away)}
+.ptag{font-size:10px;font-weight:700;background:rgba(10,20,14,.55);color:#fff;padding:2px 9px;border-radius:99px;white-space:nowrap;backdrop-filter:blur(3px)}
+.ball{position:absolute;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 2px rgba(0,0,0,.18);z-index:3}
+.scorepill{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:11px;
+  background:rgba(10,20,14,.6);color:#fff;padding:8px 18px;border-radius:14px;font-weight:800;font-size:13px;backdrop-filter:blur(5px);box-shadow:var(--shadow-lg)}
+.scorepill .sc{font-size:17px;color:var(--sun)}
+.scorepill .frm{font-weight:400;font-size:11px;opacity:.75}
+.exit{position:absolute;top:12px;left:12px;z-index:6;background:rgba(10,20,14,.6);color:#fff;font-weight:700;font-size:12px;
+  padding:7px 13px;border-radius:11px;backdrop-filter:blur(4px)}
+
+/* ===== TIMELINE ===== */
+.mtimeline{flex:none;margin:8px;height:56px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow)}
+.mtimeline.tall{height:70px;flex-direction:column;justify-content:center;gap:6px;padding:0 14px}
+.tpbtn{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:13px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.tpbtn.play{background:var(--corail);color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(255,107,87,.35)}
+.scrub{flex:1;height:9px;border-radius:99px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);position:relative}
+.scrub .fill{position:absolute;left:0;top:0;bottom:0;width:40%;border-radius:99px;background:var(--corail)}
+.gmark{position:absolute;top:50%;transform:translate(-50%,-50%);width:15px;height:15px;border-radius:50%;background:var(--sun);
+  border:2.5px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:2}
+.tinfo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+.possband{flex:1;height:7px;border-radius:99px;position:relative;
+  background:linear-gradient(90deg,var(--home) 0 40%,var(--away) 40% 52%,var(--home) 52% 78%,var(--away) 78% 100%);opacity:.85}
+.possband i{position:absolute;top:-4px;bottom:-4px;left:40%;width:3px;border-radius:2px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+
+/* ===== DRAWER COMMUN ===== */
+.drawtabs{height:44px;flex:none;display:flex;border-bottom:1px solid var(--line)}
+.drawtabs button{flex:1;font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;border-radius:0}
+.drawtabs button.on{color:var(--ink);box-shadow:inset 0 -2.5px 0 var(--corail)}
+.statlist{flex:1;overflow:auto;padding:12px 12px 10px;display:flex;flex-direction:column;gap:10px}
+.metafoot{flex:none;border-top:1px solid var(--line);padding:9px 14px;font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.metafoot .k{font-family:'JetBrains Mono',monospace}
+.sectit{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.hintline{font-size:10.5px;color:var(--muted);line-height:1.5}
+
+/* ===== S1 · TABLEAU DE BORD ===== */
+.vshead{display:flex;align-items:center;gap:10px;padding:4px 2px 2px}
+.vshead .tm{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:0}
+.crest{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow)}
+.crest.home{background:rgba(228,87,63,.16)}.crest.away{background:rgba(61,143,209,.16)}
+.vshead .nm{font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vshead .vss{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px;flex:none}
+.vshead .minchip{font-size:9.5px;font-weight:800;background:var(--panel2);border-radius:99px;padding:2px 8px;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.card{background:var(--panel2);border-radius:14px;padding:11px 12px;box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;gap:8px}
+.dbar{height:12px;border-radius:99px;overflow:hidden;display:flex;box-shadow:inset 0 0 0 1px var(--line)}
+.dbar .l{background:var(--home);width:58%}.dbar .r{background:var(--away);flex:1}
+.dbar.thin{height:7px;border-radius:99px}
+.dnums{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+.dnums small{font-family:Sora;font-size:10px;color:var(--muted);font-weight:600}
+.spark{width:100%;display:block}
+.statrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.statrow .lab{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;width:74px;flex:none;text-transform:uppercase}
+.statrow .v{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700}
+.statrow .v.l{color:var(--home)}.statrow .v.r{color:var(--away)}
+.statrow .mid{flex:1;display:flex;flex-direction:column;gap:4px}
+.mbar{height:6px;border-radius:99px;background:var(--line);position:relative;overflow:hidden}
+.mbar i{position:absolute;top:0;bottom:0;left:50%;border-radius:99px}
+.mbar i.l{right:50%;background:var(--home)}
+.mbar i.r{left:50%;background:var(--away)}
+.prow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:11px;font-size:11.5px}
+.prow:hover{background:var(--panel2)}
+.prow .pn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:10.5px;color:#fff;flex:none}
+.prow .who{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .km{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);flex:none}
+.prow .kmbar{width:56px;height:5px;border-radius:99px;background:var(--line);flex:none;position:relative}
+.prow .kmbar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.sideband{display:flex;flex-direction:column;gap:5px}
+.sideband .lab{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.08em}
+.sideband .lab b{color:var(--home)} .sideband .lab b.a{color:var(--away)}
+
+/* ===== S2 · FIL DU MATCH ===== */
+.feedhead{flex:none;padding:10px 12px 9px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.feedhead .scrow{display:flex;align-items:center;gap:8px}
+.feedhead .tn{font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feedhead .tn.a{text-align:right}
+.feedhead .sc{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;flex:none}
+.feedhead .chips{display:flex;gap:5px;flex-wrap:wrap}
+.fchip{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:99px;background:var(--panel2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.fchip b{color:var(--ink);font-family:'JetBrains Mono',monospace}
+.feed{flex:1;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:4px}
+.evrow{display:flex;gap:9px;padding:9px 10px;border-radius:12px;font-size:12px;line-height:1.5;align-items:flex-start}
+.evrow:hover{background:var(--panel2)}
+.evrow.goal{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+.evrow .min{flex:none;font-weight:800;color:var(--muted);font-size:11px;width:28px;padding-top:1px;font-family:'JetBrains Mono',monospace}
+.badge{flex:none;font-size:9px;font-weight:800;padding:2px 7px;border-radius:7px;letter-spacing:.05em}
+.badge.but{background:var(--sun);color:#12241b}
+.badge.tir{background:var(--panel);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.badge.rec{background:rgba(49,196,141,.16);color:#1d8a61;box-shadow:inset 0 0 0 1px rgba(49,196,141,.35)}
+[data-theme="dark"] .badge.rec{color:#5fe0ac}
+.badge.mt{background:var(--panel2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.evrow .fx{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sky);cursor:pointer}
+.evrow .fx:hover{text-decoration:underline}
+.evrow .sv{margin-top:3px;height:5px;width:100%;max-width:150px;border-radius:99px;overflow:hidden;display:flex;box-shadow:inset 0 0 0 1px var(--line)}
+.evrow .sv .a{background:var(--home)} .evrow .sv .b{background:var(--away)}
+.period{display:flex;align-items:center;gap:8px;padding:7px 10px 3px;font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--muted)}
+.period::after{content:'';flex:1;height:1px;background:var(--line)}
+
+/* ===== S3 · DUEL TV ===== */
+.duelhead{display:flex;align-items:center;gap:9px;padding:2px 2px 0}
+.duelhead .crest{width:34px;height:34px;border-radius:12px;font-size:16px}
+.duelhead .nm{font-size:11px;font-weight:800;line-height:1.25}
+.duelhead .nm small{display:block;font-size:9.5px;font-weight:600;color:var(--muted)}
+.duelhead .vs{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:18px;flex:none}
+.mirror{display:flex;flex-direction:column;gap:9px}
+.mrow{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:8px}
+.mrow .num{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:center}
+.mrow .num.l{color:var(--home)} .mrow .num.r{color:var(--away)}
+.mrow .bars{display:flex;flex-direction:column;gap:3px}
+.mrow .bars .b{height:7px;border-radius:99px;background:var(--panel2);position:relative;box-shadow:inset 0 0 0 1px var(--line)}
+.mrow .bars .b.l{transform:scaleX(-1)}
+.mrow .bars .b i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.mrow .bars .b.l i{background:var(--home)}
+.mrow .bars .b.r i{background:var(--away)}
+.mrow .mlab{grid-column:1/4;text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.09em;color:var(--muted);margin-top:-4px}
+.duelcols{display:flex;gap:8px}
+.duelcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;border-radius:13px;padding:8px;box-shadow:inset 0 0 0 1px var(--line)}
+.duelcol.ch{background:rgba(228,87,63,.07)}
+.duelcol.aw{background:rgba(61,143,209,.07)}
+.duelcol .ct{font-size:9.5px;font-weight:800;letter-spacing:.07em;color:var(--muted);margin-bottom:2px}
+.duelcol .ct b{color:var(--home)} .duelcol .ct b.a{color:var(--away)}
+</style>
+</head>
+<body>
+
+<nav id="proto">
+  <b>REPLAY · STATS</b>
+  <button data-s="s1" class="on">S1 · Tableau de bord</button>
+  <button data-s="s2">S2 · Fil du match</button>
+  <button data-s="s3">S3 · Duel TV</button>
+  <span class="sep"></span>
+  <button id="theme">🌙</button>
+  <span class="spacer"></span>
+  <span style="opacity:.6">règle Pelo : RÉCUP = changement de camp uniquement</span>
+</nav>
+
+<!-- ================= S1 · TABLEAU DE BORD ================= -->
+<section class="screen on" id="s1">
+  <div class="appbar">
+    <span class="logo">LACHATADEDE</span>
+    <span class="navlink">Jouer</span><span class="navlink">Équipes</span>
+    <span class="spacer"></span>
+    <span class="avatar">P</span>
+  </div>
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="DD"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:22%;top:28%"><div class="pnum">4</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:20%;top:70%"><div class="pnum">5</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:40%;top:48%"><div class="pnum">7</div><div class="ptag">relayeur.js</div></div>
+      <div class="player t-red" style="left:56%;top:34%"><div class="pnum">8</div><div class="ptag">l-artiste.js</div></div>
+      <div class="player t-red" style="left:52%;top:66%"><div class="pnum">9</div><div class="ptag">le-renard.js</div></div>
+      <div class="player t-blue" style="left:74%;top:30%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:72%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:63%;top:50%"><div class="pnum">8</div><div class="ptag">zidane-2.js</div></div>
+      <div class="player t-blue" style="left:84%;top:48%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:80%;top:64%"><div class="pnum">10</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:58%;top:40%"></div>
+      <div class="scorepill"><span style="color:#ff9d8c">LES ROULANTS</span><span class="sc">2 – 1</span><span style="color:#9cc9ee">FC BOT</span><span class="frm">72'</span></div>
+      <div class="exit">← Quitter</div>
+    </div>
+    <aside class="panel drawer">
+      <div class="drawtabs"><button>Logs</button><button class="on">Stats</button></div>
+      <div class="statlist">
+        <div class="vshead">
+          <div class="tm"><div class="crest home">🦊</div><div class="nm">Les Roulants</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <span class="vss">2 – 1</span><span class="minchip">72'</span>
+          </div>
+          <div class="tm"><div class="crest away">🤖</div><div class="nm">FC Bot</div></div>
+        </div>
+        <div class="card">
+          <span class="sectit">Possession</span>
+          <div class="dbar"><div class="l"></div><div class="r"></div></div>
+          <div class="dnums"><span>58%</span><small>temps de contrôle réel</small><span>42%</span></div>
+          <svg class="spark" viewBox="0 0 276 34" preserveAspectRatio="none">
+            <path d="M0,0 L0,11 L38,9 L76,14 L114,8 L152,16 L190,21 L228,19 L276,15 L276,0 Z" fill="var(--home)" opacity=".85"/>
+            <path d="M0,34 L0,11 L38,9 L76,14 L114,8 L152,16 L190,21 L228,19 L276,15 L276,34 Z" fill="var(--away)" opacity=".85"/>
+            <circle cx="50" cy="9.6" r="4" fill="var(--sun)" stroke="var(--panel)" stroke-width="2"/>
+            <circle cx="155" cy="16.3" r="4" fill="var(--sun)" stroke="var(--panel)" stroke-width="2"/>
+            <circle cx="215" cy="20.3" r="4" fill="var(--corail)" stroke="var(--panel)" stroke-width="2"/>
+            <line x1="110" y1="0" x2="110" y2="34" stroke="#fff" stroke-width="2" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"/>
+          </svg>
+        </div>
+        <div class="statrow"><span class="lab">Tirs</span><span class="v l">7</span><div class="mid"><div class="mbar"><i class="l" style="width:26%"></i><i class="r" style="width:15%"></i></div><span class="hintline">cadrés 3 · 2 — cliquer un tir → seek</span></div><span class="v r">4</span></div>
+        <div class="statrow"><span class="lab">Récups</span><span class="v l">14</span><div class="mid"><div class="mbar"><i class="l" style="width:24%"></i><i class="r" style="width:20%"></i></div><span class="hintline">changements de camp uniquement</span></div><span class="v r">12</span></div>
+        <div class="statrow"><span class="lab">Dribbles</span><span class="v l">9</span><div class="mid"><div class="mbar"><i class="l" style="width:18%"></i><i class="r" style="width:12%"></i></div></div><span class="v r">6</span></div>
+        <div class="sideband">
+          <span class="sectit">Distance parcourue</span>
+          <div class="prow"><span class="pn" style="background:var(--home)">8</span><span class="who">L'Artiste</span><span class="kmbar"><i style="width:92%;background:var(--home)"></i></span><span class="km">2,1 km</span></div>
+          <div class="prow"><span class="pn" style="background:var(--home)">9</span><span class="who">Le Renard</span><span class="kmbar"><i style="width:79%;background:var(--home)"></i></span><span class="km">1,8 km</span></div>
+          <div class="prow"><span class="pn" style="background:var(--away)">10</span><span class="who">Mystère</span><span class="kmbar"><i style="width:83%;background:var(--away)"></i></span><span class="km">1,9 km</span></div>
+          <div class="prow"><span class="pn" style="background:var(--home)">7</span><span class="who">Relayeur</span><span class="kmbar"><i style="width:70%;background:var(--home)"></i></span><span class="km">1,6 km</span></div>
+          <div class="prow"><span class="pn" style="background:var(--away)">8</span><span class="who">Zidane-2</span><span class="kmbar"><i style="width:62%;background:var(--away)"></i></span><span class="km">1,4 km</span></div>
+        </div>
+      </div>
+      <div class="metafoot"><span class="k">CLASSÉ</span>· 3 min · 10 800 frames · 21 sep<span class="spacer"></span>tirs &amp; buts cliquables → frame</div>
+    </aside>
+  </div>
+  <div class="mtimeline">
+    <button class="tpbtn">⏮</button><button class="tpbtn play">▶</button><button class="tpbtn">⏭</button>
+    <span class="tinfo">1×</span>
+    <div class="scrub"><div class="fill"></div><div class="gmark" style="left:18%"></div><div class="gmark" style="left:55%"></div><div class="gmark" style="left:78%;background:var(--corail)"></div></div>
+    <span class="tinfo">frame 4320 / 10 800 · 72'</span>
+    <button class="btn ghost sm">Plein écran</button>
+  </div>
+</section>
+
+<!-- ================= S2 · FIL DU MATCH ================= -->
+<section class="screen" id="s2">
+  <div class="appbar">
+    <span class="logo">LACHATADEDE</span>
+    <span class="navlink">Jouer</span><span class="navlink">Équipes</span>
+    <span class="spacer"></span>
+    <span class="avatar">P</span>
+  </div>
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="DD"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:22%;top:28%"><div class="pnum">4</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:20%;top:70%"><div class="pnum">5</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:40%;top:48%"><div class="pnum">7</div><div class="ptag">relayeur.js</div></div>
+      <div class="player t-red" style="left:56%;top:34%"><div class="pnum">8</div><div class="ptag">l-artiste.js</div></div>
+      <div class="player t-red" style="left:52%;top:66%"><div class="pnum">9</div><div class="ptag">le-renard.js</div></div>
+      <div class="player t-blue" style="left:74%;top:30%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:72%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:63%;top:50%"><div class="pnum">8</div><div class="ptag">zidane-2.js</div></div>
+      <div class="player t-blue" style="left:84%;top:48%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:80%;top:64%"><div class="pnum">10</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:58%;top:40%"></div>
+      <div class="scorepill"><span style="color:#ff9d8c">LES ROULANTS</span><span class="sc">2 – 1</span><span style="color:#9cc9ee">FC BOT</span><span class="frm">72'</span></div>
+      <div class="exit">← Quitter</div>
+    </div>
+    <aside class="panel drawer">
+      <div class="drawtabs"><button>Logs</button><button class="on">Stats</button></div>
+      <div class="feedhead">
+        <div class="scrow">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--home)"></span>
+          <span class="tn">Les Roulants</span>
+          <span class="sc">2 – 1</span>
+          <span class="tn a">FC Bot</span>
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--away)"></span>
+        </div>
+        <div class="chips">
+          <span class="fchip">POSS <b>58/42</b></span>
+          <span class="fchip">TIRS <b>7/4</b></span>
+          <span class="fchip">RÉCUPS <b>14/12</b></span>
+          <span class="fchip">KM <b>8,7/8,3</b></span>
+        </div>
+      </div>
+      <div class="feed">
+        <div class="period">1re mi-temps</div>
+        <div class="evrow"><span class="min">18'</span><span class="badge but">BUT</span><div><b>#9 Le Renard</b> — Les Roulants<span class="fx">→ frame 1944 · 00:32</span></div></div>
+        <div class="evrow"><span class="min">26'</span><span class="badge rec">RÉCUP</span><div>FC Bot récupère au milieu<span class="sv"><span class="a" style="width:62%"></span><span class="b" style="flex:1"></span></span></div></div>
+        <div class="evrow"><span class="min">31'</span><span class="badge rec">RÉCUP</span><div>Les Roulants reprennent le ballon<span class="sv"><span class="a" style="width:54%"></span><span class="b" style="flex:1"></span></span></div></div>
+        <div class="evrow"><span class="min">42'</span><span class="badge tir">TIR</span><div>Tir cadré — <b>#8 L'Artiste</b><span class="fx">→ frame 2520 · 00:42</span></div></div>
+        <div class="period">2e mi-temps</div>
+        <div class="evrow goal"><span class="min">55'</span><span class="badge but">BUT</span><div><b>#8 L'Artiste</b> — Les Roulants<span class="fx">→ frame 3300 · 00:55</span></div></div>
+        <div class="evrow"><span class="min">63'</span><span class="badge rec">RÉCUP</span><div>FC Bot récupère — contre lancé<span class="sv"><span class="a" style="width:48%"></span><span class="b" style="flex:1"></span></span></div></div>
+        <div class="evrow"><span class="min">70'</span><span class="badge tir">TIR</span><div>Tir non cadré — <b>#10 Mystère</b><span class="fx">→ frame 4200 · 01:10</span></div></div>
+        <div class="evrow goal"><span class="min">72'</span><span class="badge but" style="background:var(--corail);color:#fff">BUT</span><div><b>#8 Zidane-2</b> — FC Bot<span class="fx">→ frame 4320 · 01:12</span></div></div>
+        <div class="evrow"><span class="min">72'</span><span class="badge mt">MT</span><div>Mi-temps statique — possession glisse vers FC Bot</div></div>
+      </div>
+      <div class="metafoot"><span class="k">CLASSÉ</span>· 3 min · 10 800 frames · 21 sep<span class="spacer"></span>chaque event → frame</div>
+    </aside>
+  </div>
+  <div class="mtimeline tall">
+    <div style="display:flex;align-items:center;gap:12px;width:100%">
+      <button class="tpbtn">⏮</button><button class="tpbtn play">▶</button><button class="tpbtn">⏭</button>
+      <span class="tinfo">1×</span>
+      <div class="scrub"><div class="fill"></div><div class="gmark" style="left:18%"></div><div class="gmark" style="left:55%"></div><div class="gmark" style="left:78%;background:var(--corail)"></div></div>
+      <span class="tinfo">frame 4320 / 10 800 · 72'</span>
+      <button class="btn ghost sm">Plein écran</button>
+    </div>
+    <div class="possband"><i></i></div>
+  </div>
+</section>
+
+<!-- ================= S3 · DUEL TV ================= -->
+<section class="screen" id="s3">
+  <div class="appbar">
+    <span class="logo">LACHATADEDE</span>
+    <span class="navlink">Jouer</span><span class="navlink">Équipes</span>
+    <span class="spacer"></span>
+    <span class="avatar">P</span>
+  </div>
+  <div class="mstage">
+    <div class="panel pitchpanel">
+      <div class="pitch"></div>
+      <div class="pmark"><div class="walls"></div><div class="blason"><img src="../../src/assets/watermark.png" alt="DD"></div><div class="midline"></div><div class="mid"></div><div class="boxL"></div><div class="boxR"></div><div class="goalL"></div><div class="goalR"></div></div>
+      <div class="player t-red" style="left:22%;top:28%"><div class="pnum">4</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:20%;top:70%"><div class="pnum">5</div><div class="ptag">le-mur.js</div></div>
+      <div class="player t-red" style="left:40%;top:48%"><div class="pnum">7</div><div class="ptag">relayeur.js</div></div>
+      <div class="player t-red" style="left:56%;top:34%"><div class="pnum">8</div><div class="ptag">l-artiste.js</div></div>
+      <div class="player t-red" style="left:52%;top:66%"><div class="pnum">9</div><div class="ptag">le-renard.js</div></div>
+      <div class="player t-blue" style="left:74%;top:30%"><div class="pnum">4</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:72%;top:72%"><div class="pnum">5</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:63%;top:50%"><div class="pnum">8</div><div class="ptag">zidane-2.js</div></div>
+      <div class="player t-blue" style="left:84%;top:48%"><div class="pnum">9</div><div class="ptag">bot.js</div></div>
+      <div class="player t-blue" style="left:80%;top:64%"><div class="pnum">10</div><div class="ptag">bot.js</div></div>
+      <div class="ball" style="left:58%;top:40%"></div>
+      <div class="scorepill"><span style="color:#ff9d8c">LES ROULANTS</span><span class="sc">2 – 1</span><span style="color:#9cc9ee">FC BOT</span><span class="frm">72'</span></div>
+      <div class="exit">← Quitter</div>
+    </div>
+    <aside class="panel drawer">
+      <div class="drawtabs"><button>Logs</button><button class="on">Stats</button></div>
+      <div class="statlist">
+        <div class="duelhead">
+          <div class="crest home">🦊</div>
+          <div class="nm">Les Roulants<small>le-mur.js · relayeur.js…</small></div>
+          <span class="vs">2 – 1</span>
+          <div class="nm" style="text-align:right">FC Bot<small>…bot.js · zidane-2.js</small></div>
+          <div class="crest away">🤖</div>
+        </div>
+        <div class="card">
+          <span class="sectit">Possession · live</span>
+          <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px">
+            <span style="color:var(--home)">58%</span><span style="color:var(--away)">42%</span>
+          </div>
+          <div class="dbar"><div class="l"></div><div class="r"></div></div>
+          <svg class="spark" viewBox="0 0 276 30" preserveAspectRatio="none">
+            <path d="M0,0 L0,10 L38,8 L76,13 L114,7 L152,15 L190,19 L228,17 L276,13 L276,0 Z" fill="var(--home)" opacity=".85"/>
+            <path d="M0,30 L0,10 L38,8 L76,13 L114,7 L152,15 L190,19 L228,17 L276,13 L276,30 Z" fill="var(--away)" opacity=".85"/>
+            <circle cx="50" cy="8.7" r="3.5" fill="var(--sun)" stroke="var(--panel)" stroke-width="2"/>
+            <circle cx="155" cy="14.7" r="3.5" fill="var(--sun)" stroke="var(--panel)" stroke-width="2"/>
+            <circle cx="215" cy="18.3" r="3.5" fill="var(--corail)" stroke="var(--panel)" stroke-width="2"/>
+            <line x1="110" y1="0" x2="110" y2="30" stroke="#fff" stroke-width="2" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"/>
+          </svg>
+        </div>
+        <div class="mirror">
+          <div class="mrow"><span class="num l">7</span><div class="bars"><div class="b l"><i style="width:70%"></i></div><div class="b r"><i style="width:40%"></i></div></div><span class="num r">4</span><span class="mlab">TIRS · CADRÉS 3/2</span></div>
+          <div class="mrow"><span class="num l">14</span><div class="bars"><div class="b l"><i style="width:54%"></i></div><div class="b r"><i style="width:46%"></i></div></div><span class="num r">12</span><span class="mlab">RÉCUPS · CHANGEMENT DE CAMP</span></div>
+          <div class="mrow"><span class="num l">9</span><div class="bars"><div class="b l"><i style="width:60%"></i></div><div class="b r"><i style="width:40%"></i></div></div><span class="num r">6</span><span class="mlab">DRIBBLES</span></div>
+        </div>
+        <div class="duelcols">
+          <div class="duelcol ch">
+            <div class="ct"><b>LES ROULANTS</b> · km</div>
+            <div class="prow"><span class="pn" style="background:var(--home)">8</span><span class="who">L'Artiste</span><span class="km">2,1</span></div>
+            <div class="prow"><span class="pn" style="background:var(--home)">9</span><span class="who">Le Renard</span><span class="km">1,8</span></div>
+            <div class="prow"><span class="pn" style="background:var(--home)">7</span><span class="who">Relayeur</span><span class="km">1,6</span></div>
+            <div class="prow"><span class="pn" style="background:var(--home)">4</span><span class="who">Le Mur</span><span class="km">1,5</span></div>
+            <div class="prow"><span class="pn" style="background:var(--home)">5</span><span class="who">Le Mur II</span><span class="km">1,3</span></div>
+          </div>
+          <div class="duelcol aw">
+            <div class="ct"><b class="a">FC BOT</b> · km</div>
+            <div class="prow"><span class="pn" style="background:var(--away)">10</span><span class="who">Mystère</span><span class="km">1,9</span></div>
+            <div class="prow"><span class="pn" style="background:var(--away)">8</span><span class="who">Zidane-2</span><span class="km">1,4</span></div>
+            <div class="prow"><span class="pn" style="background:var(--away)">9</span><span class="who">Bot</span><span class="km">1,7</span></div>
+            <div class="prow"><span class="pn" style="background:var(--away)">4</span><span class="who">Bot</span><span class="km">1,6</span></div>
+            <div class="prow"><span class="pn" style="background:var(--away)">5</span><span class="who">Bot</span><span class="km">1,7</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="metafoot"><span class="k">CLASSÉ</span>· 3 min · 10 800 frames · 21 sep<span class="spacer"></span>tirs &amp; buts cliquables → frame</div>
+    </aside>
+  </div>
+  <div class="mtimeline">
+    <button class="tpbtn">⏮</button><button class="tpbtn play">▶</button><button class="tpbtn">⏭</button>
+    <span class="tinfo">1×</span>
+    <div class="scrub"><div class="fill"></div><div class="gmark" style="left:18%"></div><div class="gmark" style="left:55%"></div><div class="gmark" style="left:78%;background:var(--corail)"></div></div>
+    <span class="tinfo">frame 4320 / 10 800 · 72'</span>
+    <button class="btn ghost sm">Plein écran</button>
+  </div>
+</section>
+
+<script>
+const btns=document.querySelectorAll('#proto button[data-s]');
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));
+  btns.forEach(b=>b.classList.toggle('on',b.dataset.s===id));}
+btns.forEach(b=>b.addEventListener('click',()=>show(b.dataset.s)));
+const th=document.getElementById('theme');
+th.addEventListener('click',()=>{const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');th.textContent=d?'🌙':'☀️';});
+</script>
+</body>
+</html>

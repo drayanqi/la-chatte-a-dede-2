@@ -248,8 +248,11 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
       const tacticData = await response.json();
       const newTactic = tacticData as TacticConfig;
 
+      // Append (same pipeline as createTactic): duplicate pills land at the
+      // end and delete-promotion hands the active slot back to the source
+      // neighbor, not to whichever tactic happens to sit first
       set((state) => ({
-        tactics: [newTactic, ...state.tactics],
+        tactics: [...state.tactics, newTactic],
         activeTacticId: newTactic.id,
         isSavingTactic: false,
         lastSavedTacticId: newTactic.id,

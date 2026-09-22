@@ -480,10 +480,11 @@ describe('Simulation - tackles (game-rules.md v1.1)', () => {
     expect(sim.ball.owner).toEqual({ slot: 5, team: 'opponent' });
 
     let frame = sim.stepTick(); // tick 1: the tackler shoots toward the challenger goal
-    for (let i = 0; i < 100 && frame.events.length === 0; i++) {
+    for (let i = 0; i < 100 && !frame.events.some((e) => e.type === 'goal'); i++) {
       frame = sim.stepTick();
     }
-    expect(frame.events.length).toBeGreaterThan(0); // goal for the opponent
+    // Story 7.9: shots are events too — wait for the GOAL, not any event
+    expect(frame.events.some((e) => e.type === 'goal')).toBe(true); // goal for the opponent
     expect(sim.ball.owner).toEqual({ slot: 1, team: 'challenger' }); // conceding team's GK kicks off
 
     // the kickoff cleared the lockout: the previously tackled player takes a free ball again
@@ -528,7 +529,16 @@ describe('Simulation - tackles (game-rules.md v1.1)', () => {
     // release point cannot block, only intercept at the ball's landing spot.
     expect(sim.ball.owner).toBeNull();
     expect(sim.ball.x).toBeCloseTo(32.514285714285714, 9); // 30 + MAX_BALL_SPEED (full power), toward (200,25)
-    expect(frame.events.length).toBe(0);
+    // Story 7.9: the shot event is telemetry — exactly one, honest verdict.
+    // From x=30 the full-power ball travels ~48.6 units (friction law) and
+    // stops around x=78.6, short of the line: OFF target, like the flight.
+    expect(frame.events).toHaveLength(1);
+    expect(frame.events[0]).toEqual({
+      type: 'shot',
+      team: 'challenger',
+      shooterSlot: 5,
+      onTarget: false,
+    });
   });
 });
 
@@ -768,4 +778,118 @@ function update(game) {
     // (MATCH_TIME_BUDGET_MS), it is not a benchmark.
     expect(elapsed).toBeLessThan(0.9 * MATCH_TIME_BUDGET_MS);
   }, 60_000);
+});
+
+describe('Simulation - telemetry (story 7.9)', () => {
+  /**
+   * The kickoff team's keeper dribbles toward the opposing goal mouth, then
+   * shoots from close range. Dribble range matters: with BALL_FRICTION 0.95
+   * a full-power shot travels ~48.6 units, so an honest on-target shot must
+   * be taken from inside that range (the friction law is the point).
+   */
+  class DribbleThenShootRunner implements ScriptRunner {
+    constructor(
+      private readonly shooterTeam: Team,
+      private readonly shootTick = 229,
+    ) {}
+    prepare(): void {}
+    runTick(tick: number): TickOutcome {
+      if (tick >= this.shootTick) {
+        const targetX = this.shooterTeam === 'challenger' ? 120 : -20;
+        return {
+          actions: [
+            { team: this.shooterTeam, slot: 1, action: { type: 'shoot', x: targetX, y: 25, power: 1 } },
+          ],
+          logs: [],
+        };
+      }
+      const targetX = this.shooterTeam === 'challenger' ? 99 : 1;
+      return {
+        actions: [
+          { team: this.shooterTeam, slot: 1, action: { type: 'dribble', x: targetX, y: 25 } },
+        ],
+        logs: [],
+      };
+    }
+  }
+
+  it('records a shot event and stats when the keeper dribbles in and shoots', async () => {
+    const seed = 12345;
+    const kickoff = kickoffTeamFor(seed);
+    const file = await new Simulation(
+      makeGoalTestPayload(seed),
+      new DribbleThenShootRunner(kickoff),
+    ).run();
+
+    // The keeper carried the ball to the edge of the mouth (ticks 0..228,
+    // owned the whole way) and shot on tick 229
+    const shotFrame = file.frames[229];
+    const shotEvent = shotFrame?.events.find((e) => e.type === 'shot');
+    expect(shotEvent).toEqual({
+      type: 'shot',
+      team: kickoff,
+      shooterSlot: 1,
+      onTarget: true,
+    });
+
+    // Team + player counters agree with what happened on the pitch: one
+    // ON-TARGET kick = one tir (shot law, 2026-09-22), zero passes
+    expect(file.stats.teams[kickoff].shots).toBe(1);
+    expect(file.stats.teams[kickoff].passes).toBe(0);
+    expect(file.stats.players.find((p) => p.team === kickoff && p.slot === 1)?.shots).toBe(1);
+    // Carrying the ball is movement, not a stat (dribbles law): the whole
+    // carry shows up as distance only
+    const keeper = file.stats.players.find((p) => p.team === kickoff && p.slot === 1);
+    expect(keeper?.distance).toBeGreaterThan(85);
+    // Possession: owned ticks 0..228 (the shot tick releases the ball)
+    expect(file.stats.teams[kickoff].possessionTicks).toBe(229);
+  });
+
+  it('emits a stats block consistent with a full chasing match', async () => {
+    const file = await new Simulation(makePayload(), new ChasingRunner()).run();
+
+    const { challenger, opponent } = file.stats.teams;
+    // Every tick has an owned ball under the chasing script (the carrier
+    // dribbles, never releases) — possession is a full partition.
+    expect(challenger.possessionTicks + opponent.possessionTicks).toBe(TOTAL_TICKS);
+    // Chasing produces tackles -> camp changes on both sides over 3 minutes
+    expect(challenger.turnovers + opponent.turnovers).toBeGreaterThan(0);
+    // All 10 players moved (non-owners chase every tick), timeline = 36 bins
+    expect(file.stats.players).toHaveLength(10);
+    for (const player of file.stats.players) {
+      expect(player.distance).toBeGreaterThan(0);
+    }
+    expect(file.stats.possessionTimeline).toHaveLength(36);
+  });
+
+  it('keeps the turnover storm bounded (contention cannot explode the counter)', () => {
+    const seed = 999;
+    // All 10 players + ball stacked at center: every tick within-radius
+    // opponents contest the owned ball until lockouts thin the crowd out.
+    const stacked = makePayload(seed);
+    for (const team of [stacked.challenger, stacked.opponent]) {
+      for (const p of team.players) {
+        p.x = 50;
+        p.y = 25;
+      }
+    }
+    const sim = new Simulation(stacked);
+    let turnoverEvents = 0;
+    for (let i = 0; i < 600; i++) {
+      const frame = sim.stepTick();
+      turnoverEvents += frame.events.filter((e) => e.type === 'turnover').length;
+    }
+    // Bounded by the population: a turnover needs a distinct unlocked taker,
+    // and lockouts (180 ticks) throttle the storm — never one per tick forever.
+    expect(turnoverEvents).toBeGreaterThan(0);
+    expect(turnoverEvents).toBeLessThanOrEqual(120);
+  });
+
+  it('same seed produces byte-identical output WITH stats (determinism gate)', async () => {
+    const a = JSON.stringify(await new Simulation(makePayload(), new ChasingRunner()).run());
+    const b = JSON.stringify(await new Simulation(makePayload(), new ChasingRunner()).run());
+    expect(a).toBe(b);
+    // The stats block is actually part of the compared payload
+    expect(a).toContain('"stats"');
+  });
 });

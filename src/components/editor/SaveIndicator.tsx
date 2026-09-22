@@ -85,24 +85,24 @@ export const SaveIndicator: React.FC = () => {
 const styles: Record<string, React.CSSProperties> = {
   unsaved: {
     fontSize: '12px',
-    color: '#888888',
+    color: 'var(--muted)',
     marginLeft: '8px',
     fontStyle: 'italic',
   },
   saving: {
     fontSize: '12px',
-    color: '#888888',
+    color: 'var(--muted)',
     marginLeft: '8px',
   },
   saved: {
     fontSize: '12px',
-    color: '#4ec9b0',
+    color: 'var(--mint)',
     marginLeft: '8px',
     animation: 'fadeIn 0.2s ease-in-out',
   },
   error: {
     fontSize: '12px',
-    color: '#f14c4c',
+    color: 'var(--corail)',
     marginLeft: '8px',
     cursor: 'help',
   },

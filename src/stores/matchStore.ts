@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { apiFetch, ApiError, getApiError } from '@/lib/apiClient';
 import { extractLogs, type ReplayLogEntry } from '@/lib/replayLogs';
-import type { MatchFrame, MatchFramesFile, MatchResult } from '@/types';
+import type { MatchFrame, MatchFramesFile, MatchResult, MatchStats } from '@/types';
 
 interface MatchState {
   // True while the synchronous simulation request is in flight
@@ -45,6 +45,14 @@ interface MatchState {
   // Flat log extraction of the loaded replay, computed ONCE per load
   // (the frame scan must not rerun per render/per playhead move)
   replayLogs: ReplayLogEntry[];
+
+  // ------------------------------------------------------------------
+  // Engine telemetry (story 7.9)
+  // ------------------------------------------------------------------
+
+  // The loaded replay's stats block. Null for replays without telemetry
+  // (older files): the drawer degrades to ghost states, never crashes.
+  replayStats: MatchStats | null;
 }
 
 interface MatchActions {
@@ -100,6 +108,7 @@ const initialState: MatchState = {
   replayError: null,
   latestMatch: null,
   replayLogs: [],
+  replayStats: null,
 };
 
 const REPLAY_404_MESSAGE = 'Replay unavailable. This match cannot be watched.';
@@ -195,10 +204,22 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     // mid-reload.
     set({ isReplayLoading: true, replayError: null, replayMatch: knownMatch });
 
+    // Deep link / refresh (story 7.7): no known match means the score pill
+    // would fall back to "Challenger"/"Opponent" and the teams to the
+    // default palette — resolve the metadata from GET /matches/{id}
+    // alongside the frames. Its failure is cosmetic (fallback names): the
+    // frames request owns the real error surface (401 logout, 404 wording).
+    const framesRequest = apiFetch(`/matches/${encodeURIComponent(matchId)}/frames`, {
+      signal,
+    });
+    const metadataRequest: Promise<MatchResult | null> = knownMatch
+      ? Promise.resolve(null)
+      : apiFetch(`/matches/${encodeURIComponent(matchId)}`, { signal })
+          .then((response) => response.json() as Promise<MatchResult>)
+          .catch(() => null);
+
     try {
-      const response = await apiFetch(`/matches/${encodeURIComponent(matchId)}/frames`, {
-        signal,
-      });
+      const [response, matchMeta] = await Promise.all([framesRequest, metadataRequest]);
       const payload = (await response.json().catch(() => null)) as MatchFramesFile | null;
 
       // Superseded, cancelled or cleared while in flight: the newer state
@@ -217,11 +238,14 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
 
       // Atomic swap — the previous array's store reference dies here. The
       // log extraction runs once on the freshly validated frames (story 3.10:
-      // memoized per load, never per render).
+      // memoized per load, never per render). The stats block is engine
+      // truth taken as-is (story 7.9): null when the file predates telemetry.
       set({
         isReplayLoading: false,
         replayFrames: payload.frames,
+        replayMatch: matchMeta?.id === matchId ? matchMeta : knownMatch,
         replayLogs: extractLogs(payload.frames),
+        replayStats: payload.stats ?? null,
         replayError: null,
       });
     } catch (error) {
@@ -288,6 +312,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
       replayError: null,
       isReplayLoading: false,
       replayLogs: [],
+      replayStats: null,
     });
   },
 

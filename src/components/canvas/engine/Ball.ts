@@ -8,7 +8,7 @@
  */
 
 import { Container, Graphics } from 'pixi.js';
-import { computePitchRect, percentToScreen } from './fieldGeometry';
+import { computePitchRect, computePlayerRadius, percentToScreen } from './fieldGeometry';
 
 /** Trail length: number of past positions kept for the fading trail. */
 export const BALL_TRAIL_LENGTH = 8;
@@ -37,6 +37,10 @@ export class BallSprite {
   private screenWidth: number;
   private screenHeight: number;
   private trailPoints: TrailPoint[] = [];
+  // Kickoff pause (goal countdown): nudge the ball just off the holder's
+  // feet toward the pitch center so the engagement reads clearly
+  private kickoffOffsetActive = false;
+  private lastFramePosition: { x: number; y: number } | null = null;
 
   constructor(screenWidth: number, screenHeight: number) {
     this.screenWidth = screenWidth;
@@ -82,6 +86,23 @@ export class BallSprite {
   }
 
   /**
+   * Kickoff pause: while active the ball renders a step off the holder
+   * toward the pitch center ("ball at the keeper's feet" instead of a dot
+   * buried in the sprite). Deactivating snaps back to the true frame spot.
+   */
+  setKickoffOffset(active: boolean): void {
+    if (this.kickoffOffsetActive === active) return;
+    this.kickoffOffsetActive = active;
+    if (active) {
+      // Fresh engagement: the pre-goal flight trail must not linger frozen
+      this.trailPoints.length = 0;
+      this.drawTrail();
+    } else if (this.lastFramePosition) {
+      this.updateFromFrame(this.lastFramePosition);
+    }
+  }
+
+  /**
    * Move the ball to a percent pitch position and refresh the trail.
    * Coordinates are clamped to the pitch percent range; a non-finite value
    * falls back to the center instead of rendering the ball off-pitch (or at
@@ -91,11 +112,28 @@ export class BallSprite {
     const pitch = computePitchRect(this.screenWidth, this.screenHeight);
     const x = Number.isFinite(position.x) ? Math.max(0, Math.min(100, position.x)) : 50;
     const y = Number.isFinite(position.y) ? Math.max(0, Math.min(100, position.y)) : 50;
+    this.lastFramePosition = { x, y };
     const pos = percentToScreen(pitch, x, y);
     this.container.x = pos.x;
     this.container.y = pos.y;
 
-    if (!this.reducedMotion) {
+    if (this.kickoffOffsetActive) {
+      // Toward the pitch center — the direction the keeper engages in.
+      // Degenerate when the ball already sits at the center: no offset.
+      const dx = pitch.x + pitch.width / 2 - pos.x;
+      const dy = pitch.y + pitch.height / 2 - pos.y;
+      const length = Math.hypot(dx, dy);
+      if (length > 1) {
+        const distance = computePlayerRadius(pitch) + this.radius * 0.9;
+        this.container.x = pos.x + (dx / length) * distance;
+        this.container.y = pos.y + (dy / length) * distance;
+      }
+    }
+
+    // While the kickoff offset is active the trail stays frozen (cleared at
+    // activation) — trail dots are container-relative and would inherit the
+    // offset
+    if (!this.reducedMotion && !this.kickoffOffsetActive) {
       this.trailPoints.push({ x: pos.x, y: pos.y });
       if (this.trailPoints.length > BALL_TRAIL_LENGTH) {
         this.trailPoints.shift();

@@ -82,3 +82,28 @@ button {
     transform: rotate(360deg);
   }
 }
+
+/* Goal celebration pop (story 7.7) — the overlay card is flex-centered by
+   its full-pitch container, so the pop is a pure scale. The overlay itself
+   stays readable without motion: reduced-motion keeps the banner, drops
+   the pop */
+@keyframes lachatadede-goal-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lachatadede-goal-overlay {
+    animation: none !important;
+  }
+}

@@ -22,8 +22,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        backgroundColor: '#1e1e1e',
-        color: '#d4d4d4'
+        backgroundColor: 'var(--bg)',
+        color: 'var(--muted)'
       }}>
         Loading...
       </div>

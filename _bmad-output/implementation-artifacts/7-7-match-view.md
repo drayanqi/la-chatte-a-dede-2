@@ -4,7 +4,7 @@ baseline_commit: 75f3e9e082e5dc345dc487cf2034a5ed223f3ad3
 
 # Story 7.7: Match View — Broadcast Replay
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -32,13 +32,13 @@ So that watching a replay feels like a broadcast, not a debug session.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `MatchPage` full build — stage layout (pitch flex + 300px drawer), score pill, Quittter chip, timeline bar, drawer tabs (Logs/Stats), loading/simulating/error-retry states; playback wiring (canvas handle + keyboard shortcuts moved from AppShell)
-- [ ] Task 2: Timeline restyle + speed control — token look, sun goal ticks (click → seek), speed cycling, frame counter mono; keep ARIA slider + drag behavior
-- [ ] Task 3: Drawer — Logs list (badges BUT/TIR/MT/carton mapping from events/logs, frame link → seek), Stats tab aggregates; extract shared `ReplayDrawer` from DebuggerPanel data logic (replayLogs lib reused as-is)
-- [ ] Task 4: Celebration overlay — scorer line + score chip on goal ticks (event-driven, 1.5s, reduced-motion)
-- [ ] Task 5: Remove workspace replay path — TeamsPage stops hosting Timeline/DebuggerPanel/replay overlays; practice watch → /match/:id
-- [ ] Task 6: Unit tests — MatchPage states, drawer badge mapping, speed control, celebration event handling; retire debugger-panel tests
-- [ ] Task 7: E2E `practice-match.spec.ts` traversal update — replay now on `/match/:id` (load frames event hook kept), scrubber/logs/celebration assertions on the new view (chromium)
+- [x] Task 1: `MatchPage` full build — stage layout (pitch flex + 300px drawer), score pill, Quittter chip, timeline bar, drawer tabs (Logs/Stats), loading/simulating/error-retry states; playback wiring (canvas handle + keyboard shortcuts moved from AppShell)
+- [x] Task 2: Timeline restyle + speed control — token look, sun goal ticks (click → seek), speed cycling, frame counter mono; keep ARIA slider + drag behavior
+- [x] Task 3: Drawer — built as `ReplayDrawer` (S1 "Tableau de bord" design, mockup validated by Pelo: planning-artifacts/stadium-mockup-ronde-replay-stats-s1-tableau-de-bord.html). Stats tab: VS header (tactic names, crests in team colors, live score, minute), goals list (minute + #slot + team, click → seek), meta foot (mode / frames / date), telemetry sections as GHOST states ("à venir" — story 7.9; no invented numbers). Logs tab: goal rows (click → seek) + windowed ±1s log rows (replayLogs pipeline reused as-is) with player filter chips + "Tous" reset. Shared `ReplayDrawer` extracted fresh (DebuggerPanel data logic reused via libs, its shell stays retired)
+- [x] Task 4: Celebration overlay — scorer line + score chip on goal ticks (event-driven, 1.5s, reduced-motion)
+- [x] Task 5: Remove workspace replay path — TeamsPage stops hosting Timeline/DebuggerPanel/replay overlays; practice watch → /match/:id
+- [x] Task 6: Unit tests — MatchPage states, drawer badge mapping (BUT covered; TIR/MT/carton wait for engine events), speed control, celebration event handling; retire debugger-panel tests
+- [x] Task 7: E2E `practice-match.spec.ts` traversal update — replay now on `/match/:id` (load frames event hook kept), scrubber/logs/celebration assertions on the new view (chromium)
 
 ## Verification
 
@@ -49,12 +49,36 @@ So that watching a replay feels like a broadcast, not a debug session.
 
 ### Completion notes
 
-(pending)
+- Drawer (Task 3) shipped ahead of the full story: `ReplayDrawer` (src/components/match/ReplayDrawer.tsx) wired into `MatchPage`'s stage row (pitch flex:1 + 300px drawer, gap 8). Design = S1 mockup validated by Pelo (2026-09-22 party session). Telemetry sections (possession/tirs/récups/dribbles/distance) render as ghost "à venir" states — their data does not exist in frames yet, story 7.9 emits it. Seek affordance: goals in both tabs call canvas seekFrame.
+- New lib: `extractGoalEvents` (src/lib/score.ts) — goals with scorer slot, keyed on array position, malformed-event tolerant.
+- Verification: `tsc -b` clean, `npm run lint` 0 errors (4 pre-existing warnings), full unit suite 630/630 green (10 new: replay-drawer.test.tsx ×7, score.test.ts extractGoalEvents ×3). E2E not run (Tasks 6/7 pending).
 
-## File List
+### File List
 
-(pending)
+- src/components/match/ReplayDrawer.tsx (new)
+- src/pages/MatchPage.tsx (drawer wiring, stage gap, goalEvents memo)
+- src/lib/score.ts (extractGoalEvents)
+- tests/unit/components/replay-drawer.test.tsx (new)
+- tests/unit/lib/score.test.ts (extractGoalEvents cases)
+- src/components/layout/Timeline.tsx (restyled broadcast timeline)
+- src/components/layout/TacticsCanvas.tsx + lachatadede-engine/src/engine/Game.ts (setSpeed handle)
+- src/pages/TeamsPage.tsx + src/components/layout/AppShell.tsx (replay path removed)
+- src/styles/tokens.css (goal-pop keyframes + reduced-motion)
+- tests/e2e/practice-match.spec.ts (rewritten to /match/:id)
+- tests/unit/components/timeline.test.tsx (new), tests/unit/pages/match-page.test.tsx (new)
+- tests/unit/components/debugger-panel.test.tsx (deleted)
 
 ## Change Log
 
-(pending)
+- 2026-09-22: Task 3 (Drawer) implemented per validated S1 mockup; telemetry scope deferred to story 7.9.
+- 2026-09-22: Tasks 1, 2, 4, 5, 6, 7 — story complete, review. MatchPage full build (score pill La Ronde, Quittter chip w/ history fallback, keyboard playback moved from AppShell, celebration overlay 1500ms, goal-driven log filter semantics 3.11, TEST_LOAD_FRAMES_EVENT hook). Timeline restyled (skip start/end, speed cycle 0.5/1/2/4 via PLAYBACK_SPEEDS + Game.setSpeed validation, sun goal ticks clickable, mono frame counter, ARIA kept). AppShell purged of replay/overlays/keyboard (edit-mode only; 7.8 deletes it). E2E practice-match.spec.ts rewritten to /match/:id — 8/8 chromium green; drawer log rows carry data-tick + type badges (MULTIPLE_ACTIONS...) for warn/error entries; unit suite 630/630 (timeline.test ×6, match-page.test ×7 new; debugger-panel.test retired); tsc -b + lint clean.
+- 2026-09-22: Stats-law pass (Pelo decree): Tirs row = cadrés only; new Passes row with réussite %; Dribbles row removed; Logs shot rows show TIR/PASSE badges. (Engine side recorded in story 7.9.)
+
+### Completion notes (task pass)
+
+- Task 1/4: MatchPage owns score pill (score-display + pill-frame-counter), exit chip (navigate(-1) if history else /play), keyboard (Space/←/→/Shift-arrows), celebration overlay (goal-celebration-overlay, BUUUT ! + scorer + score, lachatadede-goal-pop keyframes in tokens.css, reduced-motion respected, CELEBRATION_DURATION_MS 1500). Pitch-click filter semantics per 3.11: player with logs → select+filter; chip click → filter+select; "Tous" resets filter; canvas ring mirrors store selection.
+- Task 2: Timeline keeps its drag/ARIA logic; speed state local (remount per replay resets to 1×); setSpeed validated server-side in engine Game ([0.5,1,2,4] else 1).
+- Task 5: AppShell no longer imports Timeline/playbackShortcuts/matchStore replay slice; replay handoff, score display, celebration, replay error banner, replay loading overlay all removed. workspace.spec.ts stays green with zero replay references.
+- Task 6: match-page.test uses MemoryRouter initialIndex=1 (['/play','/match/m-1']) for history-fallback assertions; canvas fully mocked.
+- Task 7 e2e lessons: register the /frames waitForResponse listener BEFORE triggering navigation (fetch starts at mount, 90s timeout); drag test picks a marker-free x (goal sun markers swallow pointerdown); the demo match scores roughly one goal per 10s of wall time.
+- TEST_LOAD_FRAMES_EVENT test hook lives in MatchPage (seeds useMatchStore + setMatchFrames + loadFrames); the old hook in AppShell was removed with the rest of the replay path.

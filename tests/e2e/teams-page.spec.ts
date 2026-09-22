@@ -147,11 +147,14 @@ test.describe('Teams Page', () => {
     const gkSlot = savedBody.players.find((player) => player.playerSlot === 1);
     expect(gkSlot?.scriptId).not.toBeNull();
 
-    // "Retirer le script" detaches and persists the empty slot
-    await picker.getByTestId('picker-remove-script').click();
+    // "Retirer le script" detaches and persists the empty slot — the
+    // waitForResponse MUST be registered before the click: the PUT can
+    // complete before a post-click listener attaches (race seen in the 7.8
+    // sweep)
     const putRemovePromise = page.waitForResponse(
       (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
     );
+    await picker.getByTestId('picker-remove-script').click();
     const putRemoveResponse = await putRemovePromise;
     expect(putRemoveResponse.ok()).toBeTruthy();
     const removedBody = (await putRemoveResponse.json()) as {
@@ -273,7 +276,7 @@ test.describe('Teams Page', () => {
     const readyResponse = await readyPromise;
     expect(readyResponse.ok()).toBeTruthy();
     await expect(page.getByTestId('ready-toggle')).toHaveAttribute('data-status', 'ready');
-    await expect(page.getByTestId('ready-toggle')).toHaveTextContent('Prêt');
+    await expect(page.getByTestId('ready-toggle')).toContainText('Prêt');
   });
 
   test('should detach a deleted script from its players on the field @P0', async ({
@@ -442,5 +445,70 @@ test.describe('Teams Page', () => {
         .filter({ hasText: 'StarterAI.js' })
         .first()
     ).toBeVisible();
+  });
+
+  test('no-ready team flow: Play → Équipes → ready lineup → back to Play @P0', async ({
+    page,
+    userFactory,
+  }) => {
+    // Story 7.8 AC #2: the onboarding loop between the two La Ronde hubs.
+    const user = await userFactory.createAuthenticated();
+    await seedAuthToken(page, user.token ?? '');
+
+    // A fresh user has no ready tactic: the Play hero shows the no-ready
+    // card pointing at Équipes
+    await page.goto('/play');
+    await expect(page.getByTestId('no-ready-state')).toBeVisible();
+    await expect(page.getByTestId('ranked-open-button')).toBeHidden();
+
+    // "Préparer une équipe" lands in the workspace
+    await page.getByTestId('go-to-teams-button').click();
+    await expect(page.getByTestId('team-bar')).toBeVisible();
+    await expect(page.getByTestId('test-vs-bot-button')).toBeDisabled();
+
+    // Build the lineup: assign StarterAI.js to all 5 default slots
+    const canvas = page.getByTestId('field-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Canvas not visible');
+    const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
+
+    const slots: Array<[number, number]> = [
+      [8, 50], // GK (slot 1)
+      [25, 30], // DEF1 (slot 2)
+      [25, 70], // DEF2 (slot 3)
+      [40, 30], // ATK1 (slot 4)
+      [40, 70], // ATK2 (slot 5)
+    ];
+    const scriptOption = page
+      .getByTestId('picker-script-option')
+      .filter({ hasText: 'StarterAI.js' });
+
+    for (const [x, y] of slots) {
+      const putTacticPromise = page.waitForResponse(
+        (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+      );
+      const spot = percentToScreen(pitchRect, x, y);
+      await page.mouse.click(canvasBox.x + spot.x, canvasBox.y + spot.y);
+      await expect(page.getByTestId('script-picker')).toBeVisible();
+      await scriptOption.click();
+      await putTacticPromise;
+    }
+
+    // Mark the team ready
+    const readyPromise = page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+    );
+    await page.getByTestId('ready-toggle').click();
+    expect((await readyPromise).ok()).toBeTruthy();
+    await expect(page.getByTestId('ready-toggle')).toHaveAttribute('data-status', 'ready');
+
+    // Back to Play through the appbar: the ready hero replaces the no-ready
+    // card and the ranked + practice entries appear
+    await page.getByTestId('nav-play').click();
+    await expect(page.getByTestId('no-ready-state')).toBeHidden();
+    await expect(page.getByTestId('play-greeting')).toBeVisible();
+    await expect(page.getByTestId('play-hero-sub')).toContainText('Tactic 1');
+    await expect(page.getByTestId('ranked-open-button')).toBeVisible();
+    await expect(page.getByTestId('practice-start-button')).toBeVisible();
   });
 });

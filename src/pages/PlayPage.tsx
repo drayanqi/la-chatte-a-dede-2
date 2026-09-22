@@ -62,10 +62,11 @@ export const PlayPage: React.FC = () => {
   // Fetch-on-mount, per-section loading/error states downstream
   useEffect(() => {
     void fetchTactics();
+    void fetchOpponents();
     void fetchHistory();
     void fetchLeaderboard();
     void fetchLatestMatch();
-  }, [fetchTactics, fetchHistory, fetchLeaderboard, fetchLatestMatch]);
+  }, [fetchTactics, fetchOpponents, fetchHistory, fetchLeaderboard, fetchLatestMatch]);
 
   // A settled challenge lands in the history immediately (AC #3) — the
   // pool + tactics refresh already happens inside the store's play actions

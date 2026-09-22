@@ -7,7 +7,7 @@
  * @priority P1
  */
 import { describe, it, expect } from 'vitest';
-import { computeScore, extractGoalTicks } from '@/lib/score';
+import { computeScore, extractGoalEvents, extractGoalTicks } from '@/lib/score';
 import type { MatchFrame, MatchFrameEvent, MatchFramePlayer } from '@/types';
 
 /** Frame factory: 10 players + centered ball, customizable events */
@@ -149,5 +149,33 @@ describe('extractGoalTicks', () => {
       makeFrame(1, [goalEvent('opponent')]),
     ];
     expect(extractGoalTicks(frames)).toEqual([{ tick: 1, team: 'opponent' }]);
+  });
+});
+
+describe('extractGoalEvents', () => {
+  it('should carry the scorer slot with every goal', () => {
+    const frames = [
+      makeFrame(0),
+      makeFrame(1, [goalEvent('challenger', 8)]),
+      makeFrame(2, [goalEvent('opponent', 10)]),
+    ];
+    expect(extractGoalEvents(frames)).toEqual([
+      { tick: 1, team: 'challenger', scorerSlot: 8 },
+      { tick: 2, team: 'opponent', scorerSlot: 10 },
+    ]);
+  });
+
+  it('should skip malformed events instead of crashing (drawer tolerance)', () => {
+    const frames = [
+      makeFrame(0, [null as unknown as MatchFrameEvent]),
+      makeFrame(1, [goalEvent('challenger', 4)]),
+    ];
+    expect(extractGoalEvents(frames)).toEqual([
+      { tick: 1, team: 'challenger', scorerSlot: 4 },
+    ]);
+  });
+
+  it('should return an empty list for an empty frame list', () => {
+    expect(extractGoalEvents([])).toEqual([]);
   });
 });

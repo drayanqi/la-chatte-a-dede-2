@@ -50,6 +50,7 @@ export class Field {
   private readonly WALL_LINE_ALPHA = 0.42;
   private readonly WALL_LINE_WIDTH = 3;
   private readonly MASCOT_CIRCLE_RATIO = 0.8;
+  private readonly WATERMARK_ALPHA = 0.6;
   private readonly BOARD_ALPHA = 0.15;
   private readonly LINE_COLOR = FIELD_PALETTE.lines;
   private readonly LINE_WIDTH = 2;
@@ -77,6 +78,7 @@ export class Field {
     this.graphics = new Graphics();
     this.watermark = new Sprite();
     this.watermark.anchor.set(0.5);
+    this.watermark.alpha = this.WATERMARK_ALPHA;
     this.watermark.visible = false;
     this.container.addChild(this.background);
     this.container.addChild(this.stripesMask);

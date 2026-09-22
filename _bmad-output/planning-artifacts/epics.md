@@ -1434,3 +1434,21 @@ So that no screen still looks like the old IDE.
 **Given** the full test suite
 **When** the end-of-epic sweep runs (lint, tsc, unit, e2e × 3 browsers)
 **Then** it passes, with e2e traversal rewritten for the new routes and a test covering the no-ready-team → Équipes → ready → back-to-Play flow
+
+### Story 7.9: Engine Telemetry & Stats Tab v2
+
+As a player,
+I want the replay drawer fed by real engine statistics (possession, shots, turnovers, dribbles, distance),
+So that the stats panel explains WHY the match was lost, not just by how much.
+
+**Acceptance Criteria:**
+
+**Given** a simulated match
+**When** the engine runs, THEN counters are accumulated as pure observation (never read by decision logic — determinism law): possession ticks per team (ball owner truth, BallState), shots (shoot actions while owning) + shots on target, turnovers (Pelo's law: ONLY when the ball changes CAMP — a teammate pickup is not a recovery), dribbles, distance per player
+**When** a shot or a camp-change turnover happens, THEN enriched events (`shot`, `turnover` — same shape as `goal`) are emitted per frame
+**Given** the frames file, **When** written, **Then** a `stats` block sits in the header next to `result` (single source of truth, no new endpoint)
+**Given** the drawer's Stats tab, **When** a replay WITH telemetry loads, **Then** the S1 sections come alive: possession bar + sparkline, mirrored tirs/récups/dribbles rows, distance ranking per player; shot & goal rows seek to their frame
+**Given** an OLD replay without a stats block (no retro-telemetry — engine version evolves, seeds don't re-sim), **When** loaded, **Then** the drawer degrades gracefully to the current ghost states, never crashes
+**Given** the determinism suite, **When** the same seed runs twice, **Then** output is byte-identical WITH stats included; a 50/50 ball contention storm does not make turnover counters explode
+
+**Notes:** full design = planning-artifacts/stadium-mockup-ronde-replay-stats-s1-tableau-de-bord.html (S1 "Tableau de bord", validated by Pelo). The drawer shell + honest aggregates shipped in 7.7 Task 3 (ghost states in place). Verification: engine determinism tests byte-compare, unit drawer v2, e2e seek-on-shot.

@@ -418,14 +418,50 @@ describe('Match Store', () => {
       expect(useMatchStore.getState().replayMatch).toEqual(completedMatch);
     });
 
-    it('should keep a null owning match when the id is unknown', async () => {
+    it('should keep a null owning match when the id is unknown (metadata 404)', async () => {
+      // Deep link (story 7.7): the metadata fetch runs alongside the frames
+      // fetch — a 404 (non-participant / deleted row) is cosmetic, the
+      // frames still play with fallback names
       mockFetch.mockResolvedValueOnce(framesFileResponse([frameAt(0)]));
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Match not found' }),
+      } as unknown as Response);
 
       await useMatchStore.getState().loadReplay('match-unknown');
 
       const state = useMatchStore.getState();
       expect(state.replayMatch).toBeNull();
       expect(state.replayFrames).toHaveLength(1); // frames still usable
+    });
+
+    it('should fetch the match metadata on a deep link and store it for the pill', async () => {
+      const rankedMatch: MatchResult = {
+        ...completedMatch,
+        mode: 'ranked',
+        challengerName: 'Pelo XI',
+        opponentName: 'Gégé FC',
+        challengerTacticName: 'Les Roulants',
+        opponentTacticName: 'Gégé FC',
+        challengerColorPrimary: '#ff6b57',
+        opponentColorPrimary: '#3d8fd1',
+      };
+
+      // Frames first (request order), metadata second
+      mockFetch.mockResolvedValueOnce(framesFileResponse([frameAt(0)]));
+      mockFetch.mockResolvedValueOnce(okResponse(rankedMatch));
+
+      await useMatchStore.getState().loadReplay('match-1');
+
+      const state = useMatchStore.getState();
+      expect(state.replayMatch).toEqual(rankedMatch);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/matches/match-1',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Accept: 'application/json' }),
+        })
+      );
     });
   });
 

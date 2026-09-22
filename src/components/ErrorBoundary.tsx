@@ -38,24 +38,25 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div
           style={{
             padding: '20px',
-            backgroundColor: '#1e1e1e',
-            color: '#f14c4c',
+            backgroundColor: 'var(--bg)',
+            color: 'var(--corail)',
             minHeight: '100vh',
           }}
           data-testid="error-boundary"
         >
           <h1>Something went wrong</h1>
-          <p style={{ color: '#d4d4d4' }}>
+          <p style={{ color: 'var(--muted)' }}>
             An unexpected error occurred. Try reloading the page.
           </p>
           <button
             style={{
               padding: '8px 16px',
-              backgroundColor: '#0e639c',
+              backgroundColor: 'var(--corail)',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: 'var(--r-btn)',
               cursor: 'pointer',
+              fontWeight: 700,
             }}
             onClick={() => window.location.reload()}
           >

@@ -6,7 +6,7 @@
 import { Application, Container, FederatedPointerEvent, Graphics } from 'pixi.js';
 import { Field } from './Field';
 import { PlayerSprite, PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from './Player';
-import { BallSprite } from './Ball';
+import { BallSprite, computeBallRadius } from './Ball';
 import { computePitchRect, screenToPercent } from './fieldGeometry';
 import { hexToTeamColor } from '@/lib/teamColors';
 import { teamIdFromMatchTeam, matchPlayerKey } from '@/lib/teamMapping';
@@ -40,8 +40,12 @@ export interface GameCallbacks {
     playing: boolean
   ) => void;
   onSimulationComplete: (result: SimulationResult) => void;
-  /** Fired when a frame carries a goal event (celebration + score update) */
-  onGoalScored?: (team: TeamId, scorerSlot: number) => void;
+  /**
+   * Fired when a frame carries a goal event (celebration + score update).
+   * `live` = the goal was reached during playback (not a seek/step onto the
+   * frame while paused) — the consumer drives the goal pause + countdown.
+   */
+  onGoalScored?: (team: TeamId, scorerSlot: number, live: boolean) => void;
   /** Fired after a script assignment completes (drag & drop onto a player) */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
   /** Fired when a player drag-move completes (pointerup ends the move) */
@@ -95,6 +99,11 @@ export class Game {
   private readonly CONFETTI_FADE_TICKS = 27; // last 30% of life
   private readonly CONFETTI_GRAVITY = 0.12;
 
+  // Kickoff pause (goal countdown): pulse ring around the engagement ball
+  private kickoffPauseActive: boolean = false;
+  private kickoffElapsed: number = 0;
+  private kickoffRing: Graphics;
+
   // Identity of the currently loaded tactic (for getTactic read-back)
   private currentTacticId: string = '';
   private currentTacticName: string = '';
@@ -132,6 +141,11 @@ export class Game {
     this.confettiContainer.eventMode = 'none';
     this.celebrationLayer.addChild(this.flashOverlay);
     this.celebrationLayer.addChild(this.confettiContainer);
+    // Kickoff pause ring (goal countdown): pulses around the ball riding the
+    // conceding keeper so the engagement reads clearly
+    this.kickoffRing = new Graphics();
+    this.kickoffRing.eventMode = 'none';
+    this.celebrationLayer.addChild(this.kickoffRing);
   }
 
   async init(container: HTMLElement): Promise<void> {
@@ -186,6 +200,10 @@ export class Game {
   private gameLoop(ticker: { deltaTime: number; deltaMS: number }): void {
     if (this.celebrationActive) {
       this.updateCelebration(ticker.deltaTime);
+    }
+
+    if (this.kickoffPauseActive) {
+      this.updateKickoffRing(ticker.deltaTime);
     }
 
     if (this.isPlaying && this.matchFrames.length > 0) {
@@ -246,20 +264,27 @@ export class Game {
   /**
    * Fire the goal events of one frame: onGoalScored for EVERY goal event
    * (the score counts them all), celebration visuals once per frame —
-   * deduped across re-applies (playback loop, step, seek).
+   * deduped across re-applies (playback loop, step, seek). The dedup also
+   * guards the goal-pause cycle (MatchPage freezes playback on the goal
+   * frame for the countdown): re-applying the same frame after the resume
+   * must not re-fire the callback or the goal celebration loops forever.
    */
   private handleFrameEvents(frameIndex: number, events: MatchFrameEvent[]): void {
     const isFirstApply = frameIndex !== this.lastCelebratedFrame;
+    if (isFirstApply) {
+      this.lastCelebratedFrame = frameIndex;
+    }
+    let celebrated = false;
     for (const event of events) {
       if (event.type !== 'goal') continue;
       const teamId = teamIdFromMatchTeam(event.team);
-      if (isFirstApply) {
+      if (isFirstApply && !celebrated) {
         this.triggerCelebration(teamId);
+        celebrated = true;
       }
-      this.callbacks.onGoalScored?.(teamId, event.scorerSlot);
-    }
-    if (isFirstApply) {
-      this.lastCelebratedFrame = frameIndex;
+      if (isFirstApply) {
+        this.callbacks.onGoalScored?.(teamId, event.scorerSlot, this.isPlaying);
+      }
     }
   }
 
@@ -356,6 +381,52 @@ export class Game {
     this.confettiParticles = [];
   }
 
+  // ==========================================================================
+  // Kickoff pause (goal countdown): the replay is frozen on the kickoff
+  // frame — teams in place, the conceding keeper holding the ball. Make the
+  // engagement readable: the ball nudges just off the keeper's feet toward
+  // the pitch center and a ring pulses around it.
+  // ==========================================================================
+
+  setKickoffPause(active: boolean): void {
+    if (this.kickoffPauseActive === active) return;
+    this.kickoffPauseActive = active;
+    if (active) {
+      this.kickoffElapsed = 0;
+      this.ballSprite?.setKickoffOffset(true);
+    } else {
+      this.kickoffRing.clear();
+      this.ballSprite?.setKickoffOffset(false);
+    }
+  }
+
+  private updateKickoffRing(deltaTime: number): void {
+    if (!this.ballSprite) return;
+    const x = this.ballSprite.container.x;
+    const y = this.ballSprite.container.y;
+    const pitch = computePitchRect(this.app.screen.width, this.app.screen.height);
+    const ballRadius = computeBallRadius(pitch.width);
+
+    this.kickoffElapsed += deltaTime;
+
+    if (this.prefersReducedMotion()) {
+      // Static halo instead of the pulse — the highlight stays, not the motion
+      this.kickoffRing.clear();
+      this.kickoffRing.circle(x, y, ballRadius * 2.2);
+      this.kickoffRing.stroke({ color: 0xffffff, width: 2, alpha: 0.7 });
+      return;
+    }
+
+    // Ripple: the ring grows and fades on a ~1s cycle
+    const phase = (this.kickoffElapsed % 60) / 60;
+    const radius = ballRadius * (1.6 + phase * 1.6);
+    this.kickoffRing.clear();
+    this.kickoffRing.circle(x, y, ballRadius * 2.4);
+    this.kickoffRing.fill({ color: 0xffffff, alpha: 0.12 });
+    this.kickoffRing.circle(x, y, radius);
+    this.kickoffRing.stroke({ color: 0xffffff, width: 2, alpha: 0.75 * (1 - phase) });
+  }
+
   loadTactic(tactic: TacticData): void {
     if (!this.isInitialized) {
       // Queue the tactic to load after initialization. Last-request-wins:
@@ -417,6 +488,7 @@ export class Game {
 
     this.matchFrames = frames;
     this.lastCelebratedFrame = -1;
+    this.setKickoffPause(false);
     this.resetCelebration();
     this.currentFrame = 0;
     // Autoplay (story 3.8, AC #1): playback starts from frame 0 immediately.
@@ -501,6 +573,7 @@ export class Game {
     this.ballSprite?.setVisible(false);
     this.matchFrames = [];
     this.lastCelebratedFrame = -1;
+    this.setKickoffPause(false);
     this.resetCelebration();
 
     // Remember the tactic identity for read-back
@@ -798,6 +871,16 @@ export class Game {
     this.isPlaying = false;
   }
 
+  /**
+   * Playback speed multiplier (story 7.7): 0.5x/1x/2x/4x from the timeline.
+   * Anything outside the shipped set falls back to 1x — a malformed call
+   * must never leave the loop multiplying frames unpredictably.
+   */
+  setSpeed(speed: number): void {
+    const allowed = [0.5, 1, 2, 4];
+    this.playbackSpeed = allowed.includes(speed) ? speed : 1;
+  }
+
   step(direction: 'forward' | 'backward'): void {
     this.isPlaying = false;
     if (this.matchFrames.length === 0) return;
@@ -867,6 +950,7 @@ export class Game {
 
   destroy(): void {
     try {
+      this.setKickoffPause(false);
       this.resetCelebration();
       this.field?.dispose();
       // Check if app was properly initialized before destroying

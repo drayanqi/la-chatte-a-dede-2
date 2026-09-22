@@ -2,9 +2,11 @@
  * Timeline - Contrôles de lecture et barre de progression (scrubber)
  * PROPRIÉTAIRE: Winston (Software Architect)
  *
- * Story 3.9: continuous drag scrubbing (pointer capture, one seek per
- * animation frame), mm:ss time display, ARIA slider and goal markers.
- * Click-to-seek and drag share a single seekFromClientX path.
+ * Story 7.7: the broadcast timeline (La Ronde tokens) — frame-step buttons
+ * (⏮/⏭ step one frame, not start/end jumps), speed cycling (0.5x/1x/2x/4x),
+ * sun goal ticks clickable to seek, mono frame counter. Scrubbing behavior
+ * from story 3.9 (pointer capture, one seek per animation frame, ARIA
+ * slider) is kept as-is.
  *
  * Display convention (review 2026-09-15, Pelo): elapsed time — position
  * shows (tick + 1) / 60 so scrubbing to the last frame reads 03:00 / 03:00.
@@ -22,32 +24,35 @@ export interface GoalTickMarker {
   team: MatchTeam;
 }
 
+/** Shipped playback speeds, in cycle order (story 7.7) */
+export const PLAYBACK_SPEEDS = [0.5, 1, 2, 4] as const;
+
 interface TimelineProps {
   isPlaying: boolean;
   currentFrame: number;
   totalFrames: number;
   goalTicks: GoalTickMarker[];
+  /** Speed changes reach the engine through the page's canvas handle */
+  onSpeedChange: (speed: number) => void;
   onPlay: () => void;
   onPause: () => void;
-  onStep: (direction: 'forward' | 'backward') => void;
   onSeek: (frame: number) => void;
+  /** Frame-step buttons: ±1 tick with the pause-then-step contract */
+  onStep: (direction: 'forward' | 'backward') => void;
 }
 
-/** Team colors (UX spec, Rocket League-inspired) — same hex as the engine's Player.ts */
-const TEAM_COLORS: Record<'home' | 'away', string> = {
-  home: '#ff6b1a',
-  away: '#1a8cff',
-};
+/** Sun goal ticks (S1 mockup): every goal marks the track, color-coded by team is deferred */
 
 export const Timeline: React.FC<TimelineProps> = ({
   isPlaying,
   currentFrame,
   totalFrames,
   goalTicks,
+  onSpeedChange,
   onPlay,
   onPause,
-  onStep,
   onSeek,
+  onStep,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -55,6 +60,10 @@ export const Timeline: React.FC<TimelineProps> = ({
   const pendingClientXRef = useRef<number | null>(null);
   const seekRafRef = useRef<number | null>(null);
   const [isFocused, setIsFocused] = useState(false);
+  // Playback speed (story 7.7): local label + engine multiplier pushed up.
+  // The component remounts with each replay (the page drops its replay on
+  // unmount), so every match starts back at 1x.
+  const [speed, setSpeed] = useState<number>(1);
 
   const maxFrame = Math.max(0, totalFrames - 1);
   // Elapsed-time position: (tick + 1) / total so the last frame lands at 100%
@@ -130,8 +139,8 @@ export const Timeline: React.FC<TimelineProps> = ({
   };
 
   // Slider keyboard support: Home/End. Arrows are NOT handled here — the
-  // global handler in AppShell owns them (stepping + preventDefault), so
-  // handling them here too would double-step while the slider has focus.
+  // page-level handler owns them (stepping + preventDefault), so handling
+  // them here too would double-step while the slider has focus.
   const handleSliderKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (totalFrames === 0) return;
     if (e.key === 'Home') {
@@ -143,21 +152,33 @@ export const Timeline: React.FC<TimelineProps> = ({
     }
   };
 
+  // A goal tick button must not trigger the track's scrub (its pointerdown
+  // would start a drag session and swallow the click)
+  const stopTrackPointer = (e: React.PointerEvent) => {
+    e.stopPropagation();
+  };
+
   return (
     <div style={styles.container}>
-      {/* Contrôles */}
+      {/* Frame step back / play / frame step forward */}
       <div style={styles.controls}>
         <button
-          style={styles.controlButton}
+          type="button"
+          style={styles.tpbtn}
+          data-testid="step-back-button"
+          aria-label="Reculer d'une frame"
+          title="Frame précédente"
+          disabled={totalFrames === 0 || currentFrame === 0}
           onClick={() => onStep('backward')}
-          disabled={currentFrame === 0}
         >
-          ⏮
+          ◂
         </button>
 
         <button
+          type="button"
           style={styles.playButton}
           data-testid="play-pause-button"
+          aria-label={isPlaying ? 'Mettre en pause' : 'Lire le replay'}
           onClick={isPlaying ? onPause : onPlay}
           disabled={totalFrames === 0}
         >
@@ -165,11 +186,15 @@ export const Timeline: React.FC<TimelineProps> = ({
         </button>
 
         <button
-          style={styles.controlButton}
+          type="button"
+          style={styles.tpbtn}
+          data-testid="step-forward-button"
+          aria-label="Avancer d'une frame"
+          title="Frame suivante"
+          disabled={totalFrames === 0 || currentFrame >= maxFrame}
           onClick={() => onStep('forward')}
-          disabled={currentFrame >= totalFrames - 1}
         >
-          ⏭
+          ▸
         </button>
       </div>
 
@@ -180,7 +205,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         <span style={styles.totalTime}>{formatTime(totalFrames)}</span>
       </div>
 
-      {/* Scrubber: ARIA slider + drag handle + goal markers */}
+      {/* Scrubber: ARIA slider + drag handle + clickable sun goal ticks */}
       <div
         ref={trackRef}
         data-testid="timeline-track"
@@ -204,13 +229,16 @@ export const Timeline: React.FC<TimelineProps> = ({
         <div style={styles.progressTrack}>
           <div style={{ ...styles.progressFill, width: `${progress}%` }} />
           {goalTicks.map((goal, i) => (
-            <div
+            <button
               key={`${goal.tick}-${i}`}
+              type="button"
               data-testid={`goal-marker-${i}`}
+              aria-label={`But ${teamIdFromMatchTeam(goal.team) === 'home' ? 'domicile' : 'extérieur'} — revenir à ${formatTime(goal.tick)}`}
+              onPointerDown={stopTrackPointer}
+              onClick={() => onSeek(goal.tick)}
               style={{
                 ...styles.goalMarker,
                 left: `${totalFrames > 0 ? ((goal.tick + 1) / totalFrames) * 100 : 0}%`,
-                backgroundColor: TEAM_COLORS[teamIdFromMatchTeam(goal.team)],
               }}
             />
           ))}
@@ -220,6 +248,23 @@ export const Timeline: React.FC<TimelineProps> = ({
           />
         </div>
       </div>
+
+      {/* Speed cycle (story 7.7): 0.5x → 1x → 2x → 4x → 0.5x */}
+      <button
+        type="button"
+        style={styles.speedButton}
+        data-testid="speed-button"
+        aria-label={`Vitesse de lecture : ${speed}x — cliquer pour changer`}
+        onClick={() => {
+          const index = PLAYBACK_SPEEDS.findIndex((value) => value === speed);
+          const next = PLAYBACK_SPEEDS[(index + 1) % PLAYBACK_SPEEDS.length] ?? 1;
+          setSpeed(next);
+          onSpeedChange(next);
+        }}
+        disabled={totalFrames === 0}
+      >
+        {speed.toString().replace('.', ',')}×
+      </button>
 
       {/* Frame counter */}
       <div style={styles.frameCounter} data-testid="frame-counter">
@@ -233,29 +278,32 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'flex',
     alignItems: 'center',
-    height: '48px',
-    padding: '0 16px',
+    height: '54px',
+    padding: '0 14px',
     backgroundColor: 'var(--panel)',
     borderTop: '1px solid var(--line)',
-    gap: '16px',
+    boxShadow: 'var(--shadow)',
+    gap: '14px',
+    flex: 'none',
   },
   controls: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
+    gap: '6px',
   },
-  controlButton: {
-    width: '32px',
-    height: '32px',
+  tpbtn: {
+    width: '36px',
+    height: '36px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    color: 'var(--muted)',
+    backgroundColor: 'var(--panel2)',
+    color: 'var(--ink)',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--r-btn)',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '13px',
   },
   playButton: {
     width: '40px',
@@ -268,11 +316,13 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: '50%',
     cursor: 'pointer',
-    fontSize: '16px',
+    fontSize: '15px',
+    boxShadow: '0 4px 14px rgba(255, 107, 87, 0.35)',
   },
   timeDisplay: {
     fontFamily: 'var(--mono)',
-    fontSize: '13px',
+    fontSize: '12px',
+    fontWeight: 700,
     color: 'var(--ink)',
     whiteSpace: 'nowrap',
   },
@@ -284,7 +334,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   progressContainer: {
     flex: 1,
-    height: '24px',
+    height: '28px',
     display: 'flex',
     alignItems: 'center',
     cursor: 'pointer',
@@ -298,9 +348,10 @@ const styles: Record<string, React.CSSProperties> = {
   progressTrack: {
     position: 'relative',
     width: '100%',
-    height: '4px',
-    backgroundColor: 'var(--line)',
-    borderRadius: '2px',
+    height: '9px',
+    backgroundColor: 'var(--panel2)',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
+    borderRadius: '5px',
   },
   progressFill: {
     position: 'absolute',
@@ -308,34 +359,58 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     height: '100%',
     backgroundColor: 'var(--corail)',
-    borderRadius: '2px',
+    borderRadius: '5px',
   },
   goalMarker: {
     position: 'absolute',
     top: '50%',
     transform: 'translate(-50%, -50%)',
-    width: '3px',
-    height: '10px',
-    borderRadius: '1px',
-    pointerEvents: 'none',
+    width: '15px',
+    height: '15px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--sun)',
+    border: '2px solid var(--panel)',
+    boxShadow: '0 1px 4px rgba(18, 36, 27, 0.3)',
+    padding: 0,
+    cursor: 'pointer',
     zIndex: 2,
   },
   progressHandle: {
     position: 'absolute',
     top: '50%',
     transform: 'translate(-50%, -50%)',
-    width: '12px',
-    height: '12px',
+    width: '14px',
+    height: '14px',
     backgroundColor: '#ffffff',
     borderRadius: '50%',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+    border: '2px solid var(--corail)',
+    boxShadow: '0 1px 3px rgba(18, 36, 27, 0.3)',
     zIndex: 3,
+    pointerEvents: 'none',
+  },
+  speedButton: {
+    minWidth: '44px',
+    height: '30px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'var(--panel2)',
+    color: 'var(--ink)',
+    border: 'none',
+    borderRadius: 'var(--r-btn)',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
+    cursor: 'pointer',
+    fontFamily: 'var(--mono)',
+    fontSize: '12px',
+    fontWeight: 700,
+    flex: 'none',
   },
   frameCounter: {
     fontFamily: 'var(--mono)',
     fontSize: '11px',
     color: 'var(--muted)',
-    minWidth: '120px',
+    minWidth: '128px',
     textAlign: 'right',
+    whiteSpace: 'nowrap',
   },
 };

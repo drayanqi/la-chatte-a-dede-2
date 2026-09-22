@@ -20,6 +20,7 @@ import {
   type TickOutcome,
 } from './ScriptRunner.js';
 import { SeededRandom } from './seededRandom.js';
+import { Telemetry, isShotOnTarget } from './Telemetry.js';
 import type {
   Frame,
   FrameEvent,
@@ -86,6 +87,11 @@ export class Simulation {
   private tick = 0;
   private currentEvents: FrameEvent[] = [];
   private currentLogs: FrameLog[] = [];
+  /**
+   * Telemetry (story 7.9): pure observation written at the routing points
+   * below, never read by decision logic — the determinism law is untouched.
+   */
+  private readonly telemetry = new Telemetry();
 
   constructor(payload: SimulatePayload, runner: ScriptRunner = new NoopScriptRunner()) {
     this.payload = payload;
@@ -124,6 +130,10 @@ export class Simulation {
     this.ball.step();
     // 6. Possession check (free-ball pickup or tackle) - every tick.
     this.checkPossession();
+    // 6b. Telemetry: possession tick for the ball's owner (story 7.9) —
+    // counted BEFORE the goal check so a scoring tick credits the play
+    // that produced it, not the kickoff reset that follows.
+    this.telemetry.recordPossessionTick(this.ball.owner, currentTick);
     // 7. Goal check (may trigger kickoff reset).
     this.checkGoal();
     // 8. Record frame.
@@ -145,6 +155,7 @@ export class Simulation {
       seed: this.payload.seed,
       total_frames: frames.length,
       result: { score_challenger, score_opponent, winner },
+      stats: this.telemetry.finalize(),
       frames,
     };
   }
@@ -219,6 +230,8 @@ export class Simulation {
         );
         player.state = 'moving';
         // Dribbling drags the ball along; possession is kept.
+        // (Story 7.9 law 2026-09-22: dribbles are NOT counted — carrying
+        // the ball is movement, already measured as distance.)
         if (this.isOwner(player)) {
           this.ball.x = player.x;
           this.ball.y = player.y;
@@ -228,7 +241,21 @@ export class Simulation {
       case 'shoot': {
         if (!this.isValidTarget(action.x, action.y)) break;
         player.state = 'action';
-        if (this.isOwner(player)) this.ball.shoot(action.x, action.y, action.power);
+        if (this.isOwner(player)) {
+          // Telemetry (shot law, 2026-09-22): on-target = TIR (the shot's
+          // DIRECT trajectory, friction, no rebounds, reaches the goal
+          // mouth); off-target = PASSE (resolved on the next possession).
+          // The goal event stays the outcome's truth (story 7.9).
+          const onTarget = isShotOnTarget(this.ball.x, this.ball.y, action.x, action.y, action.power);
+          this.telemetry.recordShot(player.team, player.slot, onTarget);
+          this.currentEvents.push({
+            type: 'shot',
+            team: player.team,
+            shooterSlot: player.slot,
+            onTarget,
+          });
+          this.ball.shoot(action.x, action.y, action.power);
+        }
         break;
       }
       case 'stop': {
@@ -252,6 +279,8 @@ export class Simulation {
     const dx = tx - player.x;
     const dy = ty - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
+    const fromX = player.x;
+    const fromY = player.y;
     if (dist <= speed) {
       player.x = tx;
       player.y = ty;
@@ -262,6 +291,10 @@ export class Simulation {
     // Players never leave the field; clamping also keeps a dribbled ball inside.
     player.x = Math.min(FIELD_WIDTH, Math.max(0, player.x));
     player.y = Math.min(FIELD_HEIGHT, Math.max(0, player.y));
+    // Telemetry (story 7.9): actual distance covered, clamps included.
+    const movedX = player.x - fromX;
+    const movedY = player.y - fromY;
+    this.telemetry.recordMove(player.team, player.slot, Math.sqrt(movedX * movedX + movedY * movedY));
   }
 
   private checkPossession(): void {
@@ -313,6 +346,10 @@ export class Simulation {
     }
     const winnerOwner: BallOwner = { slot: winner.slot, team: winner.team };
     this.ball.giveTo(winnerOwner);
+    // Telemetry: a camp change (and only a camp change — Pelo's law) is a
+    // turnover; teammate pickups and free starts return null (story 7.9).
+    const turnover = this.telemetry.registerGain(winnerOwner);
+    if (turnover !== null) this.currentEvents.push(turnover);
   }
 
   private checkGoal(): void {
@@ -350,6 +387,8 @@ export class Simulation {
    * lockouts cleared.
    */
   private kickoffTeam(team: Team): void {
+    // Telemetry: a kickoff is a restart, never a recovery (story 7.9).
+    this.telemetry.noteKickoff(team);
     for (const p of this.players) {
       p.x = p.initialX;
       p.y = p.initialY;

@@ -64,3 +64,27 @@ export function extractGoalTicks(frames: MatchFrame[]): GoalTick[] {
 
   return ticks;
 }
+
+/** One scored goal for the replay drawer lists (story 7.7) */
+export interface GoalEventEntry extends GoalTick {
+  /** Scorer's slot number, as written in the frame event */
+  scorerSlot: number;
+}
+
+/**
+ * Extract every goal with its scorer slot, keyed on array position — the
+ * same notion of tick as playback/seek. Pure; a malformed event is skipped,
+ * never a crash (same tolerance as extractLogs).
+ */
+export function extractGoalEvents(frames: MatchFrame[]): GoalEventEntry[] {
+  const goals: GoalEventEntry[] = [];
+
+  frames.forEach((frame, position) => {
+    for (const event of frame.events) {
+      if (!event || event.type !== 'goal') continue;
+      goals.push({ tick: position, team: event.team, scorerSlot: event.scorerSlot });
+    }
+  });
+
+  return goals;
+}

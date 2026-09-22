@@ -50,8 +50,8 @@ export interface TacticsCanvasProps {
     playing: boolean
   ) => void;
 
-  /** Callback quand un but est marqué dans les frames chargées */
-  onGoalScored?: (team: TeamId, scorerSlot: number) => void;
+  /** Callback quand un but est marqué dans les frames chargées (live = atteint en lecture) */
+  onGoalScored?: (team: TeamId, scorerSlot: number, live: boolean) => void;
 
   /** Callback quand la simulation est terminée */
   onSimulationComplete?: (result: SimulationResult) => void;
@@ -94,8 +94,18 @@ export interface TacticsCanvasHandle {
   /** Pause */
   pause: () => void;
 
+  /**
+   * Kickoff pause (goal countdown): freeze visuals on the engagement —
+   * ball nudged off the keeper's feet toward the center + pulsing ring.
+   * MatchPage drives it around the 3-2-1 countdown.
+   */
+  setKickoffPause: (active: boolean) => void;
+
   /** Avancer/reculer d'une frame */
   step: (direction: 'forward' | 'backward') => void;
+
+  /** Vitesse de lecture (story 7.7) : 0.5x / 1x / 2x / 4x */
+  setSpeed: (speed: number) => void;
 
   /** Tester si un joueur est sous les coordonnées données */
   hitTestPlayer: (screenX: number, screenY: number) => string | null;
@@ -169,8 +179,8 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         onFrameChanged: (frame, total, states, ball, playing) => {
           onFrameChanged?.(frame, total, states, ball, playing);
         },
-        onGoalScored: (team, scorerSlot) => {
-          onGoalScored?.(team, scorerSlot);
+        onGoalScored: (team, scorerSlot, live) => {
+          onGoalScored?.(team, scorerSlot, live);
         },
         onSimulationComplete: (result) => {
           onSimulationComplete?.(result);
@@ -257,8 +267,14 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
       pause: () => {
         gameRef.current?.pause();
       },
+      setKickoffPause: (active: boolean) => {
+        gameRef.current?.setKickoffPause(active);
+      },
       step: (direction: 'forward' | 'backward') => {
         gameRef.current?.step(direction);
+      },
+      setSpeed: (speed: number) => {
+        gameRef.current?.setSpeed(speed);
       },
       hitTestPlayer: (screenX: number, screenY: number) => {
         return gameRef.current?.hitTestPlayer(screenX, screenY) ?? null;

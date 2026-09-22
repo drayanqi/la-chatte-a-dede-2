@@ -1,11 +1,16 @@
 /**
- * LoginPage - User login page
+ * LoginPage - User login page (La Ronde identity, story 7.8)
  * OWNER: Dev Team
+ *
+ * Auth pages have no Appbar (unauthenticated routes): the acard carries the
+ * DD crest + wordmark itself. Error strings come from the auth store and
+ * are asserted verbatim by the e2e — never reword them here.
  */
 
 import { useState, FormEvent, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import watermarkUrl from '@/assets/watermark.png';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -35,8 +40,12 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div style={styles.container}>
-      <form style={styles.form} onSubmit={handleSubmit}>
-        <h1 style={styles.title}>Sign In</h1>
+      <form style={styles.card} onSubmit={handleSubmit}>
+        <div style={styles.crest}>
+          <img src={watermarkUrl} alt="DD" style={styles.crestMark} />
+          <span style={styles.crestName}>LACHATADEDE</span>
+        </div>
+        <h1 style={styles.title}>Connexion</h1>
 
         <div style={styles.inputGroup}>
           <label style={styles.label} htmlFor="email">
@@ -49,7 +58,7 @@ export const LoginPage: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             style={styles.input}
-            placeholder="Enter your email"
+            placeholder="ton@email.fr"
             autoComplete="email"
             required
           />
@@ -57,7 +66,7 @@ export const LoginPage: React.FC = () => {
 
         <div style={styles.inputGroup}>
           <label style={styles.label} htmlFor="password">
-            Password
+            Mot de passe
           </label>
           <input
             id="password"
@@ -66,13 +75,17 @@ export const LoginPage: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={styles.input}
-            placeholder="Enter your password"
+            placeholder="••••••••"
             autoComplete="current-password"
             required
           />
         </div>
 
-        {error && <div style={styles.error}>{error}</div>}
+        {error && (
+          <div style={styles.error} role="alert">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"
@@ -83,13 +96,13 @@ export const LoginPage: React.FC = () => {
           }}
           disabled={isLoading}
         >
-          {isLoading ? 'Signing In...' : 'Sign In'}
+          {isLoading ? 'Connexion...' : 'Se connecter'}
         </button>
 
         <p style={styles.linkText}>
-          Don't have an account?{' '}
+          Pas encore de compte ?{' '}
           <Link to="/register" style={styles.link}>
-            Create one
+            Crée le tien
           </Link>
         </p>
       </form>
@@ -99,8 +112,6 @@ export const LoginPage: React.FC = () => {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    backgroundColor: '#1e1e1e',
-    color: '#d4d4d4',
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
@@ -108,18 +119,39 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     padding: '20px',
   },
-  form: {
-    backgroundColor: '#252526',
-    border: '1px solid #3c3c3c',
-    borderRadius: '8px',
-    padding: '32px',
+  card: {
+    backgroundColor: 'var(--panel)',
+    border: '1px solid var(--line)',
+    borderRadius: '26px',
+    boxShadow: 'var(--shadow-lg)',
+    padding: '36px 32px',
     width: '100%',
     maxWidth: '400px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  crest: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '9px',
+    marginBottom: '18px',
+  },
+  crestMark: {
+    width: '30px',
+    height: '30px',
+    objectFit: 'contain',
+  },
+  crestName: {
+    fontSize: '15px',
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    color: 'var(--ink)',
   },
   title: {
-    color: '#ffffff',
+    color: 'var(--ink)',
     fontSize: '24px',
-    fontWeight: 600,
+    fontWeight: 800,
     marginBottom: '24px',
     textAlign: 'center',
   },
@@ -128,53 +160,58 @@ const styles: Record<string, React.CSSProperties> = {
   },
   label: {
     display: 'block',
-    color: '#d4d4d4',
-    fontSize: '14px',
+    color: 'var(--muted)',
+    fontSize: '13px',
+    fontWeight: 700,
     marginBottom: '6px',
   },
   input: {
-    backgroundColor: '#2d2d2d',
-    border: '1px solid #3c3c3c',
-    borderRadius: '4px',
-    color: '#d4d4d4',
-    padding: '10px 12px',
+    backgroundColor: 'var(--panel2)',
+    border: '1px solid var(--line)',
+    borderRadius: 'var(--r-sm)',
+    color: 'var(--ink)',
+    padding: '11px 13px',
     width: '100%',
     fontSize: '14px',
     boxSizing: 'border-box',
   },
   button: {
-    backgroundColor: '#007acc',
+    backgroundColor: 'var(--corail)',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--r-btn)',
     padding: '12px 20px',
     cursor: 'pointer',
     width: '100%',
     fontSize: '14px',
-    fontWeight: 500,
+    fontWeight: 800,
     marginTop: '8px',
+    boxShadow: 'var(--shadow)',
   },
   buttonDisabled: {
-    backgroundColor: '#4a4a4a',
+    opacity: 0.55,
     cursor: 'not-allowed',
   },
   error: {
-    color: '#f14c4c',
+    color: 'var(--corail)',
     fontSize: '13px',
+    fontWeight: 600,
     marginTop: '8px',
     marginBottom: '8px',
-    padding: '8px',
-    backgroundColor: 'rgba(241, 76, 76, 0.1)',
-    borderRadius: '4px',
+    padding: '9px 12px',
+    backgroundColor: 'rgba(255, 107, 87, 0.1)',
+    border: '1px solid rgba(255, 107, 87, 0.35)',
+    borderRadius: 'var(--r-sm)',
   },
   linkText: {
-    color: '#808080',
+    color: 'var(--muted)',
     fontSize: '13px',
     textAlign: 'center',
     marginTop: '16px',
   },
   link: {
-    color: '#007acc',
+    color: 'var(--corail)',
+    fontWeight: 700,
     textDecoration: 'none',
   },
 };

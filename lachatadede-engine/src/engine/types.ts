@@ -58,7 +58,29 @@ export interface GoalEvent {
   scorerSlot: number;
 }
 
-export type FrameEvent = GoalEvent;
+export interface ShotEvent {
+  type: 'shot';
+  team: Team;
+  shooterSlot: number;
+  /**
+   * Honest definition (story 7.9): the shot's DIRECT trajectory (velocity +
+   * friction, no rebounds) crosses a goal line inside the mouth before the
+   * ball stops. Deterministic projection computed at shoot time.
+   */
+  onTarget: boolean;
+}
+
+/** Pelo's law: a turnover is a CAMP change — a teammate pickup is never one. */
+export interface TurnoverEvent {
+  type: 'turnover';
+  /** Team that WON the ball */
+  team: Team;
+  takerSlot: number;
+  /** Team that lost it */
+  fromTeam: Team;
+}
+
+export type FrameEvent = GoalEvent | ShotEvent | TurnoverEvent;
 
 export interface Frame {
   index: number;
@@ -76,12 +98,50 @@ export interface SimulationResult {
   winner: Winner;
 }
 
+/** Per-team telemetry aggregates (story 7.9, law 2026-09-22) */
+export interface TeamStats {
+  /** Ticks where a player of this team owned the ball (engine truth) */
+  possessionTicks: number;
+  /**
+   * TIRS — Pelo's law: a shot IS an on-target kick. Off-target kicks are
+   * passes (they were aimed at a teammate, not the mouth).
+   */
+  shots: number;
+  /** Passes tentées: kicks whose direct trajectory misses the goal mouth */
+  passes: number;
+  /** Passes whose next possession stayed in the kicking team's camp */
+  passesCompleted: number;
+  /** Camp changes WON by this team (teammate pickups excluded) */
+  turnovers: number;
+}
+
+/** Per-player telemetry (array entries — deterministic order, never object keys) */
+export interface PlayerStats {
+  team: Team;
+  slot: number;
+  /** Distance covered in field units (1 unit = 1 m for display) */
+  distance: number;
+  /** On-target kicks by this player (tirs, Pelo's law) */
+  shots: number;
+}
+
+export interface MatchStats {
+  teams: { challenger: TeamStats; opponent: TeamStats };
+  players: PlayerStats[];
+  /**
+   * Challenger possession share (%) per 300-tick bin (5s). 36 bins for a
+   * full match; the drawer's sparkline + playhead derive from it.
+   */
+  possessionTimeline: number[];
+}
+
 /** Top-level JSON file format written to {output_path}/{match_id}.json */
 export interface SimulationFrameFile {
   match_id: string;
   seed: number;
   total_frames: number;
   result: SimulationResult;
+  stats: MatchStats;
   frames: Frame[];
 }
 
