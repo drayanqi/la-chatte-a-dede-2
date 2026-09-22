@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -103,7 +103,7 @@ development_status:
   7-5-teams-page: done
   7-6-play-page: review
   7-7-match-view: review
-  7-8-la-ronde-polish-cleanup: ready-for-dev
+  7-8-la-ronde-polish-cleanup: review
   epic-7-retrospective: optional
 
   epic-6-retrospective: optional
