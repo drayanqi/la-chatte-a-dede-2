@@ -35,31 +35,46 @@ function matchPayload(seed: number): SimulatePayload {
   };
 }
 
-describe('Easy Bot balance (AC #2, v1.6 baseline)', () => {
-  it('pins the StarterAI vs Easy Bot outcomes accepted at v1.6 speeds', async () => {
-    const results = [];
+describe('Easy Bot balance (AC #2, v1.7 baseline)', () => {
+  it('pins the StarterAI vs Easy Bot outcomes accepted at v1.7 speeds', async () => {
+    const files = [];
     for (const seed of SEEDS) {
       const file = await new Simulation(matchPayload(seed), new IsolatedScriptRunner(integrationRunnerOptions)).run();
-      results.push({ seed, ...file.result });
+      files.push({ seed, file });
     }
+    const results = files.map(({ seed, file }) => ({ seed, ...file.result }));
 
-    // Baseline re-pinned at game-rules.md v1.6 speeds (PLAYER_SPEED
-    // 1/1.8/1.1, MAX_BALL_SPEED 5/1.75 x 0.8 x 1.1), 2026-09-15. The v1.4
-    // baseline (Pelo, "it is ok": 98-0 walk-in metronomes on seeds 11/227,
-    // sterile draws elsewhere) collapsed at v1.5 and stays at v1.6: the
-    // slower players can no longer outrun the coverage, so every seed ends
-    // 0-0. These pins are a conscious baseline: any physics, bot-script, or
-    // starter-fixture change that shifts a score must re-pin them
-    // deliberately.
+    // Baseline re-pinned at game-rules.md v1.7 speeds (PLAYER_SPEED
+    // 1/1.8/1.1 x 0.7, MAX_BALL_SPEED 5/1.75 x 0.8 x 1.1 x 0.7, friction
+    // 1 - 0.05/1.2), 2026-09-22. The v1.4 baseline (Pelo, "it is ok": 98-0
+    // walk-in metronomes on seeds 11/227, sterile draws elsewhere) collapsed
+    // at v1.5 and stays 0-0 through v1.7: the slower players can no longer
+    // outrun the coverage, so every seed ends 0-0. These pins are a
+    // conscious baseline: any physics, bot-script, or starter-fixture change
+    // that shifts a score must re-pin them deliberately.
     const summary = results
       .map((r) => `seed ${r.seed}: ${r.score_challenger}-${r.score_opponent} (${r.winner})`)
       .join(', ');
-    expect(results, `v1.6 baseline drifted [${summary}]`).toEqual([
+    expect(results, `v1.7 baseline drifted [${summary}]`).toEqual([
       { seed: 11, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 227, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 3457, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 60221, score_challenger: 0, score_opponent: 0, winner: 'draw' },
       { seed: 987654, score_challenger: 0, score_opponent: 0, winner: 'draw' },
     ]);
+
+    // Liveness (deferred-work.md): 0-0 pins only mean "balanced" if the ball
+    // actually lives. Distinguish "players tuned slower" from "scoring is
+    // broken": every match must reach an attacking third at least once, and
+    // the five seeds together must produce at least one shot.
+    for (const { seed, file } of files) {
+      const reachedAttackingThird = file.frames.some((f) => f.ball.x > 65 || f.ball.x < 35);
+      expect(reachedAttackingThird, `seed ${seed}: ball never left the middle third`).toBe(true);
+    }
+    const totalShots = files.reduce(
+      (sum, { file }) => sum + file.stats.teams.challenger.shots + file.stats.teams.opponent.shots,
+      0,
+    );
+    expect(totalShots, `no shot across the 5 seeds [${summary}]`).toBeGreaterThan(0);
   }, 600_000);
 });

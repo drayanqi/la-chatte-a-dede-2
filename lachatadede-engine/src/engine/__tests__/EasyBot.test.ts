@@ -231,10 +231,10 @@ describe('Easy Bot behavior (AC #1)', () => {
     const shotFrames = frames.filter((frame, index) => {
       if (index === 0) return false;
       const previous = frames[index - 1] as Frame;
-      // A 0.45-power shot moves the ball ~1.03 in its first tick (v1.4
-      // speeds), clearly above the 0.8 gate — no run (0.667) or dribble
-      // (0.533) can reach it.
-      const spike = Math.hypot(frame.ball.x - previous.ball.x, frame.ball.y - previous.ball.y) >= 0.8;
+      // A 0.45-power shot moves the ball ~0.79 in its first tick (v1.7
+      // speeds), clearly above the 0.5 gate — no run (0.354) or dribble
+      // (0.283) can reach it.
+      const spike = Math.hypot(frame.ball.x - previous.ball.x, frame.ball.y - previous.ball.y) >= 0.5;
       const attackerShot = frame.players.some(
         (p) => p.team === 'opponent' && (p.slot === 4 || p.slot === 5) && p.state === 'action',
       );

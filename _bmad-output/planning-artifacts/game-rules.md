@@ -1,8 +1,8 @@
 # Regles du Jeu - Lachatadede
 
 > **Statut** : VALIDE par Pelo
-> **Date** : 2026-09-15
-> **Version** : 1.6 (v1.6 : joueurs encore 10% plus lents PLAYER_SPEED = 1/1.8/1.1 = 0.5051 ; v1.5 : joueurs 20% plus lents PLAYER_SPEED = 1/1.8, ballon 10% plus rapide MAX_BALL_SPEED = 5/1.75 x 0.8 x 1.1 = 2.5143 ; v1.4 vitesse Ballon encore reduite de 20% : MAX_BALL_SPEED = 5/1.75 x 0.8 = 2.2857 ; v1.3 PLAYER_SPEED = 1/1.5 et MAX_BALL_SPEED = 5/1.75)
+> **Date** : 2026-09-22
+> **Version** : 1.7 (v1.7 : joueurs et ballon 30% plus lents PLAYER_SPEED = 1/1.8/1.1 x 0.7 = 0.3536, MAX_BALL_SPEED = 5/1.75 x 0.8 x 1.1 x 0.7 = 1.7600, MIN_BALL_SPEED = 0.1 x 0.7 = 0.07, BALL_FRICTION assouplie 0.95 -> 1 - 0.05/1.2 = 0.9583 pour ~20% de distance de roulement en plus (42.24 unites au lieu de 35.2 a pleine puissance) — Pelo 2026-09-22 ; v1.6 : joueurs encore 10% plus lents PLAYER_SPEED = 1/1.8/1.1 = 0.5051, sign-off Pelo 2026-09-22 ; v1.5 : joueurs 20% plus lents PLAYER_SPEED = 1/1.8, ballon 10% plus rapide MAX_BALL_SPEED = 5/1.75 x 0.8 x 1.1 = 2.5143 ; v1.4 vitesse Ballon encore reduite de 20% : MAX_BALL_SPEED = 5/1.75 x 0.8 = 2.2857 ; v1.3 PLAYER_SPEED = 1/1.5 et MAX_BALL_SPEED = 5/1.75)
 
 ---
 
@@ -103,7 +103,7 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 
 | Parametre | Valeur |
 |-----------|--------|
-| Vitesse | Constante (PLAYER_SPEED = 0.5051 = 1 / 1.8 / 1.1) |
+| Vitesse | Constante (PLAYER_SPEED = 0.3536 = 1 / 1.8 / 1.1 x 0.7) |
 | Vitesse du porteur (dribble) | **0.80 x PLAYER_SPEED** (CARRIER_SPEED_MULTIPLIER) |
 | Collisions entre joueurs | **Non** (se traversent) |
 | Acceleration | Non (vitesse immediate) |
@@ -112,9 +112,9 @@ Les regles sont simplifiees pour favoriser le fun et la strategie algorithmique.
 
 | Parametre | Valeur |
 |-----------|--------|
-| Vitesse max | MAX_BALL_SPEED = 2.5143 = 5.0 / 1.75 x 0.8 x 1.1 |
-| Friction | 0.95 par tick |
-| Vitesse min | 0.1 (en dessous = arret) |
+| Vitesse max | MAX_BALL_SPEED = 1.7600 = 5.0 / 1.75 x 0.8 x 1.1 x 0.7 |
+| Friction | 0.9583 par tick (v1.7 : 1 - 0.05/1.2, roulement ~20% plus long qu'a 0.95) |
+| Vitesse min | 0.07 (en dessous = arret) |
 | Rebonds | Oui (bords et lignes de but) |
 | Hauteur | Non (2D pur, toujours au sol) |
 
@@ -206,14 +206,14 @@ const GAME_RULES = {
   CENTER_Y: 25,
 
   // Joueurs
-  PLAYER_SPEED: 0.5051,             // 1 / 1.8 / 1.1 (v1.6, signature en attente — voir deferred-work.md)
+  PLAYER_SPEED: 0.3536,             // 1 / 1.8 / 1.1 x 0.7 (v1.7, signe par Pelo 2026-09-22)
   CARRIER_SPEED_MULTIPLIER: 0.80,   // vitesse du porteur (dribble)
   PLAYERS_PER_TEAM: 5,
 
   // Ballon
-  MAX_BALL_SPEED: 2.5143,           // 5.0 / 1.75 x 0.8 x 1.1 (v1.6, signature en attente — voir deferred-work.md)
-  BALL_FRICTION: 0.95,
-  MIN_BALL_SPEED: 0.1,
+  MAX_BALL_SPEED: 1.7600,           // 5.0 / 1.75 x 0.8 x 1.1 x 0.7 (v1.7, signe par Pelo 2026-09-22)
+  BALL_FRICTION: 0.9583,            // 1 - 0.05/1.2 (v1.7, roulement ~20% plus long qu'a 0.95)
+  MIN_BALL_SPEED: 0.07,             // 0.1 x 0.7 (v1.7, homothetie des trajectoires)
   COLLISION_RADIUS: 2.0,
   POSSESSION_LOCKOUT_TICKS: 180,    // 3s apres un tacle (180 x 1/60 s)
 

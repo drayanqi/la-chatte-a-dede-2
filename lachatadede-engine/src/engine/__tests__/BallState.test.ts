@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BallState } from '../BallState.js';
-import { MAX_BALL_SPEED } from '../constants.js';
+import { BALL_FRICTION, MAX_BALL_SPEED, MIN_BALL_SPEED } from '../constants.js';
 
 describe('BallState - friction (game-rules.md)', () => {
-  it('applies friction 0.95 per tick: 5.0 -> 4.75 -> 4.5125 -> ...', () => {
+  it(`applies friction ${BALL_FRICTION.toFixed(4)} per tick (v1.7: 1 - 0.05/1.2)`, () => {
     const ball = new BallState(50, 25);
     ball.vx = 5.0;
     ball.vy = 0;
@@ -12,12 +12,12 @@ describe('BallState - friction (game-rules.md)', () => {
       ball.step();
       speeds.push(Math.hypot(ball.vx, ball.vy));
     }
-    expect(speeds[0]).toBeCloseTo(4.75, 12);
-    expect(speeds[1]).toBeCloseTo(4.5125, 12);
-    expect(speeds[2]).toBeCloseTo(4.75 * 0.95 * 0.95, 12);
+    expect(speeds[0]).toBeCloseTo(5.0 * BALL_FRICTION, 12);
+    expect(speeds[1]).toBeCloseTo(5.0 * BALL_FRICTION * BALL_FRICTION, 12);
+    expect(speeds[2]).toBeCloseTo(5.0 * BALL_FRICTION * BALL_FRICTION * BALL_FRICTION, 12);
   });
 
-  it('stops the ball when speed drops below MIN_BALL_SPEED (0.1)', () => {
+  it('stops the ball when speed drops below MIN_BALL_SPEED (0.07)', () => {
     const ball = new BallState(50, 25);
     ball.vx = 0.15;
     ball.vy = 0;
@@ -29,7 +29,7 @@ describe('BallState - friction (game-rules.md)', () => {
       lastSpeed = speed;
     }
     expect(Math.hypot(ball.vx, ball.vy)).toBe(0);
-    expect(lastSpeed).toBeGreaterThanOrEqual(0.1);
+    expect(lastSpeed).toBeGreaterThanOrEqual(MIN_BALL_SPEED);
   });
 });
 
@@ -41,8 +41,8 @@ describe('BallState - edge rebounds (game-rules.md)', () => {
     ball.step();
     expect(ball.y).toBe(0.1);
     expect(ball.x).toBe(53);
-    expect(ball.vy).toBeCloseTo(1.9, 12); // reflected, then friction applied
-    expect(ball.vx).toBeCloseTo(2.85, 12); // friction, sign preserved
+    expect(ball.vy).toBeCloseTo(2 * BALL_FRICTION, 12); // reflected, then friction applied
+    expect(ball.vx).toBeCloseTo(3 * BALL_FRICTION, 12); // friction, sign preserved
   });
 
   it('side edge y=50: position clamped to 49.9 inside, vy reflected', () => {
@@ -61,8 +61,8 @@ describe('BallState - edge rebounds (game-rules.md)', () => {
     ball.step();
     expect(ball.x).toBe(99.9);
     expect(ball.y).toBe(11);
-    expect(ball.vx).toBeCloseTo(-0.95, 12);
-    expect(ball.vy).toBeCloseTo(0.95, 12);
+    expect(ball.vx).toBeCloseTo(-BALL_FRICTION, 12);
+    expect(ball.vy).toBeCloseTo(BALL_FRICTION, 12);
   });
 
   it('goal line x=0 outside goal mouth: position clamped to 0.1 inside, vx reflected', () => {

@@ -266,10 +266,10 @@ describe('Simulation - goals and kickoff reset', () => {
     const sim = new Simulation(makeGoalTestPayload());
 
     // challenger scores -> conceding team (opponent) kicks off. The ball
-    // starts at x=60: a full-power shot travels ~45.7 units under friction
-    // (v1.4), which must still carry it across the x=100 goal line.
+    // starts at x=70: a full-power shot travels ~42.2 units under friction
+    // (v1.7), which must still carry it across the x=100 goal line.
     sim.ball.giveTo({ slot: 5, team: 'challenger' });
-    sim.ball.x = 60;
+    sim.ball.x = 70;
     sim.ball.y = 25;
     sim.ball.shoot(200, 25);
     let frame = sim.stepTick();
@@ -329,7 +329,7 @@ describe('Simulation - possession', () => {
     sim.stepTick();
 
     expect(sim.ball.owner).toBeNull(); // not re-granted to the shooter
-    expect(sim.ball.x).toBeCloseTo(32.514285714285714, 9); // ball flew (30 + MAX_BALL_SPEED)
+    expect(sim.ball.x).toBeCloseTo(31.76, 9); // ball flew (30 + MAX_BALL_SPEED)
   });
 
   it('the releaser cannot re-collect a dropped ball while within COLLISION_RADIUS', () => {
@@ -380,14 +380,17 @@ describe('Simulation - possession', () => {
     sim.ball.y = 5; // challenger slot 1 stands on the ball, slot 2 starts at (10,5)
 
     sim.stepTick();
-    expect(sim.ball.owner).toBeNull(); // dropped; slot 2 still 4.44 away
+    expect(sim.ball.owner).toBeNull(); // dropped; slot 2 still 4.65 away
+    sim.stepTick();
+    sim.stepTick();
+    sim.stepTick();
     sim.stepTick();
     sim.stepTick();
     sim.stepTick();
     sim.stepTick();
     sim.stepTick();
 
-    expect(sim.ball.owner).toEqual({ slot: 2, team: 'challenger' }); // stolen inside 2.0 (6 ticks at PLAYER_SPEED 1/1.8/1.1)
+    expect(sim.ball.owner).toEqual({ slot: 2, team: 'challenger' }); // stolen inside 2.0 (9 ticks at PLAYER_SPEED 1/1.8/1.1 x 0.7)
     expect(sim.ball.releasedBy).toBeNull();
   });
 });
@@ -466,11 +469,11 @@ describe('Simulation - tackles (game-rules.md v1.1)', () => {
         return { actions: [], logs: [] };
       }
     }
-    // The tackler starts out of tackle range (2.5, one PLAYER_SPEED step
-    // inside 2.0) and resets to (33,25) after the goal, so the post-kickoff
-    // pickup below has a single candidate.
+    // The tackler starts out of tackle range (2.3, one PLAYER_SPEED step
+    // inside 2.0 at v1.7) and resets to (32.3,25) after the goal, so the
+    // post-kickoff pickup below has a single candidate.
     const payload = makeGoalTestPayload();
-    payload.opponent.players[4] = { slot: 5, x: 32.5, y: 25, script: '' };
+    payload.opponent.players[4] = { slot: 5, x: 32.3, y: 25, script: '' };
     const sim = new Simulation(payload, new TackleThenShootRunner());
     sim.ball.giveTo({ slot: 5, team: 'challenger' });
     sim.ball.x = 30;
@@ -513,8 +516,8 @@ describe('Simulation - tackles (game-rules.md v1.1)', () => {
       }
     }
     const payload = makeGoalTestPayload();
-    // 6.0 from the ball: even closing at PLAYER_SPEED (0.5051/tick) the
-    // defender stays >2.0 from the landing spot (32.514), so he cannot
+    // 6.0 from the ball: even closing at PLAYER_SPEED (0.3535/tick at v1.7)
+    // the defender stays >2.0 from the landing spot (31.76), so he cannot
     // intercept the just-struck ball.
     payload.opponent.players[4] = { slot: 5, x: 36, y: 25, script: '' };
     const sim = new Simulation(payload, new ShootRunner());
@@ -528,10 +531,11 @@ describe('Simulation - tackles (game-rules.md v1.1)', () => {
     // flies out of reach on the shoot tick; the defender closing toward the
     // release point cannot block, only intercept at the ball's landing spot.
     expect(sim.ball.owner).toBeNull();
-    expect(sim.ball.x).toBeCloseTo(32.514285714285714, 9); // 30 + MAX_BALL_SPEED (full power), toward (200,25)
+    expect(sim.ball.x).toBeCloseTo(31.76, 9); // 30 + MAX_BALL_SPEED (full power), toward (200,25)
     // Story 7.9: the shot event is telemetry — exactly one, honest verdict.
-    // From x=30 the full-power ball travels ~48.6 units (friction law) and
-    // stops around x=78.6, short of the line: OFF target, like the flight.
+    // From x=30 the full-power ball travels ~40.7 units (friction law v1.7,
+    // MIN_BALL_SPEED cutoff included) and stops around x=70.7, short of the
+    // line: OFF target, like the flight.
     expect(frame.events).toHaveLength(1);
     expect(frame.events[0]).toEqual({
       type: 'shot',
@@ -552,9 +556,9 @@ describe('Simulation - action application', () => {
 
     const slot1 = frame.players[0] as NonNullable<(typeof frame.players)[number]>;
     expect(slot1.state).toBe('moving');
-    // challenger slot 1 moves from (5,25) toward (10,10) at PLAYER_SPEED 1/1.8/1.1
-    expect(slot1.x).toBeCloseTo(5.159710992937797, 9);
-    expect(slot1.y).toBeCloseTo(24.52086702118661, 9);
+    // challenger slot 1 moves from (5,25) toward (10,10) at PLAYER_SPEED (v1.7: 1/1.8/1.1 x 0.7)
+    expect(slot1.x).toBeCloseTo(5.111797695056458, 9);
+    expect(slot1.y).toBeCloseTo(24.664606914830626, 9);
     const slot2 = frame.players[1] as NonNullable<(typeof frame.players)[number]>;
     expect(slot2.state).toBe('action');
     expect(slot2.x).toBe(20); // stop does not move
@@ -597,7 +601,7 @@ describe('Simulation - action application', () => {
     const frame = sim.stepTick();
 
     expect(sim.ball.owner).toEqual({ slot: 3, team: 'challenger' });
-    expect(sim.ball.x).toBeCloseTo(20.404040404040405, 9); // moved 0.404 (carrier speed) toward (30,25)
+    expect(sim.ball.x).toBeCloseTo(20.282828282828285, 9); // moved 0.283 (carrier speed v1.7: 0.8 x PLAYER_SPEED) toward (30,25)
     const slot3 = frame.players[2] as NonNullable<(typeof frame.players)[number]>;
     expect(slot3.state).toBe('moving');
     expect(frame.ball.x).toBe(sim.ball.x);
@@ -622,12 +626,12 @@ describe('Simulation - action application', () => {
     const f0 = sim.stepTick();
     expect(sim.ball.owner).toBeNull();
     expect(f0.players[4]?.state).toBe('action');
-    expect(f0.ball.x).toBeCloseTo(32.514285714285714, 9); // 30 + power(1) * MAX_BALL_SPEED (5/1.75 x 0.8 x 1.1)
-    // friction applied in the same tick: (5/1.75 x 0.8 x 1.1) * 0.95
-    expect(Math.hypot(sim.ball.vx, sim.ball.vy)).toBeCloseTo(2.3885714285714286, 12);
+    expect(f0.ball.x).toBeCloseTo(31.76, 9); // 30 + power(1) * MAX_BALL_SPEED (5/1.75 x 0.8 x 1.1 x 0.7)
+    // friction applied in the same tick: (5/1.75 x 0.8 x 1.1 x 0.7) * (1 - 0.05/1.2)
+    expect(Math.hypot(sim.ball.vx, sim.ball.vy)).toBeCloseTo(1.6866666666666667, 12);
 
     sim.stepTick();
-    expect(sim.ball.x).toBeCloseTo(34.90285714285714, 9); // 32.514 + 2.389
+    expect(sim.ball.x).toBeCloseTo(33.446666666666665, 9); // 31.76 + 1.687
   });
 
   it('shoot velocity scales with power (velocity = power x MAX_BALL_SPEED)', () => {
@@ -648,7 +652,7 @@ describe('Simulation - action application', () => {
 
     sim.stepTick();
     expect(sim.ball.owner).toBeNull();
-    expect(sim.ball.x).toBeCloseTo(31.257142857142857, 9); // 30 + 0.5 * (5/1.75 x 0.8 x 1.1)
+    expect(sim.ball.x).toBeCloseTo(30.88, 9); // 30 + 0.5 * (5/1.75 x 0.8 x 1.1 x 0.7)
   });
 });
 
@@ -783,14 +787,14 @@ function update(game) {
 describe('Simulation - telemetry (story 7.9)', () => {
   /**
    * The kickoff team's keeper dribbles toward the opposing goal mouth, then
-   * shoots from close range. Dribble range matters: with BALL_FRICTION 0.95
-   * a full-power shot travels ~48.6 units, so an honest on-target shot must
-   * be taken from inside that range (the friction law is the point).
+   * shoots from close range. Dribble range matters: with the v1.7 friction
+   * law a full-power shot travels ~42.2 units, so an honest on-target shot
+   * must be taken from inside that range (the friction law is the point).
    */
   class DribbleThenShootRunner implements ScriptRunner {
     constructor(
       private readonly shooterTeam: Team,
-      private readonly shootTick = 229,
+      private readonly shootTick = 320,
     ) {}
     prepare(): void {}
     runTick(tick: number): TickOutcome {
@@ -821,9 +825,9 @@ describe('Simulation - telemetry (story 7.9)', () => {
       new DribbleThenShootRunner(kickoff),
     ).run();
 
-    // The keeper carried the ball to the edge of the mouth (ticks 0..228,
-    // owned the whole way) and shot on tick 229
-    const shotFrame = file.frames[229];
+    // The keeper carried the ball to the edge of the mouth (ticks 0..319,
+    // owned the whole way) and shot on tick 320
+    const shotFrame = file.frames[320];
     const shotEvent = shotFrame?.events.find((e) => e.type === 'shot');
     expect(shotEvent).toEqual({
       type: 'shot',
@@ -841,8 +845,8 @@ describe('Simulation - telemetry (story 7.9)', () => {
     // carry shows up as distance only
     const keeper = file.stats.players.find((p) => p.team === kickoff && p.slot === 1);
     expect(keeper?.distance).toBeGreaterThan(85);
-    // Possession: owned ticks 0..228 (the shot tick releases the ball)
-    expect(file.stats.teams[kickoff].possessionTicks).toBe(229);
+    // Possession: owned ticks 0..319 (the shot tick releases the ball)
+    expect(file.stats.teams[kickoff].possessionTicks).toBe(320);
   });
 
   it('emits a stats block consistent with a full chasing match', async () => {

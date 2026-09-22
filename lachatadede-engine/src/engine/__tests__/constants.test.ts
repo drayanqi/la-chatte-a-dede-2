@@ -28,7 +28,7 @@ import {
 
 /**
  * Exact values copied from game-rules.md (authoritative, validated by Pelo,
- * v1.3 2026-09-15). Any change to these numbers must be reflected in
+ * v1.7 2026-09-22). Any change to these numbers must be reflected in
  * game-rules.md first.
  */
 describe('game constants', () => {
@@ -53,12 +53,12 @@ describe('game constants', () => {
   });
 
   it('players and ball physics', () => {
-    expect(PLAYER_SPEED).toBe(1 / 1.8 / 1.1);
+    expect(PLAYER_SPEED).toBe((1 / 1.8 / 1.1) * 0.7);
     expect(CARRIER_SPEED_MULTIPLIER).toBe(0.8);
     expect(PLAYERS_PER_TEAM).toBe(5);
-    expect(MAX_BALL_SPEED).toBe((5 / 1.75) * 0.8 * 1.1);
-    expect(BALL_FRICTION).toBe(0.95);
-    expect(MIN_BALL_SPEED).toBe(0.1);
+    expect(MAX_BALL_SPEED).toBe((5 / 1.75) * 0.8 * 1.1 * 0.7);
+    expect(BALL_FRICTION).toBe(1 - 0.05 / 1.2);
+    expect(MIN_BALL_SPEED).toBe(0.07);
     expect(COLLISION_RADIUS).toBe(2.0);
     expect(POSSESSION_LOCKOUT_TICKS).toBe(180);
     expect(POSSESSION_LOCKOUT_TICKS).toBe(3 * 60);

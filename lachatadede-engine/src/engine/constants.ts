@@ -1,10 +1,15 @@
-// Game constants - copied EXACTLY from game-rules.md (authoritative, validated by Pelo 2026-01-19).
+// Game constants - copied EXACTLY from game-rules.md (authoritative, validated by Pelo 2026-09-22).
 // Any change to these values must happen in game-rules.md first. v1.3
 // (2026-09-15): PLAYER_SPEED divided by 1.5, MAX_BALL_SPEED by 1.75; v1.4
 // (2026-09-15): MAX_BALL_SPEED reduced by a further 20% (Pelo); v1.5
 // (2026-09-15): PLAYER_SPEED divided by a further 1.2 (20% slower players),
 // MAX_BALL_SPEED multiplied by 1.1 (10% faster ball); v1.6 (2026-09-15):
-// PLAYER_SPEED divided by a further 1.1 (10% slower players).
+// PLAYER_SPEED divided by a further 1.1 (10% slower players); v1.7
+// (2026-09-22): PLAYER_SPEED and MAX_BALL_SPEED multiplied by 0.7 (30%
+// slower players and ball, Pelo), MIN_BALL_SPEED scaled to 0.07 so ball
+// trajectories are an exact 0.7 homothety of v1.6, BALL_FRICTION relaxed
+// from 0.95 to 1 - 0.05/1.2 (0.9583) so the ball rolls ~20% farther
+// (full-power shot: 42.24 units instead of 35.2, Pelo).
 
 // Duration
 export const MATCH_DURATION_SECONDS = 180; // 3 minutes
@@ -25,14 +30,14 @@ export const CENTER_X = 50;
 export const CENTER_Y = 25;
 
 // Players
-export const PLAYER_SPEED = 1 / 1.8 / 1.1; // 0.5051 units/tick (v1.6)
+export const PLAYER_SPEED = (1 / 1.8 / 1.1) * 0.7; // 0.3535 units/tick (v1.7)
 export const CARRIER_SPEED_MULTIPLIER = 0.8; // dribble speed while carrying the ball
 export const PLAYERS_PER_TEAM = 5;
 
 // Ball
-export const MAX_BALL_SPEED = (5 / 1.75) * 0.8 * 1.1; // 2.5143 units/tick (v1.5)
-export const BALL_FRICTION = 0.95;
-export const MIN_BALL_SPEED = 0.1;
+export const MAX_BALL_SPEED = (5 / 1.75) * 0.8 * 1.1 * 0.7; // 1.7600 units/tick (v1.7)
+export const BALL_FRICTION = 1 - 0.05 / 1.2; // 0.9583 per tick (v1.7): rolls ~20% farther than 0.95
+export const MIN_BALL_SPEED = 0.07;
 export const COLLISION_RADIUS = 2.0;
 // A tackled player cannot take (or tackle) any ball for 3 s (180 ticks).
 export const POSSESSION_LOCKOUT_TICKS = 180;
