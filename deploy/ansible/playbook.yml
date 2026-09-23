@@ -226,9 +226,14 @@
         direction: outgoing
         policy: allow
 
-    - name: Limit OpenSSH (rate-limited at the firewall)
+    # Plain allow, NOT limit: ufw's limit module drops the 7th new connection
+    # inside a 30s window per source IP — and CI deploys burst 5+ SSH sessions
+    # in seconds (drone-scp opens one per shipped file), so the deploy's next
+    # dial was silently black-holed mid-job (dial tcp:22 i/o timeout). Brute
+    # force is fail2ban's job (below); key-only auth is the second gate.
+    - name: Allow OpenSSH (fail2ban handles rate limiting)
       community.general.ufw:
-        rule: limit
+        rule: allow
         port: '22'
         proto: tcp
 
