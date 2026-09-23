@@ -14,11 +14,4 @@ return new class extends Migration
             $table->string('crest', 8)->nullable();
         });
     }
-
-    public function down(): void
-    {
-        Schema::table('tactics', function (Blueprint $table) {
-            $table->dropColumn(['color_primary', 'color_secondary', 'crest']);
-        });
-    }
 };

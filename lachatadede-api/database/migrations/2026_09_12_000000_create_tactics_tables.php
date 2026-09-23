@@ -37,10 +37,4 @@ return new class extends Migration
             $table->unique(['tactic_id', 'player_slot']);
         });
     }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('tactic_player');
-        Schema::dropIfExists('tactics');
-    }
 };

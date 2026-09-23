@@ -33,7 +33,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-21
-last_updated: 2026-09-22
+last_updated: 2026-09-23
 project: lachatadede
 tracking_system: file-system
 story_location: /Users/hugo/perso/lachatadede/_bmad-output/implementation-artifacts
@@ -48,7 +48,7 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: AI Development Workspace
-  epic-2: in-progress
+  epic-2: done
   2-1-create-and-list-ai-files: done
   2-2-monaco-editor-integration: done
   2-3-save-ai-file-changes: done
@@ -60,7 +60,7 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: Practice Mode & Match Experience
-  epic-3: in-progress
+  epic-3: done
   3-1-tactics-data-model-and-api: done
   3-2-team-lineup-configuration-ui: done
   3-3-game-engine-core-deterministic-simulation: done
@@ -76,7 +76,7 @@ development_status:
 
   # Epic 4: Ranked Competition & Leaderboard (rewritten 2026-09-19 — party-mode v2:
   # tactics as ranked fighters, queue removed; old 4-1 file kept as SUPERSEDED)
-  epic-4: in-progress
+  epic-4: done
   4-1-ranked-queue-and-matchmaking: done
   4-1-ready-tactics-and-queue-removal: done
   4-2-ranked-match-engine: done
@@ -87,23 +87,25 @@ development_status:
 
   # Epic 6: Production Deployment on Infomaniak VPS (planned 2026-09-20 — party-mode;
   # story order: 6.1 → 6.2 → 6.3 → 6.4 → 6.5, 6.1 independent of the VPS)
-  epic-6: backlog
-  6-1-forward-only-migrations-and-project-guidelines: backlog
-  6-2-vps-ordered-and-provisioned: backlog
-  6-3-ci-builds-to-ghcr-and-vps-pulls: backlog
-  6-4-https-with-lets-encrypt: backlog
-  6-5-database-backups-and-operations-runbook: backlog
+  # Stories created 2026-09-23 (create-story, all 5)
+  epic-6: in-progress
+  6-1-forward-only-migrations-and-project-guidelines: done
+  6-2-vps-ordered-and-provisioned: ready-for-dev
+  6-3-ci-builds-to-ghcr-and-vps-pulls: ready-for-dev
+  6-4-https-with-lets-encrypt: ready-for-dev
+  6-5-database-backups-and-operations-runbook: ready-for-dev
+  epic-6-retrospective: optional
+
   # Epic 7: La Ronde UI Refonte — Play, Équipes & Match (design final v4;
   # stories created 2026-09-21 from epics.md, source of truth: stadium-mockup-prototype-ronde-v4.html)
-  epic-7: in-progress
+  epic-7: done
   7-1-design-tokens-and-app-shell-la-ronde: done
   7-2-navigation-and-three-routes: done
   7-3-canvas-habillage: done
   7-4-team-customization: done
   7-5-teams-page: done
-  7-6-play-page: review
-  7-7-match-view: review
-  7-8-la-ronde-polish-cleanup: review
+  7-6-play-page: done
+  7-7-match-view: done
+  7-8-la-ronde-polish-cleanup: done
   epic-7-retrospective: optional
 
-  epic-6-retrospective: optional

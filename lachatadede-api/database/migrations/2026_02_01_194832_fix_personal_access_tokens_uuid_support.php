@@ -22,16 +22,4 @@ return new class extends Migration
             $table->index(['tokenable_type', 'tokenable_id']);
         });
     }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::table('personal_access_tokens', function (Blueprint $table) {
-            $table->dropIndex(['tokenable_type', 'tokenable_id']);
-            $table->unsignedBigInteger('tokenable_id')->change();
-            $table->index(['tokenable_type', 'tokenable_id']);
-        });
-    }
 };

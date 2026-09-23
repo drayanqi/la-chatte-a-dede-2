@@ -18,11 +18,4 @@ return new class extends Migration
             $table->boolean('is_valid')->default(false);
         });
     }
-
-    public function down(): void
-    {
-        Schema::table('scripts', function (Blueprint $table) {
-            $table->dropColumn('is_valid');
-        });
-    }
 };

@@ -35,29 +35,4 @@ return new class extends Migration
             $table->integer('points_opponent')->nullable()->change();
         });
     }
-
-    public function down(): void
-    {
-        Schema::table('matches', function (Blueprint $table) {
-            $table->unsignedInteger('points_challenger')->nullable()->change();
-            $table->unsignedInteger('points_opponent')->nullable()->change();
-        });
-
-        Schema::create('matchmaking_queue', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->unique()->constrained('users')->onDelete('cascade');
-            $table->foreignUuid('tactic_id')->constrained('tactics')->onDelete('cascade');
-            $table->integer('rating');
-            $table->enum('status', ['waiting', 'matched', 'cancelled', 'expired'])->default('waiting');
-            $table->index(['status', 'joined_at']);
-            $table->foreignUuid('match_id')->nullable()->constrained('matches')->nullOnDelete();
-            $table->timestamp('joined_at')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::table('tactics', function (Blueprint $table) {
-            $table->dropIndex(['is_ready', 'elo']);
-            $table->dropColumn(['is_ready', 'elo', 'wins', 'losses']);
-        });
-    }
 };

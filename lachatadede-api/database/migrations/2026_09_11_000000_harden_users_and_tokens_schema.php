@@ -31,17 +31,4 @@ return new class extends Migration
             $table->uuid('user_id')->nullable()->change();
         });
     }
-
-    public function down(): void
-    {
-        if (Schema::hasIndex('users', 'users_username_unique')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropUnique('users_username_unique');
-            });
-        }
-
-        Schema::table('sessions', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->change();
-        });
-    }
 };
