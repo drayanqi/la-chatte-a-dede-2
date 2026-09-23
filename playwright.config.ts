@@ -85,6 +85,9 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120 * 1000, // 2 min for backend startup
       env: {
+        // Test-only key (safe to commit): CI has no lachatadede-api/.env and
+        // the stateful Sanctum flow sets session cookies → encrypter needed.
+        APP_KEY: 'base64:5w5CoLJ3wgf0+mTDnAoac9DW10i8ScBiIDtfrLea0f8=',
         // E2E creates many users per minute; keep the auth rate limiter open
         AUTH_THROTTLE_MAX: '1000',
         DB_DATABASE: 'database/e2e.sqlite',
