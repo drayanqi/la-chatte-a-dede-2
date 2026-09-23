@@ -69,7 +69,7 @@ So that accounts and tokens never cross the wire in cleartext.
 
 **Epic context:** HTTPS and nightly + pre-migrate DB backups are the two "in-epic" production necessities (Epic 6 implementation note). AC order mirrors the epics file. This story assumes 6.2 (box, ufw 80/443 open, playbook) and 6.3 (image pipeline, compose with ghcr images) are done.
 
-**Why host certbot, not a certbot container:** one less container to orchestrate; Debian 12's `certbot` apt package ships with the renewal systemd timer and hook directories; webroot mode keeps nginx in the serving path (no port juggling during renewal). The reload hook is the only glue — `nginx -s reload` inside the container picks up renewed certs with zero downtime.
+**Why host certbot, not a certbot container:** one less container to orchestrate; Debian 13's `certbot` apt package ships with the renewal systemd timer and hook directories; webroot mode keeps nginx in the serving path (no port juggling during renewal). The reload hook is the only glue — `nginx -s reload` inside the container picks up renewed certs with zero downtime.
 
 **The two-phase deploy, explained:** `ssl_certificate` pointing at a missing file makes nginx exit at config test → the container crash-loops → the deploy health check fails. Phase A exists solely so the ACME challenge is servable while the cert doesn't exist yet. After issuance, phase B is safe. Both conf versions live in this story's git history; there is no third conf.
 

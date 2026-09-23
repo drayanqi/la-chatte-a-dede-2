@@ -1107,14 +1107,14 @@ The full app — frontend, Laravel API, Node game engine, MySQL — ships automa
 
 **User Outcome:** Anyone can open https://venanciohugo.fr, register, and play ranked matches against real deployed code; shipping is a `git push` and rollback is one command.
 
-**Implementation note (decisions locked with Pelo — party session 2026-09-20):**
-- Box: Infomaniak **VPS Lite 2GB** (Debian, Geneva), fresh IP, domain unchanged (`venanciohugo.fr`).
+**Implementation note (decisions locked with Pelo — party session 2026-09-20; corrected 2026-09-23):**
+- Box: Infomaniak **VPS, 4 GB RAM** (Debian 13, Geneva), fresh IP, domain unchanged (`venanciohugo.fr`). *2026-09-23: Pelo's actual order is 4 GB / Debian 13, not the 2 GB / Debian 12 locked on 2026-09-20 — MySQL sizing in 6.3 updated accordingly; the 2 GB swapfile stays (still appropriate on 4 GB).*
 - Pipeline: **build in CI → GHCR → pull on VPS**. Nothing is built on the VPS (kills the current build-on-the-box design). No Docker Hub.
 - Full app = 4 services: `web` (nginx + Vite build baked in), `api` (Laravel PHP-FPM), `engine` (Node, `isolated-vm`), `mysql` — current deploy scripts never start `node`; fixed here.
 - In-epic: HTTPS (Let's Encrypt) and nightly + pre-migrate DB backups.
 - Deploy gate: full E2E suite green on `main` (kept from `test.yml` Stage 6).
 - Migrations become **forward-only**: every `down()` removed; the law lives in `lachatadede-api/AGENTS.md`.
-- 2GB mitigations: 2GB swapfile, tuned MySQL, registry-based deploys, dumps (VPS Lite has no provider snapshots).
+- Low-RAM mitigations (4 GB box): 2GB swapfile, tuned MySQL (4 GB sizing), registry-based deploys, dumps (VPS Lite has no provider snapshots).
 
 **Story order:** 6.1 → 6.2 → 6.3 → 6.4 → 6.5 (6.1 is independent of the VPS and ships immediately).
 
@@ -1148,11 +1148,11 @@ So that the schema only ever moves forward and "undo" is an ops action (previous
 
 As the operator,
 I want the fresh Infomaniak VPS hardened and reproducible from the repo via Ansible,
-So that the deploy target is secure, tuned for 2GB, and rebuildable from scratch.
+So that the deploy target is secure, tuned for its 4 GB box, and rebuildable from scratch.
 
 **Acceptance Criteria:**
 
-**Given** Pelo ordered the VPS Lite 2GB (Debian 12, Geneva) and added a deploy SSH key at the Infomaniak console
+**Given** Pelo ordered a 4 GB Infomaniak VPS (Debian 13, Geneva) and added a deploy SSH key at the Infomaniak console
 **When** `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml` runs against the new IP
 **Then** it completes without errors
 
@@ -1194,7 +1194,7 @@ So that new code reaches production with zero manual steps — and a bad build r
 **Given** `deploy/docker-compose.yml`
 **When** reviewed
 **Then** services reference `ghcr.io/...` images (no `build:` in the production compose)
-**And** MySQL is tuned for 2GB (`innodb_buffer_pool_size=128M`, `max_connections=50`)
+**And** MySQL is tuned for the 4 GB box (`innodb_buffer_pool_size=512M`, `max_connections=100`)
 **And** vestigial mounts and the unused Docker Hub login are gone
 
 **Given** the old deploy path

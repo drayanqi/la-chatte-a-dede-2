@@ -16,7 +16,7 @@ So that new code reaches production with zero manual steps — and a bad build r
 
 1. **Given** a push to `main` with lint/unit/backend/E2E green, **When** deploy (Stage 6 of `test.yml`) runs, **Then** CI builds three images and pushes them to GHCR with tags `latest` and `sha-<sha>`: `api` (Dockerfile.api, production target), `web` (new multi-stage Dockerfile.web: Vite build baked into nginx — no more scp), `engine` (Dockerfile.node).
 2. **Given** the deploy step on the VPS, **When** it executes, **Then** it logs into ghcr.io (PAT, read:packages), runs `docker compose pull`, `docker compose up -d` for **all four services** (nginx, laravel, node, mysql — `node` is finally started), runs a pre-migrate `mysqldump`, then `php artisan migrate --force`, caches config/routes, and passes a health check.
-3. **Given** `deploy/docker-compose.yml`, **When** reviewed, **Then** services reference `ghcr.io/...` images (no `build:` in the production compose) **And** MySQL is tuned for 2GB (`innodb_buffer_pool_size=128M`, `max_connections=50`) **And** vestigial mounts and the unused Docker Hub login are gone.
+3. **Given** `deploy/docker-compose.yml`, **When** reviewed, **Then** services reference `ghcr.io/...` images (no `build:` in the production compose) **And** MySQL is tuned for the 4 GB box (`innodb_buffer_pool_size=512M`, `max_connections=100`) **And** vestigial mounts and the unused Docker Hub login are gone.
 4. **Given** the old deploy path, **When** reviewed, **Then** the frontend scp step, the on-VPS `docker compose build`, and the manual `deploy.yml` are deleted (one pipeline, no drift).
 5. **Given** a completed deploy, **When** I open the site, **Then** the game loads and a new user can register and log in through the UI. (TLS note: 6.3 verification runs over `http://venanciohugo.fr`; `https://` becomes true when 6.4 lands — the AC text describes the epic-end state.)
 6. **Given** a bad release, **When** the previous `sha-*` image tags are redeployed, **Then** the app returns to that build (rollback = previous images + forward fix, not `down()`).
@@ -88,7 +88,7 @@ So that new code reaches production with zero manual steps — and a bad build r
 - `nginx` mounts `../frontend-dist:/var/www/html/frontend:ro` (scp'd build) and `../lachatadede-api/public:/var/www/html/api/public:ro` + shares `laravel_vendor` named volume — all vestigial once images are self-contained
 - `node` service exists but nothing ever starts it (deploy script starts only mysql → nginx+laravel)
 - **Latent frames bug you must fix, not carry over (verified in code):** `GameEngineService` sends `'output_path' => storage_path('simulations')` — the LARAVEL container path `/var/www/html/storage/simulations` — and the engine writes to that literal path (`simulate.ts` does `path.join(payload.output_path, …)`), returning the same literal path which Laravel re-reads via `storage_path('simulations/'.basename($file))`. The shared dir must therefore be mounted at `/var/www/html/storage` in BOTH containers. Today's engine mount (`../lachatadede-api/storage:/app/storage`) would make the engine `mkdir` its own `/var/www/html/storage` inside the container filesystem, "succeed", and leave Laravel reading nothing — masked until now only because production never started `node`.
-- MySQL has zero tuning (default buffer pool swallows the 2GB box) — AC 3 fixes with command flags
+- MySQL has zero tuning (default buffer pool wastes the 4GB box's capacity while other services need headroom) — AC 3 fixes with command flags
 - Engine image runs as `USER node` (uid 1000) and writes frames to the storage mount — the host `storage/` dir (ansible 6.2, owner debian uid 1000) must be writable by both uid 1000 (engine ✓) and www-data (laravel logs — NOT writable at 755; hence the writability note in Task 2.3)
 
 **GHCR specifics:**
@@ -107,7 +107,7 @@ So that new code reaches production with zero manual steps — and a bad build r
 
 **Rollback design (AC 6):** `IMAGE_TAG` interpolation in the compose image refs means rollback = `IMAGE_TAG=sha-<old> docker compose pull && docker compose up -d`. No rebuild, no git, no `down()` — the forward-only law (6.1) makes schema reversals "previous image + forward fix"; document exactly that.
 
-**MySQL 2GB tuning rationale:** box has 2GB RAM + 2GB swap (6.2). `innodb_buffer_pool_size=128M` + `max_connections=50` leaves headroom for php-fpm, the engine (isolated-vm spikes), and the OS. Do not "improve" the numbers — they were locked with Pelo (epics implementation note).
+**MySQL 4GB tuning rationale (corrected 2026-09-23 — box is 4 GB RAM + 2 GB swap, story 6.2; the original 2 GB sizing was locked before the real plan was known):** `innodb_buffer_pool_size=512M` (~13% of RAM) + `max_connections=100` leave headroom for php-fpm, the engine (isolated-vm spikes), and the OS. Still conservative — do not raise without re-checking engine memory behavior.
 
 **Version pins:** keep `appleboy/ssh-action@v1.0.3` + `appleboy/scp-action@v0.1.7` (in use, known-working with this secrets flow); add build tooling at current stable (`docker/setup-buildx-action@v3`, `docker/login-action@v3`, `docker/build-push-action@v6`) — verify latest at implementation time; Node 24 everywhere (`.nvmrc`, CI env, Dockerfile.node base — keep `node:24-alpine` in Dockerfile.web's build stage).
 
@@ -121,7 +121,7 @@ So that new code reaches production with zero manual steps — and a bad build r
 ### References
 
 - [Source: _bmad-output/planning-artifacts/epics.md#Story-6.3-CI-Builds-Images-to-GHCR-VPS-Pulls-Runs-All-Four-Services] (ACs verbatim)
-- [Source: _bmad-output/planning-artifacts/epics.md#Epic-6] (pipeline decision, 4 services, 2GB mitigations, "current deploy scripts never start node")
+- [Source: _bmad-output/planning-artifacts/epics.md#Epic-6] (pipeline decision, 4 services, 4GB box mitigations, "current deploy scripts never start node")
 - [Source: .github/workflows/test.yml#Stage-6] (current deploy job being replaced)
 - [Source: .github/workflows/deploy.yml] (manual duplicate — delete)
 - [Source: deploy/docker-compose.yml] (vestigial mounts, build: blocks, untuned mysql)
