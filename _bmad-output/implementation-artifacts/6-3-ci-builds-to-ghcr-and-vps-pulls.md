@@ -4,7 +4,7 @@ baseline_commit: a4bf3f89a8dac6bb9aee6239155645138f1f2cd3
 
 # Story 6.3: CI Builds Images to GHCR, VPS Pulls & Runs All Four Services
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -34,32 +34,32 @@ So that new code reaches production with zero manual steps — and a bad build r
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `deploy/docker/Dockerfile.web` (AC: 1)
-  - [ ] 1.1 Multi-stage: `node:24-alpine` build stage (`npm ci`, `npm run build` — which is `tsc -b && vite build`, output `dist/`), then `nginx:alpine` final stage: `COPY --from=build /app/dist /usr/share/nginx/html` + `COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf`
-  - [ ] 1.2 Build context = repo root (frontend + conf live at root level). Create a root `.dockerignore` (new file — none exists) excluding: `node_modules`, `dist`, `test-results`, `coverage`, `lachatadede-api`, `lachatadede-engine`, `_bmad*`, `docs`, `.git`, `deploy/ansible`, `playwright-report`, `raw`, `pitch-preview.png` — **keep `deploy/nginx/` IN the context** (Dockerfile.web COPYs `deploy/nginx/default.conf`)
-- [ ] Task 2: Rewrite `deploy/docker-compose.yml` to registry images (AC: 3, 6)
-  - [ ] 2.1 Image refs: `ghcr.io/drayanqi/la-chatte-a-dede-2/api:${IMAGE_TAG:-latest}`, `.../web:${IMAGE_TAG:-latest}`, `.../engine:${IMAGE_TAG:-latest}` (lowercase required by GHCR); `mysql:8.0` unchanged; all tags share `IMAGE_TAG` so rollback is one variable
-  - [ ] 2.2 Remove ALL `build:` blocks and the `laravel_vendor` volume + `../frontend-dist` + `../lachatadede-api/public` mounts (vendor and dist are baked into images now)
-  - [ ] 2.3 Storage: keep bind mounts but rebase to the deploy dir — laravel: `/home/debian/lachatadede/storage:/var/www/html/storage` (+ bootstrap/cache: make it a named volume `laravel_bootstrap` — the host no longer has a repo checkout), engine: **`/home/debian/lachatadede/storage:/var/www/html/storage` — the SAME container path as laravel, NOT `/app/storage`** (reason in Dev Notes: the engine writes frames to the literal `output_path` Laravel sends, which is Laravel's `/var/www/html/storage/simulations`; today's `/app/storage` mount is a latent bug that would break every match). Host dir created by ansible 6.2; make it writable by container uids www-data(33) + node(1000) — `chmod 777` on that one dir is acceptable on this single-tenant box, document the tradeoff in a comment
-  - [ ] 2.4 mysql command tuning: `command: --innodb-buffer-pool-size=128M --max-connections=50` (keep healthcheck as-is)
-  - [ ] 2.5 Keep: service names (nginx/laravel/node/mysql — the deploy AC and local overlay reference them), network `lachatadede_net`, `restart: unless-stopped`, all environment vars (incl. `GAME_ENGINE_URL=http://node:3001`), mysql healthcheck + `depends_on` conditions
-- [ ] Task 3: Rewrite Stage 6 `deploy` job in `.github/workflows/test.yml` (AC: 1, 2, 4)
-  - [ ] 3.1 Job-level `permissions: contents: read, packages: write`; keep trigger (`github.ref == 'refs/heads/main' && github.event_name == 'push'`) and `needs: [e2e-tests]`
-  - [ ] 3.2 DELETE steps: Setup Node, npm ci, `npm run build`, "Clone or update repository on VPS", "Copy frontend build to VPS" (scp of dist) — the web image builds the frontend inside Docker
-  - [ ] 3.3 Build+push steps: `docker/setup-buildx-action`, `docker/login-action` (registry ghcr.io, `${{ github.actor }}` / `${{ secrets.GITHUB_TOKEN }}`), then three `docker/build-push-action` runs: api (`context: lachatadede-api`, `file: deploy/docker/Dockerfile.api`, `target: production`), web (`context: .`, `file: deploy/docker/Dockerfile.web`), engine (`context: lachatadede-engine`, `file: deploy/docker/Dockerfile.node`, `target: production`); tags per image: `ghcr.io/drayanqi/la-chatte-a-dede-2/<name>:latest` + `:sha-<short-sha>` (`${{ github.sha }}` — use the full or short sha consistently with the rollback docs)
-  - [ ] 3.4 scp step: `appleboy/scp-action` ships `deploy/docker-compose.yml` + `deploy/.env.example` → `/home/debian/lachatadede/deploy/` (infra artifact only — NOT dist, NOT the repo)
-  - [ ] 3.5 SSH deploy script (`appleboy/ssh-action`, envs: `GHCR_PAT, DB_PASSWORD, DB_ROOT_PASSWORD, APP_KEY`): ghcr login (`echo "$GHCR_PAT" | docker login ghcr.io -u <github-username> --password-stdin`, credsStore disable kept), one-time `.env` bootstrap from `.env.example` + secrets merge (existing sed flow, minus Docker Hub), `docker compose pull`, `docker compose up -d` (ALL FOUR services — node finally starts), mysql-ready wait (existing `mysqladmin ping` timeout loop), pre-migrate dump (`mkdir -p /home/debian/lachatadede/backups && docker compose exec -T mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD"' | gzip > /home/debian/lachatadede/backups/pre-migrate-$(date +%Y%m%d-%H%M%S).sql.gz`), `php artisan migrate --force` with the existing 3-attempt retry, `config:cache` + `route:cache` (+ `view:cache` as today), health check `curl -f http://localhost/health` (nginx static 200 — upgraded to `/api/health` in 6.5), `docker compose ps`
-  - [ ] 3.6 Delete `.github/workflows/deploy.yml` entirely (AC 4)
-- [ ] Task 4: GitHub secrets (AC: 1, 2)
-  - [ ] 4.1 Add `GHCR_PAT` (classic PAT, `read:packages`, owner = the GitHub username used in the VPS login step); document creation in `docs/ci-secrets-checklist.md` (full rewrite deferred to 6.5 — one-line note now)
-  - [ ] 4.2 `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` become unused → note them for removal in the 6.5 secrets list (they can be deleted from GitHub at 6.5)
+- [x] Task 1: Create `deploy/docker/Dockerfile.web` (AC: 1)
+  - [x] 1.1 Multi-stage: `node:24-alpine` build stage (`npm ci`, `npm run build` — which is `tsc -b && vite build`, output `dist/`), then `nginx:alpine` final stage: `COPY --from=build /app/dist /usr/share/nginx/html` + `COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf`
+  - [x] 1.2 Build context = repo root (frontend + conf live at root level). Create a root `.dockerignore` (new file — none exists) excluding: `node_modules`, `dist`, `test-results`, `coverage`, `lachatadede-api`, `lachatadede-engine`, `_bmad*`, `docs`, `.git`, `deploy/ansible`, `playwright-report`, `raw`, `pitch-preview.png` — **keep `deploy/nginx/` IN the context** (Dockerfile.web COPYs `deploy/nginx/default.conf`)
+- [x] Task 2: Rewrite `deploy/docker-compose.yml` to registry images (AC: 3, 6)
+  - [x] 2.1 Image refs: `ghcr.io/drayanqi/la-chatte-a-dede-2/api:${IMAGE_TAG:-latest}`, `.../web:${IMAGE_TAG:-latest}`, `.../engine:${IMAGE_TAG:-latest}` (lowercase required by GHCR); `mysql:8.0` unchanged; all tags share `IMAGE_TAG` so rollback is one variable
+  - [x] 2.2 Remove ALL `build:` blocks and the `laravel_vendor` volume + `../frontend-dist` + `../lachatadede-api/public` mounts (vendor and dist are baked into images now)
+  - [x] 2.3 Storage: keep bind mounts but rebase to the deploy dir — laravel: `/home/debian/lachatadede/storage:/var/www/html/storage` (+ bootstrap/cache: make it a named volume `laravel_bootstrap` — the host no longer has a repo checkout), engine: **`/home/debian/lachatadede/storage:/var/www/html/storage` — the SAME container path as laravel, NOT `/app/storage`** (reason in Dev Notes: the engine writes frames to the literal `output_path` Laravel sends, which is Laravel's `/var/www/html/storage/simulations`; today's `/app/storage` mount is a latent bug that would break every match). Host dir created by ansible 6.2; make it writable by container uids www-data(33) + node(1000) — `chmod 777` on that one dir is acceptable on this single-tenant box, document the tradeoff in a comment
+  - [x] 2.4 mysql command tuning: `command: --innodb-buffer-pool-size=128M --max-connections=50` (keep healthcheck as-as) → implemented as **512M/100** per AC 3 + Dev Notes correction (2026-09-23, 4 GB box); see Completion Notes
+  - [x] 2.5 Keep: service names (nginx/laravel/node/mysql — the deploy AC and local overlay reference them), network `lachatadede_net`, `restart: unless-stopped`, all environment vars (incl. `GAME_ENGINE_URL=http://node:3001`), mysql healthcheck + `depends_on` conditions
+- [x] Task 3: Rewrite Stage 6 `deploy` job in `.github/workflows/test.yml` (AC: 1, 2, 4)
+  - [x] 3.1 Job-level `permissions: contents: read, packages: write`; keep trigger (`github.ref == 'refs/heads/main' && github.event_name == 'push'`) and `needs: [e2e-tests]`
+  - [x] 3.2 DELETE steps: Setup Node, npm ci, `npm run build`, "Clone or update repository on VPS", "Copy frontend build to VPS" (scp of dist) — the web image builds the frontend inside Docker
+  - [x] 3.3 Build+push steps: `docker/setup-buildx-action`, `docker/login-action` (registry ghcr.io, `${{ github.actor }}` / `${{ secrets.GITHUB_TOKEN }}`), then three `docker/build-push-action` runs: api (`context: lachatadede-api`, `file: deploy/docker/Dockerfile.api`, `target: production`), web (`context: .`, `file: deploy/docker/Dockerfile.web`), engine (`context: lachatadede-engine`, `file: deploy/docker/Dockerfile.node`, `target: production`); tags per image: `ghcr.io/drayanqi/la-chatte-a-dede-2/<name>:latest` + `:sha-<short-sha>` (`${{ github.sha }}` — use the full or short sha consistently with the rollback docs)
+  - [x] 3.4 scp step: `appleboy/scp-action` ships `deploy/docker-compose.yml` + `deploy/.env.example` → `/home/debian/lachatadede/deploy/` (infra artifact only — NOT dist, NOT the repo)
+  - [x] 3.5 SSH deploy script (`appleboy/ssh-action`, envs: `GHCR_PAT, DB_PASSWORD, DB_ROOT_PASSWORD, APP_KEY`): ghcr login (`echo "$GHCR_PAT" | docker login ghcr.io -u <github-username> --password-stdin`, credsStore disable kept), one-time `.env` bootstrap from `.env.example` + secrets merge (existing sed flow, minus Docker Hub), `docker compose pull`, `docker compose up -d` (ALL FOUR services — node finally starts), mysql-ready wait (existing `mysqladmin ping` timeout loop), pre-migrate dump (`mkdir -p /home/debian/lachatadede/backups && docker compose exec -T mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD"' | gzip > /home/debian/lachatadede/backups/pre-migrate-$(date +%Y%m%d-%H%M%S).sql.gz`), `php artisan migrate --force` with the existing 3-attempt retry, `config:cache` + `route:cache` (+ `view:cache` as today), health check `curl -f http://localhost/health` (nginx static 200 — upgraded to `/api/health` in 6.5), `docker compose ps`
+  - [x] 3.6 Delete `.github/workflows/deploy.yml` entirely (AC 4)
+- [x] Task 4: GitHub secrets (AC: 1, 2)
+  - [x] 4.1 Add `GHCR_PAT` (classic PAT, `read:packages`, owner = the GitHub username used in the VPS login step); document creation in `docs/ci-secrets-checklist.md` (full rewrite deferred to 6.5 — one-line note now) — note added; **the secret itself must be created by Pelo before the first deploy** (human step, see Completion Notes)
+  - [x] 4.2 `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` become unused → note them for removal in the 6.5 secrets list (they can be deleted from GitHub at 6.5)
 - [ ] Task 5: Deploy to production and verify (AC: 2, 5)
   - [ ] 5.1 Merge to main, watch the pipeline: lint → unit → backend → E2E (4 shards) → deploy
   - [ ] 5.2 On the box: `docker compose ps` shows 4 services Up; `curl -f http://localhost/health` OK from SSH; engine reachable (`curl -f http://localhost:3001/health` INSIDE the network — `docker compose exec laravel curl http://node:3001/health` or logs show no crash loop)
   - [ ] 5.3 From a browser: `http://venanciohugo.fr` loads the game; register a fresh user; log in; create a script + tactic and launch a **practice match** end-to-end — this exercises web→api→mysql AND api→engine→frames read-back; after it completes, `/home/debian/lachatadede/storage/simulations/` on the HOST contains the new `*.json` (proves the shared storage mount + output_path contract) and the replay plays in the UI
   - [ ] 5.4 Backups dir shows a fresh `pre-migrate-*.sql.gz` after the deploy
-- [ ] Task 6: Verify rollback path (AC: 6)
-  - [ ] 6.1 Document the one-command rollback in `docs/DEPLOYMENT.md` (Manual Deployment section): `ssh` → `cd /home/debian/lachatadede/deploy` → `IMAGE_TAG=sha-<previous> docker compose up -d` (pull happens because image tags change; add `docker compose pull` for safety)
+- [x] Task 6: Verify rollback path (AC: 6)
+  - [x] 6.1 Document the one-command rollback in `docs/DEPLOYMENT.md` (Manual Deployment section): `ssh` → `cd /home/debian/lachatadede/deploy` → `IMAGE_TAG=sha-<previous> docker compose up -d` (pull happens because image tags change; add `docker compose pull` for safety)
   - [ ] 6.2 Dry-run it once: redeploy the current `sha-<previous>` tag and confirm services come back (no schema change involved — safe exercise)
 
 ## Verification
@@ -134,8 +134,45 @@ So that new code reaches production with zero manual steps — and a bad build r
 
 ### Agent Model Used
 
+euria-code (infomaniak/euria-code) — BMAD gds-dev-story, 2026-09-23
+
 ### Debug Log References
+
+- **Local verification suite (all green, 2026-09-23):**
+  - `docker-compose -f deploy/docker-compose.yml config` → exit 0; resolved output confirmed: 3× `ghcr.io/drayanqi/la-chatte-a-dede-2/{api,web,engine}:${IMAGE_TAG:-latest}`, zero `build:` keys, `mysql:8.0` + `command: --innodb-buffer-pool-size=512M --max-connections=100`, laravel `laravel_bootstrap` volume at `/var/www/html/bootstrap/cache`, no `frontend-dist`/`laravel_vendor`/`/app/storage` remnants.
+  - `docker-compose -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml config` → exit 0 (local overlay still resolves; merge semantics confirmed: overlay adds `build:` to image-services and overrides the nginx conf volume with `local.conf`).
+  - `grep -rn "dockerhub\|DOCKERHUB" .github/ deploy/` → zero matches.
+  - `.github/workflows/test.yml` YAML parses (`yq`); git diff = single hunk at line 335 (Stage 6 only — stages 1–5 untouched); deploy job has `permissions: contents: read, packages: write`, `needs: [e2e-tests]`, trigger kept, 9 steps.
+  - `npm run build` (the exact command of Dockerfile.web's build stage: `tsc -b && vite build`) → green, produces `dist/index.html` + `assets/`.
+- **Environment limitation:** no usable local Docker daemon — colima fails to boot (`error starting vm: exit status 1`), no Docker Desktop socket, and the only reachable daemon is an SSH work context (untouched). The actual `docker build` of `Dockerfile.web` therefore runs for the first time inside the CI deploy job. Static verification substituted: nginx conf `root /var/www/html/frontend` == `COPY --from=build /app/dist /var/www/html/frontend` in the Dockerfile; `deploy/nginx/` confirmed present in build context (not excluded by `.dockerignore`); all COPY inputs exist at repo root.
 
 ### Completion Notes List
 
+- **Implemented Tasks 1–4 and 6.1.** Tasks 5.1–5.4 and 6.2 remain open — they require production actions only Pelo can do (GHCR_PAT secret, ansible re-run, merge to main, VPS SSH + browser verification, rollback dry-run). Runbook in the final report / DEPLOYMENT.md.
+- **Deliberate deviation on 2.4 (mysql sizing):** task text said 128M/50 (stale 2 GB-box sizing); AC 3 and the Dev Notes correction dated 2026-09-23 explicitly size for the real 4 GB box → implemented `--innodb-buffer-pool-size=512M --max-connections=100`. AC + corrected Dev Notes are authoritative; story line annotated.
+- **Dockerfile.web dist path:** used the Dev Notes-preferred option — dist copied to `/var/www/html/frontend` (the path `deploy/nginx/default.conf` serves), keeping the conf byte-identical so the local overlay and 6.4 diffs stay minimal. Subtask 1.1's literal `/usr/share/nginx/html` text superseded by Dev Notes ("prefer the latter").
+- **Ansible playbook touched (not in story's Untouched list):** `storage/` mode 0755 → 0777 with tradeoff comment. Required because the bind mount replaces the container's whole `/var/www/html/storage`: www-data (33) must create `logs/` and `framework/` beside the engine's `simulations/` (engine mkdirs simulations itself, uid 1000 = owner debian, www-data only reads frames). **Pelo must re-run the playbook once before the first registry deploy** (idempotent; noted in DEPLOYMENT.md Automatic Deployments).
+- **Latent frames bug fixed** per Dev Notes: engine mounts the host storage at `/var/www/html/storage` — same container path as laravel, matching the literal `output_path` (`storage_path('simulations')`) Laravel sends and re-reads.
+- **`laravel_bootstrap` named volume** for `/var/www/html/bootstrap/cache` (host no longer has a repo checkout; named volume seeds from the image, www-data-owned, so `config:cache` keeps working).
+- **GHCR flow:** CI pushes with the workflow's own `GITHUB_TOKEN` (`packages: write`, job-level); tags `latest` + `sha-<full 40-char github.sha>` on all three images. VPS login uses `GHCR_PAT` (classic PAT, `read:packages`) with the `credsStore` disable hack retargeted to ghcr.io; login username `drayanqi` (repo/PAT owner, per Task 4.1's "owner = the GitHub username used in the VPS login step").
+- **Deploy script (Task 3.5) kept from the old flow:** one-time `.env` bootstrap + sed secrets merge (Docker Hub removed), `mysqladmin ping` 60 s wait, 3-attempt migrate retry, config/route/view cache, `curl -f http://localhost/health` (static nginx 200 — `/api/health` upgrade is 6.5), final `docker compose ps`. New: ghcr login → `docker compose pull` → `docker compose up -d` (all four services — node finally starts) → pre-migrate `mysqldump --all-databases | gzip` to `/home/debian/lachatadede/backups/` (written so 6.5 can lift it verbatim into `deploy/backup.sh`). SCP now ships only `deploy/docker-compose.yml` + `deploy/.env.example` (strip_components 1 → `/home/debian/lachatadede/deploy/`).
+- **Deploy job timeout 15 → 20 min** — the job now builds three images in-CI (laravel composer install, web npm ci + tsc + vite, engine npm ci with isolated-vm compile) before the SSH deploy.
+- **Red-green-refactor note:** this story is infra config (compose/YAML/Dockerfile) with no unit-test harness in the repo for such files; the story's own Verification commands served as the test suite (run locally, results in Debug Log). The one real build artifact (Dockerfile.web) was validated via the identical native `npm run build` + static mapping checks; its first true image build lands in CI (environment limitation above).
+- **Docs:** DEPLOYMENT.md — GHCR_PAT added to the secrets table, Automatic Deployments rewritten for the pull-based flow (+ one-time ansible re-run note), "Manual Deployment" replaced by the "Rollback (Manual)" section (one-command `IMAGE_TAG=sha-<previous> docker compose pull && up -d`, forward-fix-not-`down()` law, full-sha tag format), `up -d --build` command removed (no `build:` keys exist anymore), file-structure section updated. ci-secrets-checklist.md — one GHCR_PAT note + DockerHub-cleanup note (full rewrite deferred to 6.5).
+
 ### File List
+
+- deploy/docker/Dockerfile.web (new)
+- .dockerignore (new)
+- deploy/docker-compose.yml (modified — registry images, storage fix, mysql tuning)
+- deploy/ansible/playbook.yml (modified — storage dir mode 0777 + comment)
+- .github/workflows/test.yml (modified — Stage 6 deploy job rewritten; stages 1–5 untouched)
+- .github/workflows/deploy.yml (deleted)
+- docs/DEPLOYMENT.md (modified — secrets table, deploy flow, rollback section, file structure)
+- docs/ci-secrets-checklist.md (modified — GHCR_PAT + DockerHub notes)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (modified — story status tracking)
+- _bmad-output/implementation-artifacts/6-3-ci-builds-to-ghcr-and-vps-pulls.md (this file)
+
+### Change Log
+
+- 2026-09-23: Story 6.3 implementation pass — Tasks 1–4 + 6.1 complete. CI (Stage 6 of test.yml) now builds `api`/`web`/`engine` images and pushes to GHCR (`latest` + `sha-<full-sha>`), ships only the compose file + env template to the VPS, and the VPS pulls and runs all four services (nginx/laravel/node/mysql) with pre-migrate mysqldump, migrate, caches, health check. Deleted `.github/workflows/deploy.yml` (one pipeline, no drift). Fixed latent frames bug (engine storage mount path), tuned MySQL for the 4 GB box (512M/100), documented the one-command rollback. Local verification all green (compose config ×2, dockerhub grep, workflow parse, native frontend build). Tasks 5.1–5.4 + 6.2 await production steps by Pelo.

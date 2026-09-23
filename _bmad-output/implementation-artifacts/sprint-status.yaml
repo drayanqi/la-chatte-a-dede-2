@@ -91,7 +91,7 @@ development_status:
   epic-6: in-progress
   6-1-forward-only-migrations-and-project-guidelines: done
   6-2-vps-ordered-and-provisioned: in-progress
-  6-3-ci-builds-to-ghcr-and-vps-pulls: ready-for-dev
+  6-3-ci-builds-to-ghcr-and-vps-pulls: in-progress
   6-4-https-with-lets-encrypt: ready-for-dev
   6-5-database-backups-and-operations-runbook: ready-for-dev
   epic-6-retrospective: optional

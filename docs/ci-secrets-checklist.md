@@ -1,5 +1,12 @@
 # CI Secrets Checklist
 
+> **Story 6.3 (2026-09-23):** the deploy job now needs `GHCR_PAT` — a classic
+> PAT of the `drayanqi` account with **read:packages** scope, used by the VPS
+> to `docker login ghcr.io` (CI push uses the workflow's own `GITHUB_TOKEN`,
+> no PAT). `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` are now **unused** —
+> delete them from GitHub during the 6.5 secrets cleanup (full rewrite of this
+> checklist lands with 6.5).
+
 ## Required Secrets
 
 Currently, the CI pipeline does not require any secrets. All tests run against a local dev server.

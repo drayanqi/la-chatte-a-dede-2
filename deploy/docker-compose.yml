@@ -1,16 +1,16 @@
 # La Chatte à Dédé - Production Docker Compose
-# Services: nginx, laravel, node (game engine), mysql
+# Services: nginx (web image), laravel, node (game engine), mysql
+#
+# All three app images are built in CI (GitHub Actions → GHCR) and pulled
+# here — the VPS never builds anything. All tags share IMAGE_TAG, so a
+# rollback is one variable (see docs/DEPLOYMENT.md):
+#   IMAGE_TAG=sha-<sha> docker compose pull && docker compose up -d
 
 services:
   nginx:
-    image: nginx:alpine
+    image: ghcr.io/drayanqi/la-chatte-a-dede-2/web:${IMAGE_TAG:-latest}
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ../frontend-dist:/var/www/html/frontend:ro
-      - ../lachatadede-api/public:/var/www/html/api/public:ro
-      - laravel_vendor:/var/www/html/api/vendor:ro
     depends_on:
       laravel:
         condition: service_started
@@ -19,16 +19,19 @@ services:
     restart: unless-stopped
 
   laravel:
-    build:
-      context: ../lachatadede-api
-      dockerfile: ../deploy/docker/Dockerfile.api
-      target: production
+    image: ghcr.io/drayanqi/la-chatte-a-dede-2/api:${IMAGE_TAG:-latest}
     volumes:
-      # Mount only what needs to change at runtime, not vendor
-      - ../lachatadede-api/storage:/var/www/html/storage
-      - ../lachatadede-api/bootstrap/cache:/var/www/html/bootstrap/cache
-      # Share vendor with nginx for static assets if needed
-      - laravel_vendor:/var/www/html/vendor
+      # Shared app storage on the host (created by ansible 6.2). BOTH container
+      # uids need write access: the engine writes match frames to the literal
+      # output_path Laravel sends (/var/www/html/storage/simulations) and
+      # Laravel reads them back, while Laravel keeps its own logs/framework
+      # dirs in the same tree. ansible chmods this one dir 777 — a tradeoff
+      # accepted on this single-tenant box (only container uids touch it).
+      - /home/debian/lachatadede/storage:/var/www/html/storage
+      # bootstrap/cache must stay writable across deploys; the host has no
+      # repo checkout anymore, so it is a named volume (seeded from the image
+      # on first use, www-data-owned).
+      - laravel_bootstrap:/var/www/html/bootstrap/cache
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
@@ -54,12 +57,12 @@ services:
     restart: unless-stopped
 
   node:
-    build:
-      context: ../lachatadede-engine
-      dockerfile: ../deploy/docker/Dockerfile.node
-      target: production
+    image: ghcr.io/drayanqi/la-chatte-a-dede-2/engine:${IMAGE_TAG:-latest}
     volumes:
-      - ../lachatadede-api/storage:/app/storage
+      # Mounted at the SAME container path as laravel — NOT /app/storage. The
+      # engine writes frames to the literal output_path from the /simulate
+      # payload, which is Laravel's /var/www/html/storage/simulations.
+      - /home/debian/lachatadede/storage:/var/www/html/storage
     environment:
       - NODE_ENV=production
       - PORT=3001
@@ -69,6 +72,9 @@ services:
 
   mysql:
     image: mysql:8.0
+    # Sized for the 4 GB box: leave headroom for php-fpm and the engine
+    # (isolated-vm spikes) — do not raise without re-checking engine memory
+    command: --innodb-buffer-pool-size=512M --max-connections=100
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
@@ -92,4 +98,4 @@ networks:
 
 volumes:
   mysql_data:
-  laravel_vendor:
+  laravel_bootstrap:

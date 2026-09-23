@@ -1,0 +1,17 @@
+# Docker build context for deploy/docker/Dockerfile.web (context = repo root).
+# Keep this tight — everything here is shipped to the builder on every build.
+# deploy/nginx/ MUST stay in the context (Dockerfile.web COPYs the conf).
+
+node_modules
+dist
+test-results
+coverage
+lachatadede-api
+lachatadede-engine
+_bmad*
+docs
+.git
+deploy/ansible
+playwright-report
+raw
+pitch-preview.png

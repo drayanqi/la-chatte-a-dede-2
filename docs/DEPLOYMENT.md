@@ -47,6 +47,7 @@ Create these secrets:
 | `DB_PASSWORD` | MySQL user password | `openssl rand -base64 32`            |
 | `DB_ROOT_PASSWORD` | MySQL root password | `openssl rand -base64 32`            |
 | `APP_KEY` | Laravel application key | `php artisan key:generate --show`    |
+| `GHCR_PAT` | GitHub PAT (read:packages) for the VPS to pull from ghcr.io | GitHub **Settings > Developer settings > Personal access tokens (classic)**, owned by `drayanqi` |
 
 ### Generate the Deploy SSH Key
 
@@ -132,40 +133,33 @@ TLS arrives with story 6.4.
 
 ## Automatic Deployments
 
-Once GitHub Secrets are configured, deployments happen automatically:
+Once GitHub Secrets are configured, deployments happen automatically on every push to `main` (gated on the full E2E suite being green):
 
 1. Push to `main` branch
-2. Tests run (lint, unit, E2E)
-3. If tests pass, deploy workflow triggers
-4. Frontend builds in CI
-5. Code deploys to VPS via SSH
-6. Docker images rebuild
-7. Laravel migrations run
-8. Health check verifies deployment
+2. Tests run (lint, unit, backend, E2E × 4 shards)
+3. If tests pass, the deploy job builds three images and pushes them to GHCR (`api`, `web`, `engine` — each tagged `latest` and `sha-<full-commit-sha>`)
+4. The compose file + env template are shipped to the VPS (the only artifact that travels — the VPS never builds and holds no repo checkout)
+5. The VPS logs into ghcr.io, `docker compose pull`, then `up -d` **all four services** (nginx, laravel, node, mysql)
+6. A pre-migrate `mysqldump` lands in `/home/debian/lachatadede/backups/`
+7. Laravel migrations run, caches are warmed, and a health check verifies the deployment
 
-## Manual Deployment
+> **One-time before the first story-6.3 deploy:** re-run the Ansible playbook (idempotent) so `/home/debian/lachatadede/storage` gets the 0777 mode both the laravel (uid 33) and node (uid 1000) containers need: `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml`
 
-If you need to deploy manually:
+## Rollback (Manual)
+
+A bad release rolls back with one command — redeploy the previous `sha-*` image tags (no rebuild, no git, no `down()`; per the forward-only migration law, schema recovery is "previous image + forward fix", never a downgrade):
 
 ```bash
 ssh vps_deploy
-cd /home/debian/lachatadede
+cd /home/debian/lachatadede/deploy
 
-# Pull latest code
-git pull origin main
-
-# Build and start containers
-cd deploy
-docker compose build
-docker compose up -d nginx laravel mysql  # Skip node until Epic 3
-
-# Run migrations
-docker compose exec laravel php artisan migrate --force
-
-# Clear caches
-docker compose exec laravel php artisan config:cache
-docker compose exec laravel php artisan route:cache
+# <sha> = the full commit sha of the last good run, from the GitHub Actions
+# run page or the package's tag list on ghcr.io (tags look like sha-<40 chars>)
+IMAGE_TAG=sha-<previous> docker compose pull
+IMAGE_TAG=sha-<previous> docker compose up -d
 ```
+
+`IMAGE_TAG` pins all three app images to that build; `docker compose pull` makes the rollback explicit. `latest` always tracks the newest green build of `main`.
 
 ## Useful Commands
 
@@ -187,8 +181,8 @@ docker compose -f deploy/docker-compose.yml ps
 # Stop all services
 docker compose -f deploy/docker-compose.yml down
 
-# Rebuild and restart
-docker compose -f deploy/docker-compose.yml up -d --build
+# Deploy/redeploy the current tag
+docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d
 ```
 
 ## Troubleshooting
@@ -238,17 +232,17 @@ Hardening status, kept current with the provisioning playbook:
 ```
 deploy/
 ├── docker/
-│   ├── Dockerfile.api      # Laravel PHP-FPM image
-│   └── Dockerfile.node     # Node.js placeholder (Epic 3)
+│   ├── Dockerfile.api      # Laravel PHP-FPM image (built in CI)
+│   ├── Dockerfile.node     # Node.js game engine image (built in CI)
+│   └── Dockerfile.web      # Frontend + nginx image (built in CI)
 ├── nginx/
-│   └── default.conf        # Nginx server configuration
+│   └── default.conf        # Nginx server configuration (baked into the web image)
 ├── ansible/
 │   ├── inventory.yml       # VPS host configuration
 │   └── playbook.yml        # Initial setup playbook
-├── docker-compose.yml      # Production compose file
+├── docker-compose.yml      # Production compose file (pulls GHCR images)
 └── .env.example            # Environment template
 
 .github/workflows/
-├── test.yml                # CI: lint, unit, E2E tests
-└── deploy.yml              # CD: deployment pipeline
+└── test.yml                # CI: lint, unit, backend, E2E + deploy (build → GHCR → VPS)
 ```

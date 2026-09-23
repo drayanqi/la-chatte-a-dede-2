@@ -104,7 +104,12 @@
         state: directory
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
-        mode: '0755'
+        # Bind-mounted at /var/www/html/storage in BOTH the laravel (www-data,
+        # uid 33) and node (uid 1000) containers: www-data must create
+        # logs/ and framework/ inside, the engine writes simulations/.
+        # 777 on this one dir is an accepted tradeoff on this single-tenant
+        # box — only container uids can reach it (ufw-gated, no other users).
+        mode: '0777'
 
     - name: Create simulations storage subdirectory
       file:
