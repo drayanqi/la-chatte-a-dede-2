@@ -142,8 +142,14 @@ test.describe('Practice Match', () => {
     await page.goto('/match/00000000-0000-4000-8000-00000000aaaa');
     await expect(page.getByTestId('replay-error-overlay')).toBeVisible({ timeout: 30000 });
 
-    // Inject one demo frame carrying a challenger goal (celebration + score
-    // visible immediately: the engine renders frame 0 on load)
+    // Inject a 180-frame demo (goal on frame 90): the goal fires ~1.5s
+    // after the load — ticker-driven playback (delta-based advance, robust
+    // to runner starvation) — NOT at the load moment. A slow CI worker
+    // then reaches 181 while the celebration is still ahead of it instead
+    // of already finished (a 3s one-shot at load is unobservable through
+    // 15s of DOM polling latency). The goal sits mid-file: the last frame
+    // always banners (the end-clamp stops playback before its events
+    // fire), so frame 90 keeps the live 3-2-1 countdown path.
     await page.evaluate(([eventName]) => {
       const players: { team: string; slot: number; x: number; y: number; state: string }[] = [];
       for (const team of ['challenger', 'opponent']) {
@@ -157,15 +163,15 @@ test.describe('Practice Match', () => {
           });
         }
       }
-      const frames = [
-        {
-          index: 0,
-          ball: { x: 50, y: 50 },
-          players,
-          events: [{ type: 'goal', team: 'challenger', scorerSlot: 1 }],
-          logs: [],
-        },
-      ];
+      const GOAL_FRAME = 90;
+      const frames = Array.from({ length: 180 }, (_, index) => ({
+        index,
+        ball: { x: 50, y: 50 },
+        players,
+        events:
+          index === GOAL_FRAME ? [{ type: 'goal', team: 'challenger', scorerSlot: 1 }] : [],
+        logs: [],
+      }));
       window.dispatchEvent(new CustomEvent(eventName, { detail: { frames } }));
     }, [TEST_LOAD_FRAMES_EVENT]);
 
@@ -198,6 +204,10 @@ test.describe('Practice Match', () => {
     scriptFactory,
     matchFactory,
   }) => {
+    // Full real-stack replay watch: simulate + full playback + exit + canvas
+    // reset. Far beyond the 60s default on a starved CI runner (shard 1 ran
+    // out of budget mid-assertion) — this test owns a 120s ceiling.
+    test.setTimeout(120_000);
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.createStarter(user.token!);
     await matchFactory.createTactic({
