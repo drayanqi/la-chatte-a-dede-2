@@ -404,6 +404,19 @@ jobs:
             ghcr.io/drayanqi/la-chatte-a-dede-2/engine:latest
             ghcr.io/drayanqi/la-chatte-a-dede-2/engine:sha-${{ github.sha }}
 
+      # Preflight: dial the VPS before the scp step. GitHub masks every
+      # occurrence of a secret's VALUE in logs — so if nc prints the target
+      # address IN CLEAR TEXT, that address is NOT VPS_HOST and the secret
+      # is wrong (a typo'd IP dials a black hole: exactly the scp i/o
+      # timeout this step exists to explain). Masked *** + failure means a
+      # real source-route problem (provider firewall / anti-DDoS).
+      - name: Preflight VPS reachability
+        run: |
+          nc -zv -w 5 "${{ secrets.VPS_HOST }}" 22 || {
+            echo "::error::VPS port 22 unreachable from the runner - see the resolved address above (masked = secret correct, unmasked = secret wrong)"
+            exit 1
+          }
+
       - name: Ship compose file and env template to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
