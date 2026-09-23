@@ -4,7 +4,7 @@ baseline_commit: 75f3e9e082e5dc345dc487cf2034a5ed223f3ad3
 
 # Story 7.9: Engine Telemetry & Stats Tab v2
 
-Status: ready-for-dev
+Status: review
 Design source: planning-artifacts/stadium-mockup-ronde-replay-stats-s1-tableau-de-bord.html (S1 "Tableau de bord", validated by Pelo)
 Depends on: 7.7 Task 3 (drawer shell + ghost states shipped)
 
@@ -83,3 +83,4 @@ So that the stats panel tells me WHY I lost, not just by how much.
 
 - 2026-09-22: Story created from party session (Pelo validated S1 mockup + rich-stats direction).
 - 2026-09-22: IMPLEMENTED — engine telemetry + stats block + drawer v2 live. All suites green (engine 167/167, front 633/633).
+- 2026-09-23: Implementation landed on main via commit 9439aa3 ("Land stories 7.7, 7.8 and 7.9 as one reviewed batch") — the "not committed" note above is outdated. The epic-7 code review pass (7.7 group covered this story's engine/drawer surface) hardened the telemetry: own goals/deflections now emit `scorerSlot: null` (rendered "csc", never the conceding player's number) and the goal-line boundary test (`prevX === FIELD_WIDTH`) counts on-the-line shots. Post-fix suites: tsc clean, lint 0 errors, unit 581/581, PHP 121/121, engine 169/170 (the one failure — DemoBots "passing game" — is pre-existing from the v1.7 rebalance commit a0ddccc, deferred in deferred-work.md, unrelated to telemetry). Status → review.
