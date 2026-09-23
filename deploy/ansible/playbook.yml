@@ -80,6 +80,26 @@
         append: yes
 
     # ==========================================================================
+    # Let's Encrypt certbot (host-side, story 6.4)
+    # certbot runs on the HOST, never as a container: the apt package ships the
+    # renewal systemd timer (twice daily) and the renewal-hooks directories.
+    # Webroot mode keeps nginx in the serving path — challenges are served by
+    # the nginx container through the certbot/www bind mount (compose 6.4).
+    # ==========================================================================
+    - name: Install certbot
+      apt:
+        name: certbot
+        state: present
+
+    - name: Install nginx reload deploy hook (runs after every successful renewal)
+      copy:
+        dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          docker compose -f {{ app_path }}/deploy/docker-compose.yml exec -T nginx nginx -s reload
+
+    # ==========================================================================
     # Application Directory Structure
     # ==========================================================================
     - name: Create application directory
@@ -118,6 +138,14 @@
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
         mode: '0775'
+
+    - name: Create ACME webroot directory (bind-mounted into nginx, story 6.4)
+      file:
+        path: "{{ app_path }}/certbot/www"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
 
     # ==========================================================================
     # 2GB Swapfile (low-RAM mitigation)

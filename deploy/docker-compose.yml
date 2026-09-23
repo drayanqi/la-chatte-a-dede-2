@@ -11,6 +11,15 @@ services:
     image: ghcr.io/drayanqi/la-chatte-a-dede-2/web:${IMAGE_TAG:-latest}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      # ACME webroot (story 6.4): certbot runs on the HOST and writes challenges
+      # to the host dir; nginx serves them over HTTP for Let's Encrypt validation.
+      # RO — nginx only reads here.
+      - /home/debian/lachatadede/certbot/www:/var/www/html/certbot:ro
+      # TLS material issued by host certbot; RO — renewals reload nginx via the
+      # renewal deploy hook (nginx -s reload), never written from the container.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       laravel:
         condition: service_started
