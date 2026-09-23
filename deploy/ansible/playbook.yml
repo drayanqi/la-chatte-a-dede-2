@@ -139,6 +139,24 @@
         group: "{{ app_user }}"
         mode: '0775'
 
+    # The bind mount HIDES the image's storage skeleton (the host dir covers
+    # /var/www/html/storage), so every Laravel-writeable subdirectory must
+    # exist on the host: artisan view:cache fails with 'View path not found'
+    # otherwise, and runtime sessions/cache/logs land here too.
+    - name: Create the Laravel storage skeleton (bind-mount safe)
+      file:
+        path: "{{ app_path }}/storage/{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0777'
+      loop:
+        - framework/views
+        - framework/cache/data
+        - framework/sessions
+        - logs
+        - app/public
+
     - name: Create ACME webroot directory (bind-mounted into nginx, story 6.4)
       file:
         path: "{{ app_path }}/certbot/www"
