@@ -195,6 +195,14 @@ export const MatchPage: React.FC = () => {
   // before its emission; resume re-emits on the next tick).
   // Seek/step onto a goal frame while paused: banner only, 1.5s.
   const handleGoalScored = useCallback((team: TeamId, scorerSlot: number | null, live: boolean) => {
+    // A duplicate frames-load (React StrictMode double-effect in dev — the
+    // E2E stack runs `npm run dev` — or a store re-emit) can re-apply the
+    // goal frame while the first celebration's kickoff pause is still on:
+    // the second callback then arrives non-live and would tear the running
+    // countdown down to a 1.5s banner (overlay without countdown). An
+    // active countdown owns the overlay; the seek/step paths cancel it
+    // explicitly before any new goal can fire, so nothing is lost here.
+    if (!live && celebrationTimerRef.current !== null) return;
     if (celebrationTimerRef.current !== null) {
       window.clearInterval(celebrationTimerRef.current);
       celebrationTimerRef.current = null;
