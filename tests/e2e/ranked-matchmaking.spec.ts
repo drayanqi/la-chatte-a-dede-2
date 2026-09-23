@@ -229,6 +229,10 @@ test.describe('Ranked Matchmaking', () => {
     matchFactory,
     apiContext,
   }) => {
+    // The synchronous simulate POST runs a full engine sim in one request
+    // and blows the 60s default on a starved CI runner (the URL wait below
+    // already budgets 120s) — this test owns a 180s ceiling.
+    test.setTimeout(180_000);
     const solo = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext });
 
     const page = await openPlayPage(browser, solo.token);
