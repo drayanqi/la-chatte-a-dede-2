@@ -1615,7 +1615,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
     await page.waitForSelector('.monaco-editor');
 
     // Verify editor header shows current name
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('HeaderTest.js');
+    await expect(page.getByTestId('editor-script-name')).toContainText('HeaderTest.js');
 
     // Double-click to start rename
     await page.dblclick(`[data-testid="script-item-${script.id}"]`);
@@ -1628,7 +1628,7 @@ test.describe('Story 2.6 - Rename AI File', () => {
 
     // THEN: Editor header shows new name
     await expect(input).not.toBeVisible();
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('RenamedHeader.js');
+    await expect(page.getByTestId('editor-script-name')).toContainText('RenamedHeader.js');
   });
 
   test('should persist renamed file after page reload @P1', async ({
@@ -1755,7 +1755,7 @@ test.describe('Story 2.7 - Duplicate AI File', () => {
     await page.click('[data-testid="duplicate-option"]');
 
     // THEN: Duplicated file is opened in editor
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('Copy of AutoOpenDup.js');
+    await expect(page.getByTestId('editor-script-name')).toContainText('Copy of AutoOpenDup.js');
   });
 
   test('should copy code content to duplicate @P0', async ({
@@ -1969,7 +1969,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
 
     // THEN: Confirmation dialog appears with filename
     await expect(page.getByTestId('delete-confirm-dialog')).toBeVisible();
-    await expect(page.getByTestId('delete-confirm-dialog')).toContainText('Delete ConfirmDeleteTest.js?');
+    await expect(page.getByTestId('delete-confirm-dialog')).toContainText('Supprimer ConfirmDeleteTest.js ?');
     await expect(page.getByTestId('delete-confirm-button')).toBeVisible();
     await expect(page.getByTestId('delete-cancel-button')).toBeVisible();
   });
@@ -2131,7 +2131,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     // Open the file first
     await page.click(`[data-testid="script-item-${script.id}"]`);
     await page.waitForSelector('.monaco-editor');
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('ActiveDeleteTest.js');
+    await expect(page.getByTestId('editor-script-name')).toContainText('ActiveDeleteTest.js');
 
     // Open delete confirmation
     await page.click(`[data-testid="script-item-${script.id}"]`, { button: 'right' });
@@ -2143,7 +2143,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     // THEN: Deleting the active file selects the next remaining script
     await expect(page.getByTestId('delete-confirm-dialog')).not.toBeVisible();
     await expect(page.locator('.monaco-editor')).toBeVisible();
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('StarterAI.js');
+    await expect(page.getByTestId('editor-script-name')).toContainText('StarterAI.js');
 
     // WHEN: The last remaining script is deleted
     await page.click('[data-testid^="script-item-"]', { button: 'right' });
@@ -2153,7 +2153,7 @@ test.describe('Story 2.8 - Delete AI File', () => {
     // THEN: Editor shows empty state (no script selected message)
     await expect(page.getByTestId('delete-confirm-dialog')).not.toBeVisible();
     await expect(page.locator('.monaco-editor')).not.toBeVisible();
-    await expect(page.locator('[data-testid="editor-container"]')).toContainText('Select a script');
+    await expect(page.locator('[data-testid="editor-container"]')).toContainText('Sélectionne un script à éditer');
   });
 
   test('should select another file when deleting active file with multiple files @P1', async ({

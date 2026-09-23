@@ -466,6 +466,14 @@ test.describe('Teams Page', () => {
     await expect(page.getByTestId('team-bar')).toBeVisible();
     await expect(page.getByTestId('test-vs-bot-button')).toBeDisabled();
 
+    // Wait for the workspace to finish loading (tactics + scripts + players
+    // rendered) before clicking the pitch — the same readiness waits as the
+    // on-pitch picker test above; clicking too early hits an empty field
+    // (observed as a flaky missing script-picker on the first slot)
+    await expect(
+      page.locator('[data-testid^="script-item-"]').filter({ hasText: 'StarterAI.js' })
+    ).toBeVisible();
+
     // Build the lineup: assign StarterAI.js to all 5 default slots
     const canvas = page.getByTestId('field-canvas');
     const canvasBox = await canvas.boundingBox();

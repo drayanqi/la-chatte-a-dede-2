@@ -74,7 +74,12 @@ export const CodePanel: React.FC = () => {
                 background: activeHasError ? 'var(--corail)' : 'var(--mint)',
               }}
             />
-            <span style={styles.scriptName}>{activeScript.name}</span>
+            <span
+              data-testid="editor-script-name"
+              style={styles.scriptName}
+            >
+              {activeScript.name}
+            </span>
             <span style={styles.saveSlot}>
               <SaveIndicator />
             </span>
