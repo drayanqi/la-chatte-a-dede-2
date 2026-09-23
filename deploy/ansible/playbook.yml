@@ -1,6 +1,11 @@
 # Ansible Playbook for VPS Provisioning
-# One-time setup: install Docker, create directories
+# Provisions the OS: Docker + compose plugin, 2GB swapfile, ufw firewall,
+# fail2ban, SSH key-only hardening, unattended security upgrades, app directories.
 # Usage: ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
+# Idempotent: safe to re-run. Infomaniak VPS Lite has no provider snapshots —
+# this playbook rebuilds the OS layer only. Data under {{ app_path }}
+# (mysql_data/, storage/) and compose volumes survive re-runs; it is NOT an
+# incident-recovery wipe.
 
 ---
 - name: Provision VPS for La Chatte à Dédé
@@ -110,15 +115,248 @@
         mode: '0775'
 
     # ==========================================================================
-    # Git Installation (for deployment)
+    # 2GB Swapfile (low-RAM mitigation)
     # ==========================================================================
-    - name: Install Git
-      apt:
-        name: git
+    - name: Check existing swapfile
+      stat:
+        path: /swapfile
+        get_checksum: false
+      register: swapfile_stat
+
+    # A run interrupted mid-dd leaves a truncated /swapfile; the dd creates-guard
+    # only checks existence, so an undersized file must be torn down and rebuilt.
+    - name: Disable incomplete swapfile (interrupted prior run)
+      command:
+        cmd: swapoff /swapfile
+        removes: /swapfile
+      when:
+        - ansible_swaptotal_mb < 2000
+        - swapfile_stat.stat.exists | default(false)
+        - swapfile_stat.stat.size | default(0) != 2147483648
+      failed_when: false
+
+    - name: Remove incomplete swapfile (interrupted prior run)
+      file:
+        path: /swapfile
+        state: absent
+      when:
+        - ansible_swaptotal_mb < 2000
+        - swapfile_stat.stat.exists | default(false)
+        - swapfile_stat.stat.size | default(0) != 2147483648
+
+    - name: Create 2G swapfile
+      command:
+        cmd: dd if=/dev/zero of=/swapfile bs=1M count=2048
+        creates: /swapfile
+      when: ansible_swaptotal_mb < 2000
+
+    - name: Restrict swapfile permissions
+      file:
+        path: /swapfile
+        state: file
+        mode: '0600'
+      when: ansible_swaptotal_mb < 2000
+
+    - name: Format swapfile
+      command:
+        cmd: mkswap /swapfile
+      when: ansible_swaptotal_mb < 2000
+
+    - name: Enable swapfile
+      command:
+        cmd: swapon /swapfile
+      when: ansible_swaptotal_mb < 2000
+
+    - name: Persist swapfile in /etc/fstab
+      mount:
+        path: none
+        src: /swapfile
+        fstype: swap
+        opts: sw,nofail
         state: present
+
+    # ==========================================================================
+    # Firewall (ufw) — rules BEFORE enable, or the box is locked out
+    # ==========================================================================
+    - name: Install ufw
+      apt:
+        name: ufw
+        state: present
+
+    - name: Default deny incoming
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Default allow outgoing
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Limit OpenSSH (rate-limited at the firewall)
+      community.general.ufw:
+        rule: limit
+        port: '22'
+        proto: tcp
+
+    - name: Allow HTTP
+      community.general.ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Allow HTTPS (open now so 6.4 needs no extra firewall change)
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Enable ufw (last — rules are in place)
+      community.general.ufw:
+        state: enabled
+
+    # Docker publishes ports via its own iptables DOCKER chains (FORWARD), which
+    # bypass ufw's INPUT rules entirely — without this guard, any port compose
+    # publishes would be internet-reachable while `ufw status` claims otherwise.
+    # DOCKER-USER is traversed first by all forwarded traffic; internal docker
+    # subnets and 80/443 pass through (RETURN), everything else external is dropped.
+    - name: Install DOCKER-USER firewall rules (filter Docker-published ports)
+      blockinfile:
+        path: /etc/ufw/after.rules
+        marker: "# {mark} LACHATADEDE: filter Docker-published ports"
+        block: |
+          *filter
+          :DOCKER-USER - [0:0]
+          -A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          -A DOCKER-USER -s 10.0.0.0/8 -j RETURN
+          -A DOCKER-USER -s 172.16.0.0/12 -j RETURN
+          -A DOCKER-USER -s 192.168.0.0/16 -j RETURN
+          -A DOCKER-USER -p tcp -m multiport --dports 80,443 -j RETURN
+          -A DOCKER-USER -j DROP
+          COMMIT
+      notify: Reload ufw
+
+    # ==========================================================================
+    # fail2ban (sshd brute-force protection)
+    # ==========================================================================
+    - name: Install fail2ban and journal bindings
+      apt:
+        name:
+          - fail2ban
+          - python3-systemd
+        state: present
+
+    - name: Configure fail2ban sshd jail
+      copy:
+        dest: /etc/fail2ban/jail.local
+        mode: '0644'
+        content: |
+          [DEFAULT]
+          bantime  = 1h
+          findtime = 10m
+          maxretry = 5
+          ignoreip = 127.0.0.1/8 ::1
+
+          [sshd]
+          enabled = true
+          backend = systemd
+      notify: Restart fail2ban
+
+    - name: Enable and start fail2ban
+      systemd:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    # ==========================================================================
+    # Unattended security upgrades (snapshot-less box — patching must be automatic)
+    # ==========================================================================
+    - name: Install unattended-upgrades
+      apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Configure unattended-upgrades (security origin only)
+      copy:
+        dest: /etc/apt/apt.conf.d/52unattended-upgrades-lachatadede
+        mode: '0644'
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+              "${distro_id}:${distro_codename}-security";
+          };
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      notify: Restart unattended-upgrades
+
+    - name: Enable and start unattended-upgrades timer
+      systemd:
+        name: apt-daily-upgrade.timer
+        state: started
+        enabled: yes
+
+    # ==========================================================================
+    # SSH hardening (key-only auth)
+    # PREREQUISITE: the deploy key must have been verified working BEFORE this
+    # section runs (docs/DEPLOYMENT.md). Recovery path: Infomaniak console/KVM.
+    # ==========================================================================
+    # Lockout guard: refuse to proceed if the app user has no public key yet —
+    # hardening without a working key bricks SSH access.
+    - name: Assert a deploy public key is installed for the app user
+      command:
+        cmd: test -s /home/{{ app_user }}/.ssh/authorized_keys
+      changed_when: false
+
+    - name: Install SSH hardening drop-in
+      copy:
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        mode: '0644'
+        content: |
+          PubkeyAuthentication yes
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          AllowUsers {{ app_user }}
+        validate: /usr/sbin/sshd -t -f %s
+      notify: Restart sshd
+
+    # sshd uses first-obtained-value semantics: an earlier sshd_config.d drop-in
+    # (or a missing Include in the main config) could silently defeat the file
+    # above, and `sshd -t` checks syntax only. Assert the effective config.
+    - name: Read effective sshd configuration
+      command:
+        cmd: sshd -T
+      changed_when: false
+      register: sshd_effective
+
+    - name: Assert SSH hardening is effective
+      assert:
+        that:
+          - "'passwordauthentication no' in sshd_effective.stdout"
+          - "'permitrootlogin no' in sshd_effective.stdout"
+          - "'pubkeyauthentication yes' in sshd_effective.stdout"
+          - "'allowusers ' ~ app_user in sshd_effective.stdout"
+        success_msg: "SSH hardening verified against the effective configuration"
 
   handlers:
     - name: Restart Docker
       systemd:
         name: docker
+        state: restarted
+
+    - name: Reload ufw
+      community.general.ufw:
+        state: reloaded
+
+    - name: Restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: Restart unattended-upgrades
+      systemd:
+        name: unattended-upgrades
+        state: restarted
+
+    - name: Restart sshd
+      systemd:
+        name: ssh
         state: restarted

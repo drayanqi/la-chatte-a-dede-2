@@ -6,8 +6,8 @@ This guide covers deploying La Chatte à Dédé to a Debian VPS using Docker and
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           VPS DEBIAN                                         │
-│                     4 CPU | 4 Go RAM | 80 Go SSD                             │
+│                     VPS LITE (INFOMANIAK, GENEVA)                             │
+│                     Debian 13 — reproducible via Ansible                      │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │                         DOCKER NETWORK                                  ││
@@ -28,9 +28,10 @@ This guide covers deploying La Chatte à Dédé to a Debian VPS using Docker and
 
 ## Prerequisites
 
-1. **VPS Access**: SSH access to your Debian VPS
-2. **Domain**: `venanciohugo.fr` pointed to your VPS IP (A record)
-3. **GitHub Secrets**: Configured in your repository
+1. **Ansible** (with the `community.general` collection) on your local machine — provisioning runs from the repo; the VPS itself is never set up by hand. Once: `ansible-galaxy collection install -r deploy/ansible/requirements.yml`
+2. **Deploy SSH key pair**: `~/.ssh/id_rsa_vps` (private, stays on your machine) and its public key added at the Infomaniak console
+3. **Domain**: `venanciohugo.fr` and `lachatadede.venanciohugo.fr` pointed at the VPS IP (A records)
+4. **GitHub Secrets**: Configured in your repository
 
 ## GitHub Secrets Setup
 
@@ -42,74 +43,92 @@ Create these secrets:
 |--------|-------------|--------------------------------------|
 | `VPS_HOST` | VPS IP address | Get from your VPS provider dashboard |
 | `VPS_USER` | SSH username | `debian`                             |
-| `VPS_SSH_KEY` | Private SSH key | See "Generate SSH Key" below         |
+| `VPS_SSH_KEY` | Private SSH key | See "Generate the Deploy SSH Key" below |
 | `DB_PASSWORD` | MySQL user password | `openssl rand -base64 32`            |
 | `DB_ROOT_PASSWORD` | MySQL root password | `openssl rand -base64 32`            |
 | `APP_KEY` | Laravel application key | `php artisan key:generate --show`    |
 
-### Generate SSH Key for Deployment
+### Generate the Deploy SSH Key
 
 On your local machine:
 
 ```bash
-# Generate a new SSH key for deployment
-ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github-deploy
+# Generate a new SSH key for deployment (only once)
+ssh-keygen -t ed25519 -C "vps-deploy" -f ~/.ssh/id_rsa_vps
 
-# Display the public key (add this to VPS)
-cat ~/.ssh/github-deploy.pub
+# Display the public key — this is what gets added at the Infomaniak console
+cat ~/.ssh/id_rsa_vps.pub
 
-# Display the private key (add this to GitHub Secrets as VPS_SSH_KEY)
-cat ~/.ssh/github-deploy
+# The private key (~/.ssh/id_rsa_vps) is used by Ansible and goes to GitHub Secrets as VPS_SSH_KEY
 ```
 
-On your VPS:
+Add the **public key** at the Infomaniak manager (**VPS > your VPS > SSH keys**) — not into `authorized_keys` by hand.
+
+## Initial VPS Setup (Infomaniak)
+
+Infomaniak VPS Lite has **no provider snapshots** — the box must be rebuildable from the repo. All OS provisioning is automated by Ansible; only the console and DNS actions below are manual.
+
+### Step 1 — Order the VPS (manual, console)
+
+Order a **4 GB RAM Infomaniak VPS (Debian 13, Geneva)** and note the new IPv4.
+
+### Step 2 — Attach the deploy SSH key (manual, console)
+
+In the Infomaniak manager (**VPS > your VPS > SSH keys**), add the **public** deploy key (`~/.ssh/id_rsa_vps.pub`, see above).
+
+Verify key auth works BEFORE provisioning — the playbook's SSH hardening depends on it:
 
 ```bash
-# Add the public key to authorized_keys
-echo "your-public-key-here" >> ~/.ssh/authorized_keys
+ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP> whoami   # expect: debian
 ```
 
-## Initial VPS Setup
+### Step 3 — DNS A records (manual, console)
 
-### Option A: Using Ansible (Recommended)
+In **Domaines > venanciohugo.fr > Zone DNS**, add two `A` records pointing at the VPS IP:
 
-1. Update the inventory file with your VPS IP:
-   ```bash
-   # Edit deploy/ansible/inventory.yml
-   # Replace YOUR_VPS_IP with actual IP
-   ```
+| Type | Host | Value |
+|------|------|-------|
+| A | `@` (apex) | `<VPS_IP>` |
+| A | `lachatadede` | `<VPS_IP>` |
 
-2. Run the playbook:
-   ```bash
-   ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
-   ```
+Check: `dig +short venanciohugo.fr` **and** `dig +short lachatadede.venanciohugo.fr` both return the IP. Infomaniak may auto-create an **AAAA** (IPv6) record alongside — keep it; the box gets the IPv6 configured and nginx will serve it from story 6.3.
 
-### Option B: Manual Setup
-
-SSH into your VPS and run:
+### Step 4 — Provision with Ansible (automated)
 
 ```bash
-# Install Docker
-sudo apt update
-sudo apt install -y docker.io docker-compose-plugin
-sudo usermod -aG docker $USER
-
-# Logout and login again to apply docker group
-
-# Create directories
-mkdir -p /home/debian/lachatadede
-mkdir -p /home/debian/lachatadede/mysql_data
-mkdir -p /home/debian/lachatadede/storage/simulations
-
-# Clone the repository
-cd /home/debian
-git clone https://github.com/drayanqi/lachatadede.git
-cd lachatadede
-
-# Create .env file
-cp deploy/.env.example deploy/.env
-nano deploy/.env  # Fill in your passwords
+# make sure deploy/ansible/inventory.yml holds the new IP under ansible_host
+ssh-keyscan <VPS_IP> >> ~/.ssh/known_hosts   # first run only: avoids the host-key prompt
+ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
 ```
+
+The playbook installs Docker + compose plugin, creates a 2GB swapfile, configures ufw (22/80/443 only, plus a DOCKER-USER guard so container ports can't bypass the firewall) + fail2ban (sshd jail) + unattended security upgrades, hardens SSH to key-only (password and root login disabled), and creates `/home/debian/lachatadede/` with `mysql_data/` and `storage/simulations/` (the directory stays empty — nothing is cloned or started; the app arrives with story 6.3).
+
+It is idempotent, and re-running rebuilds the **OS layer only** — it doubles as a health check (a healthy box re-runs with `changed=0 failed=0`). Data under `/home/debian/lachatadede/` (`mysql_data/`, `storage/`) and compose volumes **survive re-runs**: a re-run is not an incident-recovery wipe. For full recovery, recreate the VPS from the Infomaniak console and start over.
+
+> **New IP?** Update **both** `ansible_host` in `deploy/ansible/inventory.yml` **and** the `VPS_HOST` GitHub Secret (**Settings > Secrets and variables > Actions**) — CI deploys read the secret, not the inventory.
+
+### Step 5 — Verify the box
+
+```bash
+ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
+docker run --rm hello-world                # docker group active on a fresh login
+sudo swapon --show                         # /swapfile, 2G
+sudo ufw status                            # exactly 22, 80, 443
+sudo fail2ban-client status sshd           # sshd jail active
+sudo sshd -T | grep passwordauthentication # expect: passwordauthentication no
+```
+
+Before the app exists, nothing listens on 80/443 — this is correct:
+
+```bash
+curl -I http://venanciohugo.fr
+# expect: Connection refused (fast) or an HTTP error — NEVER a timeout.
+# A timeout means DNS or the edge firewall is wrong.
+```
+
+> **Infomaniak gotcha:** if TCP 22 is reachable from the internet but 80/443 **time out** while the box's own `ufw status` allows them, a managed **Firewall** is attached to the VPS in the Infomaniak manager. Either remove it or add allow rules for TCP 80 and 443 (keep 22). This is invisible from inside the box.
+
+TLS arrives with story 6.4.
 
 ## Automatic Deployments
 
@@ -204,14 +223,15 @@ docker compose -f deploy/docker-compose.yml up -d --build
 - Verify all GitHub Secrets are set correctly
 - Try manual deployment to isolate the issue
 
-## Security Notes (Future Tasks)
+## Security Notes
 
-These are planned but not yet implemented:
+Hardening status, kept current with the provisioning playbook:
 
-- [ ] SSL/HTTPS with Let's Encrypt
-- [ ] Firewall (ufw) configuration
-- [ ] fail2ban for brute force protection
-- [ ] Automated database backups
+- [x] Firewall (ufw): deny incoming by default, allow only 22/80/443 (story 6.2)
+- [x] fail2ban protecting sshd (story 6.2)
+- [x] SSH key-only auth; password + root login disabled (story 6.2)
+- [ ] SSL/HTTPS with Let's Encrypt (story 6.4)
+- [ ] Automated database backups (story 6.5)
 
 ## File Structure
 

@@ -1,0 +1,5 @@
+# Ansible collection requirements for deploy/ansible/playbook.yml
+# Install once:  ansible-galaxy collection install -r deploy/ansible/requirements.yml
+---
+collections:
+  - name: community.general
