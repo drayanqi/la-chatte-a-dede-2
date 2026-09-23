@@ -150,6 +150,10 @@ jobs:
         working-directory: lachatadede-api
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Install engine dependencies
+        working-directory: lachatadede-engine
+        run: npm ci --prefer-offline --no-audit
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
@@ -222,6 +226,10 @@ jobs:
       - name: Install backend dependencies
         working-directory: lachatadede-api
         run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install engine dependencies
+        working-directory: lachatadede-engine
+        run: npm ci --prefer-offline --no-audit
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
