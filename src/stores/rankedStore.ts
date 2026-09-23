@@ -41,9 +41,6 @@ interface RankedActions {
   /** Refreshes the opponents pool (on view open and after each match) */
   fetchOpponents: () => Promise<void>;
 
-  /** Quick match: a random ready opponent, any elo (AC #1) */
-  quickMatch: (tacticId: string) => Promise<void>;
-
   /** Challenge: one specific opponent tactic from the pool (AC #2) */
   challenge: (tacticId: string, opponentTacticId: string) => Promise<void>;
 
@@ -139,43 +136,6 @@ export const useRankedStore = create<RankedState & RankedActions>((set, get) => 
         isLoadingOpponents: false,
         hasLoadedOpponents: true,
       });
-    }
-  },
-
-  quickMatch: async (tacticId: string) => {
-    const seq = ++playSeq;
-
-    set({
-      isPlaying: true,
-      match: null,
-      matchError: null,
-      activeTacticId: tacticId,
-      opponentTacticId: null,
-    });
-
-    try {
-      const response = await apiFetch('/matchmaking/quick', {
-        method: 'POST',
-        body: JSON.stringify({ tactic_id: tacticId }),
-      });
-      const match = (await response.json()) as MatchResult;
-
-      if (seq !== playSeq) return;
-
-      set({ match, isPlaying: false });
-      void get().fetchOpponents();
-      const { useTacticsStore } = await import('./tacticsStore');
-      void useTacticsStore.getState().fetchTactics();
-    } catch (error) {
-      if (seq !== playSeq) return;
-
-      if (error instanceof ApiError && error.status === 401) {
-        await handleDeadSession();
-        return;
-      }
-
-      const message = error instanceof ApiError ? getApiError(error) : '';
-      set({ isPlaying: false, matchError: message || MATCH_FALLBACK_MESSAGE });
     }
   },
 

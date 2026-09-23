@@ -40,7 +40,7 @@ const CELEBRATION_POLL_MS = 100;
 
 interface Celebration {
   team: TeamId;
-  scorerSlot: number;
+  scorerSlot: number | null;
   live: boolean;
 }
 
@@ -93,12 +93,13 @@ export const MatchPage: React.FC = () => {
   const celebrationTimerRef = useRef<number | null>(null);
 
   // Load the requested replay once (refresh-safe deep link): a mismatched
-  // or absent match triggers the load, an in-flight one is left alone.
+  // or absent match triggers the load. A load still in flight for ANOTHER
+  // id is superseded (matchStore generation token + abort) — never left
+  // running to install the wrong frames under this URL.
   // Deliberately keyed on the route id only — the store guards
-  // (isReplayLoading / replayMatch) are read at run time.
+  // (replayMatch) are read at run time.
   useEffect(() => {
     if (!id) return;
-    if (useMatchStore.getState().isReplayLoading) return;
     if (useMatchStore.getState().replayMatch?.id === id) return;
     void loadReplay(id);
   }, [id, loadReplay]);
@@ -193,7 +194,7 @@ export const MatchPage: React.FC = () => {
   // the store's playing state both ways (pause lands inside applyFrame,
   // before its emission; resume re-emits on the next tick).
   // Seek/step onto a goal frame while paused: banner only, 1.5s.
-  const handleGoalScored = useCallback((team: TeamId, scorerSlot: number, live: boolean) => {
+  const handleGoalScored = useCallback((team: TeamId, scorerSlot: number | null, live: boolean) => {
     if (celebrationTimerRef.current !== null) {
       window.clearInterval(celebrationTimerRef.current);
       celebrationTimerRef.current = null;
@@ -436,9 +437,13 @@ export const MatchPage: React.FC = () => {
 
   const handleDrawerSeek = useCallback(
     (frame: number) => {
+      // Same takeover contract as the scrubber/step/play paths: a drawer
+      // seek during the live-goal countdown cancels the overlay and its
+      // auto-resume timer
+      cancelCelebration();
       canvasRef.current?.seekFrame(frame);
     },
-    []
+    [cancelCelebration]
   );
 
   return (
@@ -497,7 +502,7 @@ export const MatchPage: React.FC = () => {
                 <div className="lachatadede-goal-overlay" style={styles.celebrationCard}>
                   <span style={styles.celebrationTitle}>BUUUT&nbsp;!</span>
                   <span style={styles.celebrationScorer}>
-                    #{celebration.scorerSlot} ·{' '}
+                    {celebration.scorerSlot !== null ? `#${celebration.scorerSlot}` : 'csc'} ·{' '}
                     {celebration.team === 'home' ? challengerName : opponentName}
                   </span>
                   <span style={styles.celebrationScoreRow}>

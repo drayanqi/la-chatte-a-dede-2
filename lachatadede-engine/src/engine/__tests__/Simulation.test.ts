@@ -216,13 +216,16 @@ describe('Simulation - goals and kickoff reset', () => {
     sim.ball.y = 15.9;
     sim.ball.vx = 5;
     sim.ball.vy = -2; // crosses x=100 at y=15.5 (inside); ends at (104, 13.9) (outside)
-    const expectedScorer = sim.ball.lastTouch?.slot ?? -1;
+    // The kickoff touch belongs to the CONCEDING side's goalkeeper — an
+    // own-goal/deflection: the goal is unattributable (null, rendered "csc"),
+    // never the conceding player's number.
+    expect(sim.ball.lastTouch?.team).toBe('opponent');
 
     const frame = sim.stepTick();
 
     expect(sim.scoreChallenger).toBe(1);
     expect(sim.scoreOpponent).toBe(0);
-    expect(frame.events).toEqual([{ type: 'goal', team: 'challenger', scorerSlot: expectedScorer }]);
+    expect(frame.events).toEqual([{ type: 'goal', team: 'challenger', scorerSlot: null }]);
     // no rebound happened: the ball flew past the line before the kickoff reset
     expect(sim.ball.x).toBe(95); // kickoff reset put the ball at the conceding team's goalkeeper
     expect(sim.ball.y).toBe(45);

@@ -67,8 +67,8 @@ export function extractGoalTicks(frames: MatchFrame[]): GoalTick[] {
 
 /** One scored goal for the replay drawer lists (story 7.7) */
 export interface GoalEventEntry extends GoalTick {
-  /** Scorer's slot number, as written in the frame event */
-  scorerSlot: number;
+  /** Scorer's slot number (1-5), or null when the goal is unattributable (own goal) */
+  scorerSlot: number | null;
 }
 
 /**

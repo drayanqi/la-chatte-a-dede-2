@@ -48,7 +48,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // single PHP worker while a simulation holds it.
     Route::middleware('throttle:matchmaking')->group(function () {
         Route::get('/matchmaking/opponents', [MatchmakingController::class, 'opponents']);
-        Route::post('/matchmaking/quick', [MatchmakingController::class, 'quick']);
         Route::post('/matchmaking/challenge', [MatchmakingController::class, 'challenge']);
     });
 });

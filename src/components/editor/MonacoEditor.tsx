@@ -37,6 +37,8 @@ interface MonacoEditorProps {
   onMount?: (editor: unknown) => void;
   /** Optional: Called when Cmd/Ctrl+S is pressed */
   onSave?: () => void;
+  /** Optional: error-severity markers, mirrored out on every marker change */
+  onMarkersChange?: (errors: Array<{ line: number; message: string }>) => void;
 }
 
 /**
@@ -51,10 +53,18 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onChange,
   onMount,
   onSave,
+  onMarkersChange,
 }) => {
   const monacoRef = useRef<typeof Monaco | null>(null);
   const theme = useThemeStore((state) => state.theme);
   const monacoTheme = theme === 'dark' ? LA_RONDE_DARK_THEME : LA_RONDE_LIGHT_THEME;
+
+  // Latest-callback ref: the editor mounts once, but the marker consumer's
+  // identity (and the active script it writes to) changes over time.
+  const onMarkersChangeRef = useRef(onMarkersChange);
+  useEffect(() => {
+    onMarkersChangeRef.current = onMarkersChange;
+  }, [onMarkersChange]);
 
   // Configure Monaco features once when available (singleton pattern)
   useEffect(() => {
@@ -128,6 +138,14 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           .getModelMarkers({})
           .filter((marker) => marker.severity >= monaco.MarkerSeverity.Error);
 
+        // Mirror the error markers out (story 2.5 status dots read them)
+        onMarkersChangeRef.current?.(
+          markers.map((marker) => ({
+            line: marker.startLineNumber,
+            message: marker.message,
+          }))
+        );
+
         decorations.set(
           markers.map((marker) => ({
             range: new monaco.Range(
@@ -159,7 +177,6 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Call user's onMount if provided
     onMount?.(editor);
   };
-
   return (
     <div data-testid="monaco-editor" style={styles.container}>
       <Editor

@@ -240,20 +240,36 @@ describe('Match Store', () => {
       expect(useMatchStore.getState().isReplayLoading).toBe(false);
     });
 
-    it('should ignore a second load while one is in flight', async () => {
+    it('should supersede an in-flight load with a newer one and never write the stale result', async () => {
       const { resolve } = pendingResponse();
+      // Match-2 answers normally (frames + metadata for the deep link)
+      mockFetch
+        .mockResolvedValueOnce(framesFileResponse([frameAt(0), frameAt(1)]))
+        .mockResolvedValueOnce(okResponse({ ...completedMatch, id: 'match-2' }));
 
       const first = useMatchStore.getState().loadReplay('match-1', completedMatch);
-      await useMatchStore.getState().loadReplay('match-2');
+      // A second load for a DIFFERENT match supersedes the first: its fetch
+      // fires immediately (the older one is aborted + invalidated). No known
+      // match for the deep link also fetches its metadata alongside frames.
+      const second = useMatchStore.getState().loadReplay('match-2');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/matches/match-2/frames',
+        expect.anything()
+      );
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
+      // The stale match-1 response, landing after match-2 settled, never
+      // writes state (review: /match/1 → /match/2 mid-flight race)
       resolve(framesFileResponse([frameAt(0)]));
       await first;
+      await second;
 
       const state = useMatchStore.getState();
       expect(state.isReplayLoading).toBe(false);
-      expect(state.replayMatch?.id).toBe('match-1');
+      expect(state.replayError).toBeNull();
+      expect(state.replayMatch?.id).toBe('match-2');
+      expect(state.replayFrames).toHaveLength(2);
     });
 
     it('should surface the unavailable message when the match has no frames (404)', async () => {

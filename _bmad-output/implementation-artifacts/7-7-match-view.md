@@ -4,7 +4,7 @@ baseline_commit: 75f3e9e082e5dc345dc487cf2034a5ed223f3ad3
 
 # Story 7.7: Match View — Broadcast Replay
 
-Status: review
+Status: done
 
 ## Story
 
@@ -23,11 +23,11 @@ So that watching a replay feels like a broadcast, not a debug session.
 
 - Full cutover: replay rendering leaves /teams — MatchPage owns TacticsCanvas + Timeline + drawer. The workspace replay path (loadReplay inside teams) and DebuggerPanel are retired here (7.8 sweeps the leftovers).
 - Score pill: challenger/opponent names in their colors (MatchSerializer 7.4 fields), score live via computeScore, minute = formatTime, frame X/Y in mono.
-- Timeline: restyled Timeline (corail fill, sun goal ticks, mono info, speed control 0.5×/1×/2×/4×, skip-to-start/end) — playback keys (Space/arrows) move here from AppShell.
+- Timeline: restyled Timeline (corail fill, sun goal ticks, mono info, speed control 0.5×/1×/2×/4×; ⏮/⏭ step one frame, Home/End provide skip-to-start/end — review ruling 2026-09-23) — playback keys (Space/arrows) move here from AppShell.
 - Drawer tabs: Logs (existing replayLogs pipeline: badges BUT for goal events, MT for mid-frames if present, log rows with level colors; player filter chips kept) + Stats (honest aggregate: score, goals list w/ minutes + scorer slot, total frames, mode, date — no invented possession numbers).
-- Goal celebration: existing canvas flash+confetti + HTML overlay line "BUUUT !" + scorer (#slot · team) + score line, ~1.5s, reduced-motion respected.
-- Simulating overlay: rendered on /match/:id when arriving from a just-started practice/ranked match (matchStore.isSimulating during POST + frames loading spinner after navigation); "frame count" = durationFrames when known, else estimated chip.
-- Result card: after a ranked/practice match completes (from Play or Teams trigger), the triggering page shows the V/D card; the match view itself offers "Revoir le match" via its Quittter → /play and history. AC3's result card = the shared ResultCard component from 7.6, also rendered by Teams page for practice.
+- Goal celebration: existing canvas flash+confetti + HTML overlay line "BUUUT !" + scorer (#slot · team) + score line; live goals run a 3s broadcast countdown (score hold 1.2s + 3-2-1 + kickoff pause — review ruling 2026-09-23 supersedes the earlier "~1.5s"; reduced-motion respected).
+- Simulating overlay: the veil (spinner + frame count: durationFrames when known, else estimated chip) renders on the TRIGGERING page (Play/Teams) while the POST runs — the POST completes before navigation, so /match/:id only ever shows the frames-loading overlay (review ruling 2026-09-23).
+- Result card: ranked keeps the shared ResultCard (7.6) in the /play chooser after a settled challenge; practice (no elo) navigates straight to /match/:id with no result card (review ruling 2026-09-23); the match view offers "Revoir le match" via its Quittter → /play and history.
 - Quitter chip → navigate(-1) if history exists else /play.
 
 ## Tasks / Subtasks
@@ -82,3 +82,16 @@ So that watching a replay feels like a broadcast, not a debug session.
 - Task 6: match-page.test uses MemoryRouter initialIndex=1 (['/play','/match/m-1']) for history-fallback assertions; canvas fully mocked.
 - Task 7 e2e lessons: register the /frames waitForResponse listener BEFORE triggering navigation (fetch starts at mount, 90s timeout); drag test picks a marker-free x (goal sun markers swallow pointerdown); the demo match scores roughly one goal per 10s of wall time.
 - TEST_LOAD_FRAMES_EVENT test hook lives in MatchPage (seeds useMatchStore + setMatchFrames + loadFrames); the old hook in AppShell was removed with the rest of the replay path.
+
+### Review Findings
+
+- [x] [Review][Decision] Simulating overlay never renders on /match/:id — POST completes before navigation (await startPracticeMatch → navigate), so `isSimulating` is always false on arrival; the veil + frame count live on Play/Teams instead. Spec scope says the overlay renders on /match/:id. Ruling: move/duplicate the veil onto the match view, or amend the scope note to accept triggering-page coverage? **RESOLVED 2026-09-23: amend spec — triggering-page veil accepted (scope note updated).**
+- [x] [Review][Decision] Practice result card never rendered — AC3 scope note says the shared ResultCard is "also rendered by Teams page for practice", but Teams/Play navigate straight to /match/:id (code comment: "Success navigates to the /match/:id viewer, so no result state lives here"). Ranked keeps its card in the /play chooser. Ruling: accept navigation-only practice flow (amend spec), or restore a practice result card? **RESOLVED 2026-09-23: amend spec — navigation-only practice flow accepted (scope note updated).**
+- [x] [Review][Decision] Live-goal celebration runs a 3s countdown + kickoff pause (`CELEBRATION_TOTAL_MS = 3000`) vs spec "~1.5s, reduced-motion respected" — deliberate feature (3-2-1 countdown, score hold 1200ms), pinned by its own tests. Ruling: accept 3s and amend spec, or restore ~1.5s? **RESOLVED 2026-09-23: amend spec — 3s broadcast countdown accepted (scope note updated).**
+- [x] [Review][Decision] ⏮/⏭ buttons step one frame, not "skip-to-start/end" per scope (Home/End on the slider is the only real skip; Timeline header comment documents the choice). Ruling: accept step buttons and amend spec, or implement true skip? **RESOLVED 2026-09-23: amend spec — step buttons accepted, Home/End is the true skip (scope note updated).**
+- [x] [Review][Patch] Cross-match replay race — navigating /match/A → /match/B while A's fetch is in flight swallows B's load (`if (isReplayLoading) return`), installs A's frames under B's URL, never retries [src/stores/matchStore.ts:184, src/pages/MatchPage.tsx:101]
+- [x] [Review][Patch] Drawer seek skips `cancelCelebration()` — clicking a goal row during the live-goal countdown leaves the overlay up and auto-resumes playback ~3s later, breaking the "user takes over mid-countdown" contract [src/pages/MatchPage.tsx:437]
+- [x] [Review][Patch] 2x/4x playback skips intermediate frames (`currentFrame += speed * ticks`, one `applyFrame(floor)` per tick) — goals on crossed frames never fire `onGoalScored`, so celebrations/score pulses are silently missed [src/components/canvas/engine/Game.ts:213]
+- [x] [Review][Patch] Own goal credited to the conceding player — `scorerSlot: this.ball.lastTouch?.slot ?? -1` uses lastTouch regardless of team; a defender's own goal renders his number as the opposing team's scorer [lachatadede-engine/src/engine/Simulation.ts:378]
+- [x] [Review][Patch] Shot taken from exactly on the goal line (`prevX === FIELD_WIDTH`) fails the `prevX < FIELD_WIDTH` crossing test and counts as a pass in per-player telemetry [lachatadede-engine/src/engine/Telemetry.ts:183]
+- [x] [Review][Defer] DemoBots "passing game" engine test failing at HEAD [lachatadede-engine/src/engine/__tests__/DemoBots.test.ts:192] — deferred, pre-existing (verified failing with the review patches stashed; regression from non-story commit a0ddccc "Rebalance player and ball speeds (v1.7)")

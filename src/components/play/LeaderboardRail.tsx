@@ -33,10 +33,13 @@ export const LeaderboardRail: React.FC<LeaderboardRailProps> = ({
   const topRows = entries.slice(0, 5);
 
   // My highlighted row: the fielded tactic when ranked, else my best-ranked
-  // tactic (usernames are DB-unique — matchPerspective precedent)
+  // tactic (usernames are DB-unique — matchPerspective precedent). A null
+  // owner (deleted user) can never be mine.
   const myRow =
     (myTacticId ? entries.find((entry) => entry.id === myTacticId) : null) ??
-    entries.find((entry) => entry.owner === myUsername) ??
+    (myUsername !== null
+      ? entries.find((entry) => entry.owner !== null && entry.owner === myUsername)
+      : null) ??
     null;
   const showMyRow = myRow !== null && !topRows.some((entry) => entry.id === myRow.id);
 

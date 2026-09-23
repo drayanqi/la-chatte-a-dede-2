@@ -372,10 +372,14 @@ export class Simulation {
     if (scoringTeam === null) return;
     if (scoringTeam === 'challenger') this.scoreChallengerValue++;
     else this.scoreOpponentValue++;
+    // Scorer attribution: the last touch counts only when it belongs to the
+    // SCORING team — a defender's deflection into their own goal must not
+    // wear the conceding player's number (render as unattributable/null).
+    const lastTouch = this.ball.lastTouch;
     this.currentEvents.push({
       type: 'goal',
       team: scoringTeam,
-      scorerSlot: this.ball.lastTouch?.slot ?? -1,
+      scorerSlot: lastTouch && lastTouch.team === scoringTeam ? lastTouch.slot : null,
     });
     // Conceding team kicks off (game-rules.md).
     this.kickoffTeam(otherTeam(scoringTeam));

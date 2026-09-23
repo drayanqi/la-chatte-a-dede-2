@@ -45,7 +45,7 @@ export interface GameCallbacks {
    * `live` = the goal was reached during playback (not a seek/step onto the
    * frame while paused) — the consumer drives the goal pause + countdown.
    */
-  onGoalScored?: (team: TeamId, scorerSlot: number, live: boolean) => void;
+  onGoalScored?: (team: TeamId, scorerSlot: number | null, live: boolean) => void;
   /** Fired after a script assignment completes (drag & drop onto a player) */
   onScriptAssigned?: (playerId: string, scriptId: string) => void;
   /** Fired when a player drag-move completes (pointerup ends the move) */
@@ -210,6 +210,7 @@ export class Game {
       // Time-based advance (story 3.8): deltaMS/1000 seconds × 60 fps.
       // Never assume the ticker runs at exactly 60fps — a slower or faster
       // render rate must not change the playback speed.
+      const fromFrame = Math.floor(this.currentFrame);
       this.currentFrame += this.playbackSpeed * ((ticker.deltaMS / 1000) * 60);
 
       if (this.currentFrame >= this.matchFrames.length) {
@@ -218,7 +219,18 @@ export class Game {
         this.isPlaying = false;
       }
 
-      this.applyFrame(Math.floor(this.currentFrame));
+      const targetFrame = Math.floor(this.currentFrame);
+
+      // Speed 2x/4x can jump several frames per tick: every crossed frame's
+      // goal events must still fire (celebrations and score callbacks keep
+      // working at high speed) even though only the final state is rendered.
+      // handleFrameEvents is idempotent per index (lastCelebratedFrame).
+      for (let i = fromFrame + 1; i < targetFrame; i++) {
+        const crossed = this.matchFrames[i];
+        if (crossed) this.handleFrameEvents(i, crossed.events);
+      }
+
+      this.applyFrame(targetFrame);
     }
   }
 

@@ -11,10 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * The ranked matchmaking API (Epic 4 v2): browse the challengeable pool,
- * quick-match against a random ready tactic, or challenge a specific one.
- * The match is simulated synchronously — the opponent sees it in their
- * history, online or not.
+ * The ranked matchmaking API (Epic 4 v2): browse the challengeable pool and
+ * challenge a specific tactic. The match is simulated synchronously — the
+ * opponent sees it in their history, online or not.
  */
 class MatchmakingController extends Controller
 {
@@ -27,33 +26,9 @@ class MatchmakingController extends Controller
     }
 
     /**
-     * Quick match (AC #1/#2): random ready opponent, any elo. 201 with the
-     * completed match, or a mapped error (404 empty pool, 422 ineligible
-     * tactic, 502 failed simulation).
-     */
-    public function quick(Request $request, RankedMatchService $ranked): JsonResponse
-    {
-        $validated = $request->validate([
-            'tactic_id' => ['required', 'uuid'],
-        ]);
-
-        $mine = Auth::user()->tactics()->with('players.script')->find($validated['tactic_id']);
-        if (! $mine) {
-            return response()->json(['message' => 'Tactic not found'], 404);
-        }
-
-        try {
-            $match = $ranked->quickMatch(Auth::user(), $mine);
-        } catch (RankedMatchException $e) {
-            return response()->json(['message' => $e->getMessage()], $e->status);
-        }
-
-        return response()->json(MatchSerializer::toArray($match), 201);
-    }
-
-    /**
      * Challenge (AC #3/#5): one specific opponent tactic from the pool.
-     * Same response contract as quick.
+     * 201 with the completed match, or a mapped error (404 unknown tactic,
+     * 422 ineligible tactic, 502 failed simulation).
      */
     public function challenge(Request $request, RankedMatchService $ranked): JsonResponse
     {

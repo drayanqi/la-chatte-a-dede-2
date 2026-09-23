@@ -83,7 +83,6 @@ class RankedMatchmakingTest extends TestCase
     public function test_opponents_require_authentication(): void
     {
         $this->getJson('/api/matchmaking/opponents')->assertStatus(401);
-        $this->postJson('/api/matchmaking/quick', ['tactic_id' => Str::uuid()])->assertStatus(401);
         $this->postJson('/api/matchmaking/challenge', [
             'tactic_id' => Str::uuid(),
             'opponent_tactic_id' => Str::uuid(),
@@ -171,43 +170,40 @@ class RankedMatchmakingTest extends TestCase
         $this->assertSame('rivalarm', $response->json('0.owner'));
     }
 
-    public function test_quick_match_rejects_a_tactic_that_is_not_ready(): void
+    public function test_challenge_rejects_a_tactic_that_is_not_ready(): void
     {
         $me = User::factory()->create();
+        $rival = User::factory()->create();
         $mine = $this->createUserTactic($me);
+        $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Your tactic is not ready');
     }
 
-    public function test_quick_match_rejects_an_incomplete_lineup(): void
+    public function test_challenge_rejects_an_incomplete_lineup(): void
     {
         $me = User::factory()->create();
+        $rival = User::factory()->create();
         $mine = $this->createUserTactic($me, 'Broken', ['is_ready' => true]);
         $mine->players()->first()->update(['script_id' => null]);
+        $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Tactic lineup is incomplete');
     }
 
-    public function test_quick_match_with_an_empty_pool_returns_404(): void
-    {
-        $me = User::factory()->create();
-        $mine = $this->createUserTactic($me, 'Lonely', ['is_ready' => true]);
-
-        $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
-            ->assertStatus(404)
-            ->assertJsonPath('message', 'No opponents ready');
-
-        $this->assertDatabaseCount('matches', 0);
-    }
-
-    public function test_quick_match_plays_a_random_pool_opponent_and_applies_elo(): void
+    public function test_challenge_plays_a_specific_pool_opponent_and_applies_elo(): void
     {
         $this->fakeEngineSuccess(2, 1);
 
@@ -218,7 +214,10 @@ class RankedMatchmakingTest extends TestCase
         $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true]);
 
         $response = $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(201);
 
         $response->assertJsonPath('mode', 'ranked')
@@ -263,7 +262,10 @@ class RankedMatchmakingTest extends TestCase
         $theirs = $this->createUserTactic($rival, 'Favorite', ['is_ready' => true, 'elo' => 1200]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(201);
 
         $match = GameMatch::query()->sole();
@@ -286,7 +288,10 @@ class RankedMatchmakingTest extends TestCase
         $theirs = $this->createUserTactic($rival, 'Drawn B', ['is_ready' => true, 'elo' => 1000, 'wins' => 1, 'losses' => 1]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(201);
 
         $match = GameMatch::query()->sole();
@@ -317,7 +322,10 @@ class RankedMatchmakingTest extends TestCase
         $theirs = $this->createUserTactic($rival, 'Hammer', ['is_ready' => true, 'elo' => 10]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(201);
 
         $this->assertSame(35, $theirs->fresh()->elo);
@@ -477,7 +485,10 @@ class RankedMatchmakingTest extends TestCase
 
         // One ranked match and one practice match, same user
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(201);
 
         $this->actingAs($me, 'sanctum')
@@ -579,7 +590,10 @@ class RankedMatchmakingTest extends TestCase
         $theirs = $this->createUserTactic($rival, 'Theirs', ['is_ready' => true, 'elo' => 1000, 'wins' => 2, 'losses' => 3]);
 
         $this->actingAs($me, 'sanctum')
-            ->postJson('/api/matchmaking/quick', ['tactic_id' => $mine->id])
+            ->postJson('/api/matchmaking/challenge', [
+                'tactic_id' => $mine->id,
+                'opponent_tactic_id' => $theirs->id,
+            ])
             ->assertStatus(502)
             ->assertJsonPath('message', 'Simulation failed');
 

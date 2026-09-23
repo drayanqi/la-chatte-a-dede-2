@@ -4,7 +4,7 @@ baseline_commit: 75f3e9e082e5dc345dc487cf2034a5ed223f3ad3
 
 # Story 7.8: La Ronde Polish & Cleanup
 
-Status: review
+Status: done
 
 ## Story
 
@@ -19,7 +19,7 @@ So that no screen still looks like the old IDE.
 
 ## Scope Boundary (read first)
 
-- Dead code list: `Header.tsx`, `TabBar.tsx`, `DebuggerPanel.tsx`, `RankedView.tsx` (overlay version), `LeaderboardView.tsx` (overlay version), `MatchStatusOverlay.tsx` (replaced by ResultCard + per-page overlays), `usePanelLayout`/`panelLayout.ts`/`PanelDivider.tsx`, `debuggerStore.ts`, `types/canvas-events.ts`/`canvas-commands.ts` (declared-unused), `WorkspacePage.tsx`/`AppShell.tsx` (fully replaced by TeamsPage by now), `useUnsavedChangesWarning` kept if still used. Delete corresponding unit tests + e2e (`panel-layout.spec.ts`).
+- Dead code list: `Header.tsx`, `TabBar.tsx`, `DebuggerPanel.tsx`, `RankedView.tsx` (overlay version), `LeaderboardView.tsx` (overlay version), `MatchStatusOverlay.tsx` (replaced by ResultCard + per-page overlays), `usePanelLayout`/`panelLayout.ts` (PanelDivider.tsx EXEMPT — review ruling 2026-09-23: its 7.5 rewrite is the Teams-page resizable divider, not the retired AppShell panel code), `debuggerStore.ts`, `types/canvas-events.ts`/`canvas-commands.ts` (declared-unused), `WorkspacePage.tsx`/`AppShell.tsx` (fully replaced by TeamsPage by now), `useUnsavedChangesWarning` kept if still used. Delete corresponding unit tests + e2e (`panel-layout.spec.ts`).
 - Auth pages: acard (26px radius, shadow-lg), DD crest logo, fields per mockup; keep ALL existing testids.
 - Modals: creation (script/team), rename, delete confirms, equipment → shared token-styled veil/modal style.
 - Empty states: scripts list, opponents, history, leaderboard — token cards.
@@ -88,3 +88,12 @@ So that no screen still looks like the old IDE.
 - 2026-09-22: Story verified and closed — tasks 1-6 complete; lint/tsc/unit green;
   e2e × 3 browsers sweep skipped per owner instruction (documented deviation, see
   completion notes). Status → review.
+
+### Review Findings
+
+- [x] [Review][Decision] `PanelDivider.tsx` kept though the dead-code list names `usePanelLayout`/`panelLayout.ts`/`PanelDivider.tsx` for deletion — the 7.5 rewrite repurposed it for Teams page resizable panels; story claims "as allowed by scope" but the list grants a keep only for `useUnsavedChangesWarning`. Ruling: legitimize the keep (amend list) or replace/remove? **RESOLVED 2026-09-23: legitimize the keep — dead-code list amended, PanelDivider is the 7.5 Teams-page component.**
+- [x] [Review][Patch] CodePanel status dots read `syntaxErrors` that nothing writes — `setSyntaxErrors` has no caller since the refonte, so code-status-dot/script-status-dot always show OK even for broken scripts [src/components/editor/MonacoEditor.tsx, src/stores/editorStore.ts:602]
+- [x] [Review][Patch] Logout doesn't reset editorStore/tacticsStore — stale `activeScriptId`/tactics leak across accounts on one device (phantom leave-warning, "Script not found" save errors) [src/stores/authStore.ts:129]
+- [x] [Review][Patch] Dark-theme flash before tokens apply — theme is applied in React mount, no pre-paint snippet in index.html [index.html]
+- [x] [Review][Patch] Persisted panel widths not re-clamped on window resize (usePanelLayout's resize re-clamp deleted with no replacement in TeamsPage) [src/pages/TeamsPage.tsx:141]
+- [x] [Review][Defer] Editor unsaved-changes lifecycle gaps — debounced save cancelled on unmount within the 2s window and beforeunload guard unmounts with CodePanel (leaving the editor route loses the tab-close warning) [src/hooks/useAutoSave.ts:71, src/hooks/useUnsavedChangesWarning.ts] — deferred, pre-existing (story 2.3 hook contracts; hooks unchanged in this diff)

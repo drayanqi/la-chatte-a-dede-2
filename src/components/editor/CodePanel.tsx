@@ -47,6 +47,20 @@ export const CodePanel: React.FC = () => {
     await saveScript(activeScriptId);
   }, [isSaving, activeScriptId, saveScript]);
 
+  // Monaco markers → store (the status dots read syntaxErrors). Read the
+  // active script at call time: only one editor instance exists, so its
+  // markers always describe the script currently open.
+  const handleMarkersChange = useCallback(
+    (errors: Array<{ line: number; message: string }>) => {
+      const { activeScriptId: scriptId, setSyntaxErrors } = useEditorStore.getState();
+      if (!scriptId) return;
+      setSyntaxErrors(
+        errors.map((error) => ({ scriptId, line: error.line, message: error.message }))
+      );
+    },
+    []
+  );
+
   return (
     <div data-testid="code-panel" style={styles.container}>
       <div style={styles.colhead}>
@@ -76,6 +90,7 @@ export const CodePanel: React.FC = () => {
                 value={activeScript.code}
                 onChange={(newCode) => updateScript(activeScript.id, newCode)}
                 onSave={handleSave}
+                onMarkersChange={handleMarkersChange}
               />
             </div>
           </div>

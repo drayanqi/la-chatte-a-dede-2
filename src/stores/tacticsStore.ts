@@ -305,7 +305,12 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
               name: name ?? prev.name,
               slots: slots ?? prev.slots,
               isReady: isReady ?? prev.isReady,
-              customization: customization ?? prev.customization,
+              // Patch-merge customizations: a later queue entry without one
+              // must not silently discard an earlier queued crest/color edit
+              customization:
+                customization || prev.customization
+                  ? { ...prev.customization, ...customization }
+                  : undefined,
             }
           : { id, name, slots, isReady, customization };
       set({ pendingUpdate });
@@ -520,11 +525,15 @@ export const useTacticsStore = create<TacticsState & TacticsActions>((set, get) 
    * Duplique une équipe (story 7.5): POST d'une copie nommée "X (copie)"
    * avec la même line-up. La copie démarre en Brouillon (isReady n'est
    * pas copié) et devient l'équipe active — même pipeline que createTactic.
+   * Le nom est tronqué pour tenir dans la limite serveur (max:100) même
+   * avec le suffixe.
    */
   duplicateTactic: async (id: string) => {
     const source = get().tactics.find((tactic) => tactic.id === id);
     if (!source) return null;
-    return get().saveTactic(`${source.name} (copie)`, source.players);
+    const suffix = ' (copie)';
+    const base = source.name.slice(0, 100 - suffix.length);
+    return get().saveTactic(`${base}${suffix}`, source.players);
   },
 
   selectTactic: (id) =>

@@ -183,7 +183,15 @@ export function isShotOnTarget(
     if (prevX < FIELD_WIDTH && x >= FIELD_WIDTH) {
       return crossingInMouth(prevX, prevY, x, y, FIELD_WIDTH);
     }
+    // A shot from exactly ON the goal line (player clamped at x = 100) moves
+    // outward without ever satisfying prevX < FIELD_WIDTH — count it too.
+    if (prevX === FIELD_WIDTH && x > FIELD_WIDTH) {
+      return crossingInMouth(prevX, prevY, x, y, FIELD_WIDTH);
+    }
     if (prevX > 0 && x <= 0) {
+      return crossingInMouth(prevX, prevY, x, y, 0);
+    }
+    if (prevX === 0 && x < 0) {
       return crossingInMouth(prevX, prevY, x, y, 0);
     }
     vx *= BALL_FRICTION;

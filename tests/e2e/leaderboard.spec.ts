@@ -79,16 +79,16 @@ test.describe('Public Leaderboard', () => {
     const b = await createReadyFighter({ userFactory, scriptFactory, matchFactory, apiContext }, 'LeaderB');
 
     // Settle ONE real match via API as B (synchronous simulation). B is the
-    // challenger; A's ready tactic is the only pool opponent. An equal-elo
+    // challenger; A's ready tactic is the explicit opponent. An equal-elo
     // draw would not move the ratings apart — replay the rare draw.
     let result: string | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await apiContext.post('matchmaking/quick', {
-        data: { tactic_id: b.tacticId },
+      const response = await apiContext.post('matchmaking/challenge', {
+        data: { tactic_id: b.tacticId, opponent_tactic_id: a.tacticId },
         headers: { Authorization: `Bearer ${b.token}` },
         timeout: 120000,
       });
-      expect(response.ok(), `quick match failed: ${response.status()}`).toBeTruthy();
+      expect(response.ok(), `challenge failed: ${response.status()}`).toBeTruthy();
       result = ((await response.json()) as { result: string | null }).result;
       if (result === 'challenger_win' || result === 'opponent_win') break;
     }

@@ -4,7 +4,7 @@ baseline_commit: 75f3e9e082e5dc345dc487cf2034a5ed223f3ad3
 
 # Story 7.6: Play Page — Lobby, Adversaires, Historique & Rail Classement
 
-Status: review
+Status: done
 
 ## Story
 
@@ -85,3 +85,10 @@ So that playing is one obvious click away and I never lose the pulse of the ladd
 
 - 2026-09-21: Story 7.6 implemented — /play lobby (hero + opponents + history + rail), no-ready state with Équipes CTA, token-styled ranked chooser (challenge only) with the shared ResultCard, /classement crests, practice handoff to /match/:id, away-color collision resolver, interim replay controls on the match view, e2e traversal rewrite (execution deferred to the 7.8 sweep), unit suite 616/616. Status → review.
 - 2026-09-21: Post-review fix — players vanished on /teams after navigating away and back. Root cause: StrictMode double-mount (and route remount) destroys the canvas engine while the AppShell `loadedTacticIdRef` dedupe guard blocks reloading the unchanged active tactic into the fresh engine. Fix: mount effect in AppShell resets `loadedTacticIdRef` before the load effect, so every fresh engine instance reloads the active tactic. Regression e2e added to teams-page.spec.ts (nav away → back → census 5 players → GK picker opens).
+
+### Review Findings
+
+- [x] [Review][Patch] Queued tactic update drops an earlier queued customization patch (`customization: customization ?? prev.customization` — second same-tactic queue entry with `customization: undefined` silently discards the first's crest/color edit) [src/stores/tacticsStore.ts:308]
+- [x] [Review][Patch] Tactic duplication fails when `name + " (copie)"` exceeds the server's 100-char max (no base truncation) [src/stores/tacticsStore.ts:527]
+- [x] [Review][Patch] Null owner row highlighted as mine / badged "You" — `myUsername === entry.owner` is true when both are null (deleted owner) [src/components/play/LeaderboardRail.tsx:37, src/pages/LeaderboardPage.tsx:79]
+- [x] [Review][Patch] Dead quick-match path remains after challenge-only cutover — store action with no UI and `POST /matchmaking/quick` route kept, contrary to 7.6's "7.8 store cleanup" note [src/stores/rankedStore.ts:145, lachatadede-api/routes/api.php:51]

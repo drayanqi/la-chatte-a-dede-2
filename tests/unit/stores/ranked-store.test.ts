@@ -169,85 +169,6 @@ describe('RankedStore', () => {
     });
   });
 
-  describe('quickMatch', () => {
-    it('should play a quick match and refresh pool + tactic records', async () => {
-      mockFetch
-        // POST /matchmaking/quick
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          json: async () => makeMatch(),
-        })
-        // refresh: GET /matchmaking/opponents
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [makeOpponent()],
-        })
-        // refresh: GET /tactics
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [makeTactic({ elo: 1025, wins: 1 })],
-        });
-
-      await useRankedStore.getState().quickMatch('tactic-1');
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/matchmaking/quick'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ tactic_id: 'tactic-1' }),
-        })
-      );
-      expect(useRankedStore.getState().match?.pointsChallenger).toBe(25);
-      expect(useRankedStore.getState().isPlaying).toBe(false);
-      expect(useRankedStore.getState().activeTacticId).toBe('tactic-1');
-      expect(useRankedStore.getState().opponentTacticId).toBeNull();
-
-      // The record on the tab followed the server (refresh is fire-and-forget)
-      await waitFor(() => {
-        expect(useTacticsStore.getState().tactics[0].elo).toBe(1025);
-      });
-    });
-
-    it('should surface "No opponents ready" from the 404 body', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: async () => ({ message: 'No opponents ready' }),
-      });
-
-      await useRankedStore.getState().quickMatch('tactic-1');
-
-      expect(useRankedStore.getState().matchError).toBe('No opponents ready');
-      expect(useRankedStore.getState().match).toBeNull();
-      expect(useRankedStore.getState().isPlaying).toBe(false);
-    });
-
-    it('should surface a 502 simulation failure message', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: async () => ({ message: 'Simulation failed' }),
-      });
-
-      await useRankedStore.getState().quickMatch('tactic-1');
-
-      expect(useRankedStore.getState().matchError).toBe('Simulation failed');
-    });
-
-    it('should fall back to a human message on network failure', async () => {
-      mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-
-      await useRankedStore.getState().quickMatch('tactic-1');
-
-      expect(useRankedStore.getState().matchError).toBe(
-        'Could not start the match. Please try again.'
-      );
-    });
-  });
-
   describe('challenge', () => {
     it('should challenge a specific opponent and store the match', async () => {
       mockFetch
@@ -333,8 +254,8 @@ describe('RankedStore', () => {
         json: async () => [],
       });
 
-      const first = useRankedStore.getState().quickMatch('tactic-1');
-      const second = useRankedStore.getState().quickMatch('tactic-1');
+      const first = useRankedStore.getState().challenge('tactic-1', 'opp-1');
+      const second = useRankedStore.getState().challenge('tactic-1', 'opp-1');
       await second;
 
       // The stale first response lands after the second settled

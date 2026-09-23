@@ -52,25 +52,6 @@ class RankedMatchService
     }
 
     /**
-     * Quick match (AC #1, #2): a RANDOM pool opponent, any elo (band
-     * matching is deferred). Empty pool → 404.
-     */
-    public function quickMatch(User $user, Tactic $mine): GameMatch
-    {
-        $this->assertFieldable($mine, 'Your tactic');
-
-        $pool = $this->poolTactics($user)->values();
-
-        if ($pool->isEmpty()) {
-            throw new RankedMatchException('No opponents ready', 404);
-        }
-
-        $opponent = $pool->random();
-
-        return $this->play($user, $mine, $opponent);
-    }
-
-    /**
      * Challenge (AC #3, #5): one specific opponent tactic, which must be a
      * genuine pool member (ready, complete, foreign, non-system).
      */

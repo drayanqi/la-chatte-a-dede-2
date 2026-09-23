@@ -171,7 +171,8 @@ export interface MatchFramePlayer {
 export interface MatchGoalEvent {
   type: 'goal';
   team: MatchTeam;
-  scorerSlot: number;
+  /** 1-5 for an attributable goal; null for an own goal / no-touch trajectory */
+  scorerSlot: number | null;
 }
 
 export interface MatchShotEvent {

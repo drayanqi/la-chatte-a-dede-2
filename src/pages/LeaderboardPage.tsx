@@ -76,7 +76,8 @@ export const LeaderboardPage: React.FC = () => {
                   </thead>
                   <tbody>
                     {leaderboardEntries.map((entry) => {
-                      const isMine = entry.owner === myUsername;
+                      // A null owner (deleted user) is never me
+                      const isMine = myUsername !== null && entry.owner === myUsername;
 
                       return (
                         <tr

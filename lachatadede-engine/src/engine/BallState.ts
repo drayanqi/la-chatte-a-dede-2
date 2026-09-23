@@ -154,7 +154,27 @@ export class BallState {
         this.x = FIELD_WIDTH - WALL_CLAMP;
         if (this.vx > 0) this.vx = -this.vx;
       }
+    } else if (prevX === FIELD_WIDTH && this.x > FIELD_WIDTH) {
+      // A ball resting exactly ON the line (dribble copies the player's
+      // clamped position) moving outward never satisfies prevX < FIELD_WIDTH
+      // — judge it by the same crossing test or it escapes the world.
+      const crossingY = this.crossingY(prevX, prevY, FIELD_WIDTH);
+      if (crossingY >= GOAL_Y_MIN && crossingY <= GOAL_Y_MAX) {
+        this.goalCrossing = { side: 'right', y: crossingY };
+      } else {
+        this.x = FIELD_WIDTH - WALL_CLAMP;
+        if (this.vx > 0) this.vx = -this.vx;
+      }
     } else if (prevX > 0 && this.x <= 0) {
+      const crossingY = this.crossingY(prevX, prevY, 0);
+      if (crossingY >= GOAL_Y_MIN && crossingY <= GOAL_Y_MAX) {
+        this.goalCrossing = { side: 'left', y: crossingY };
+      } else {
+        this.x = WALL_CLAMP;
+        if (this.vx < 0) this.vx = -this.vx;
+      }
+    } else if (prevX === 0 && this.x < 0) {
+      // Mirror of the on-the-line case at the left goal
       const crossingY = this.crossingY(prevX, prevY, 0);
       if (crossingY >= GOAL_Y_MIN && crossingY <= GOAL_Y_MAX) {
         this.goalCrossing = { side: 'left', y: crossingY };

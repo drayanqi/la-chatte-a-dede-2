@@ -148,6 +148,36 @@ export const TeamsPage: React.FC = () => {
     [clampCodeWidth]
   );
 
+  // Re-clamp persisted widths when the window resizes (contract inherited
+  // from the retired usePanelLayout): a wide layout shrunk into a narrow
+  // viewport must never clip the pitch. Scripts clamps first, then code
+  // against the already-clamped scripts width.
+  useEffect(() => {
+    const reClamp = () => {
+      setPanelWidths(({ scripts, code }) => {
+        const nextScripts = clampWidth(
+          scripts,
+          MIN_SCRIPTS_WIDTH,
+          Math.min(
+            ABS_MAX_SCRIPTS_WIDTH,
+            window.innerWidth - code - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH
+          )
+        );
+        const nextCode = clampWidth(
+          code,
+          MIN_CODE_WIDTH,
+          Math.min(
+            ABS_MAX_CODE_WIDTH,
+            window.innerWidth - nextScripts - MIN_PITCH_WIDTH - LAYOUT_CHROME_WIDTH
+          )
+        );
+        return { scripts: nextScripts, code: nextCode };
+      });
+    };
+    window.addEventListener('resize', reClamp);
+    return () => window.removeEventListener('resize', reClamp);
+  }, []);
+
   const handleScriptsResizeCommit = useCallback(() => {
     persistPanelWidths(panelWidthsRef.current);
   }, [persistPanelWidths]);

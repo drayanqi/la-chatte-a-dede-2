@@ -51,7 +51,7 @@ export interface TacticsCanvasProps {
   ) => void;
 
   /** Callback quand un but est marqué dans les frames chargées (live = atteint en lecture) */
-  onGoalScored?: (team: TeamId, scorerSlot: number, live: boolean) => void;
+  onGoalScored?: (team: TeamId, scorerSlot: number | null, live: boolean) => void;
 
   /** Callback quand la simulation est terminée */
   onSimulationComplete?: (result: SimulationResult) => void;

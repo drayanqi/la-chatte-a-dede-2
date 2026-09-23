@@ -181,9 +181,10 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   },
 
   loadReplay: async (matchId: string, match?: MatchResult) => {
-    if (get().isReplayLoading) {
-      return;
-    }
+    // No in-flight early-return: a new call SUPERSEDES the running one —
+    // the generation token below invalidates the older load's writes and
+    // its fetch is aborted (review: /match/A → /match/B mid-flight used to
+    // swallow B and install A's frames under B's URL).
 
     // Resolve the owning match for the error/retry states: the explicit
     // argument wins, then any known match with that id.

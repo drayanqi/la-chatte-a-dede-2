@@ -11,6 +11,17 @@
       rel="stylesheet"
     />
     <title>LACHATADEDE</title>
+    <script>
+      // Pre-paint theme (La Ronde tokens are CSS-variable driven): apply the
+      // persisted theme before React mounts so a dark reload never flashes
+      // light. Keep the key in sync with themeStore (lad_theme).
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('lad_theme') === 'dark' ? 'dark' : 'light';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -330,7 +330,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                       BUT
                     </span>
                     <span style={styles.goalText}>
-                      #{goal.scorerSlot} ·{' '}
+                      {goal.scorerSlot !== null ? `#${goal.scorerSlot}` : 'csc'} ·{' '}
                       {goal.team === 'challenger' ? challengerName : opponentName}
                     </span>
                   </button>
@@ -355,7 +355,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                 BUT
               </span>
               <span style={styles.logText}>
-                #{goal.scorerSlot} ·{' '}
+                {goal.scorerSlot !== null ? `#${goal.scorerSlot}` : 'csc'} ·{' '}
                 {goal.team === 'challenger' ? challengerName : opponentName}
               </span>
             </button>

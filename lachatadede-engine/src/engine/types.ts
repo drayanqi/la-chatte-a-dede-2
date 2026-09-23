@@ -55,7 +55,12 @@ export interface FrameLog {
 export interface GoalEvent {
   type: 'goal';
   team: Team;
-  scorerSlot: number;
+  /**
+   * 1-5 when the last touch belongs to the SCORING team; null when the goal
+   * is unattributable (own goal / deflection by the conceding team, or a
+   * no-touch trajectory) — render as "csc" rather than a phantom player.
+   */
+  scorerSlot: number | null;
 }
 
 export interface ShotEvent {

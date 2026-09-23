@@ -7,6 +7,8 @@ import { create } from 'zustand';
 import { apiFetch, ApiError } from '@/lib/apiClient';
 import { useMatchStore } from './matchStore';
 import { useRankedStore } from './rankedStore';
+import { useEditorStore } from './editorStore';
+import { useTacticsStore } from './tacticsStore';
 
 export interface User {
   id: string;
@@ -130,6 +132,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     // Same for the ranked matchmaking state (Epic 4 v2). Static import is
     // safe: rankedStore only reaches back to authStore via dynamic import.
     useRankedStore.getState().reset();
+    // Same for the editor (scripts, active selection, unsaved buffer) and
+    // the tactics list: a stale activeScriptId from the previous account
+    // surfaces as a phantom leave-warning or "Script not found" save error
+    // for whoever logs in next on this device.
+    useEditorStore.getState().reset();
+    useTacticsStore.getState().reset();
     set({ ...initialState, isRestoring: false });
   },
 
