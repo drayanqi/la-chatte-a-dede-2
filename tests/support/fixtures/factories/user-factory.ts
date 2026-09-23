@@ -19,7 +19,7 @@ export type User = {
 };
 
 export class UserFactory {
-  private createdUserIds: string[] = [];
+  private createdUsers: { id: string; token?: string }[] = [];
   private apiContext: APIRequestContext;
 
   constructor(apiContext: APIRequestContext) {
@@ -31,12 +31,19 @@ export class UserFactory {
    */
   async create(overrides: Partial<User> = {}): Promise<User> {
     const password = overrides.password || faker.internet.password({ length: 12, memorable: true });
+    // Unique suffix: fixed names in overrides must survive worker-crash
+    // reruns (orphaned users from an aborted attempt would 422 otherwise),
+    // and faker's finite name pool can collide within a single test.
+    const uniqueSuffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+    // Only `name` keeps the suffix (rerun safety); every other override
+    // (notably a fixed email) wins over the generated defaults.
+    const { name: nameOverride, ...rest } = overrides;
     const userData = {
       email: faker.internet.email(),
-      name: faker.person.fullName(),
+      name: `${nameOverride ?? faker.person.fullName()}-${uniqueSuffix}`,
       password,
       password_confirmation: password,
-      ...overrides,
+      ...rest,
     };
 
     const response = await this.apiContext.post('register', {
@@ -49,7 +56,7 @@ export class UserFactory {
     }
 
     const created = await response.json();
-    this.createdUserIds.push(created.user.id);
+    this.createdUsers.push({ id: created.user.id, token: created.token });
 
     return {
       ...userData,
@@ -85,16 +92,21 @@ export class UserFactory {
   }
 
   /**
-   * Cleanup all created users
+   * Cleanup all created users. DELETE /users/{id} sits behind auth:sanctum
+   * (and in non-local envs only the owner may delete), so each delete
+   * carries the user's own registration token. A silent 401 here used to
+   * orphan every created user and poison fixed-name tests on reruns.
    */
   async cleanup(): Promise<void> {
-    for (const userId of this.createdUserIds) {
+    for (const { id, token } of this.createdUsers) {
       try {
-        await this.apiContext.delete(`users/${userId}`);
+        await this.apiContext.delete(`users/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
       } catch (error) {
-        console.warn(`Failed to cleanup user ${userId}:`, error);
+        console.warn(`Failed to cleanup user ${id}:`, error);
       }
     }
-    this.createdUserIds = [];
+    this.createdUsers = [];
   }
 }
