@@ -206,8 +206,8 @@ test.describe('Practice Match', () => {
   }) => {
     // Full real-stack replay watch: simulate + full playback + exit + canvas
     // reset. Far beyond the 60s default on a starved CI runner (shard 1 ran
-    // out of budget mid-assertion) — this test owns a 120s ceiling.
-    test.setTimeout(120_000);
+    // out of budget mid-assertion) — this test owns a 180s ceiling.
+    test.setTimeout(180_000);
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.createStarter(user.token!);
     await matchFactory.createTactic({
@@ -325,9 +325,10 @@ test.describe('Practice Match', () => {
     scriptFactory,
     matchFactory,
   }) => {
-    // Full simulation + replay + navigation: over the 60s global default on
-    // a slow simulation run (the 3.8 replay test already peaks near it)
-    test.setTimeout(120_000);
+    // Full simulation + replay + navigation: blew the 120s ceiling on starved
+    // CI runners (2 vCPU + video recording) five runs in a row — local runs
+    // sit at ~70s, CI needs the same 180s budget as its 3.8/3.10/3.11 peers
+    test.setTimeout(180_000);
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.createStarter(user.token!);
     await matchFactory.createTactic({
@@ -444,7 +445,7 @@ test.describe('Practice Match', () => {
     matchFactory,
   }) => {
     // Simulation + replay + navigation: same budget as the 3.9 navigation test
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const user = await userFactory.createAuthenticated();
     const script = await scriptFactory.create({
       token: user.token!,
@@ -653,7 +654,7 @@ function update(game) {
     matchFactory,
   }) => {
     // Simulation + replay + the same interactions as the 3.9/3.10 tests
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const user = await userFactory.createAuthenticated();
 
     // Two log-only scripts: slots 1+5 log 'alpha', slots 2-4 log 'beta'.
