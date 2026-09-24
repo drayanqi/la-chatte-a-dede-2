@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { TacticsCanvas, TacticsCanvasHandle } from '@/components/canvas';
 import { Appbar } from '@/components/layout/Appbar';
 import { Timeline } from '@/components/layout/Timeline';
@@ -37,6 +37,13 @@ const CELEBRATION_TOTAL_MS = 3000;
 const CELEBRATION_SCORE_HOLD_MS = 1200;
 const CELEBRATION_COUNTDOWN_TICKS = 3;
 const CELEBRATION_POLL_MS = 100;
+
+/** Pre-match ceremony (story 7.10): the walk itself is engine-driven
+ * (onIntroComplete); the kickoff countdown reuses the goal celebration's
+ * 3-2-1 cadence — no score anywhere, nothing is 0-0 yet. */
+const INTRO_COUNTDOWN_TICKS = 3;
+const INTRO_TOTAL_MS = 3000;
+const INTRO_POLL_MS = 100;
 
 interface Celebration {
   team: TeamId;
@@ -91,6 +98,38 @@ export const MatchPage: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
   const [scorePhase, setScorePhase] = useState(true);
   const celebrationTimerRef = useRef<number | null>(null);
+
+  // Pre-match ceremony (story 7.10): 'walk' = teams entering under the VS
+  // card (engine tween, no React timer), 'countdown' = 3-2-1 then kickoff.
+  // The ref mirror keeps the keyboard/overlay handlers honest without
+  // re-binding them on every phase change.
+  const [introPhase, setIntroPhase] = useState<'walk' | 'countdown' | null>(null);
+  const [introCountdown, setIntroCountdown] = useState(0);
+  const introPhaseRef = useRef<'walk' | 'countdown' | null>(null);
+  const introTimerRef = useRef<number | null>(null);
+  // The ceremony plays once per fresh generation (?fresh=1 from the play
+  // flows) — a ref: consumed atomically with the frames load, immune to
+  // the param being stripped afterwards
+  const introEligibleRef = useRef(false);
+
+  const applyIntroPhase = useCallback((phase: 'walk' | 'countdown' | null) => {
+    introPhaseRef.current = phase;
+    setIntroPhase(phase);
+  }, []);
+
+  // ?fresh=1 (story 7.10): the play flows navigate right after the match
+  // was generated. The flag is consumed on mount and stripped with replace
+  // — a refresh (or a history-row visit) loads without the ceremony.
+  // Declared before the frames-load effect: the ref must be set by the
+  // time frames arrive.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('fresh') !== '1') return;
+    introEligibleRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('fresh');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Load the requested replay once (refresh-safe deep link): a mismatched
   // or absent match triggers the load. A load still in flight for ANOTHER
@@ -147,7 +186,13 @@ export const MatchPage: React.FC = () => {
       }
     );
     canvasRef.current?.setTeamColors(homeHex, awayHex);
-    canvasRef.current?.loadFrames(replayFrames);
+    // The ceremony rides the same load (story 7.10): the flag is consumed
+    // atomically so a store re-emit cannot replay it. The walk phase is
+    // armed by the engine's onIntroStart — the overlay rises exactly when
+    // the walk begins (a frames load may still queue behind init).
+    const withIntro = introEligibleRef.current;
+    introEligibleRef.current = false;
+    canvasRef.current?.loadFrames(replayFrames, { intro: withIntro });
   }, [replayFrames, replayMatch, setMatchFrames]);
 
   // Clear a pending celebration timer on unmount (interval or timeout id)
@@ -156,6 +201,9 @@ export const MatchPage: React.FC = () => {
     return () => {
       if (celebrationTimerRef.current !== null) {
         window.clearInterval(celebrationTimerRef.current);
+      }
+      if (introTimerRef.current !== null) {
+        window.clearInterval(introTimerRef.current);
       }
       canvasRef.current?.setKickoffPause(false);
     };
@@ -250,16 +298,75 @@ export const MatchPage: React.FC = () => {
     }, CELEBRATION_BANNER_MS);
   }, []);
 
-  // User takes over mid-countdown (seek/step/play/pause/Space): drop the
-  // overlay + the kickoff pause, never auto-resume from the old countdown
-  const cancelCelebration = useCallback(() => {
-    if (celebrationTimerRef.current === null) return;
-    window.clearInterval(celebrationTimerRef.current);
-    celebrationTimerRef.current = null;
-    setCelebration(null);
-    setCountdown(0);
+  // User takes over (seek/step/play/pause/Space): drop the goal celebration
+  // (story 7.7) AND the pre-match ceremony (story 7.10) — timers cleared,
+  // kickoff pause lifted, never auto-resume from an old countdown. The
+  // engine cancels its own intro walk inside the play/pause/seek call.
+  const cancelOverlays = useCallback(() => {
+    if (celebrationTimerRef.current !== null) {
+      window.clearInterval(celebrationTimerRef.current);
+      celebrationTimerRef.current = null;
+      setCelebration(null);
+      setCountdown(0);
+    }
+    if (introPhaseRef.current !== null) {
+      if (introTimerRef.current !== null) {
+        window.clearInterval(introTimerRef.current);
+        introTimerRef.current = null;
+      }
+      setIntroCountdown(0);
+      applyIntroPhase(null);
+    }
     canvasRef.current?.setKickoffPause(false);
-  }, []);
+  }, [applyIntroPhase]);
+
+  // Walk started (story 7.10): the teams are on their way — raise the VS
+  // card. The engine fires this when the walk actually begins, including
+  // for a frames load that queued behind canvas init.
+  const handleIntroStart = useCallback(() => {
+    if (introPhaseRef.current === 'walk') return;
+    applyIntroPhase('walk');
+    setIntroCountdown(0);
+  }, [applyIntroPhase]);
+
+  // Walk finished (story 7.10): teams standing at their kickoff spots —
+  // freeze the kickoff frame (ball at the keeper, pulsing ring) for the
+  // 3-2-1 countdown, then playback starts. The engine's next onFrameChanged
+  // emission owns the store's playing state, like the goal resume.
+  const handleIntroComplete = useCallback(() => {
+    if (introPhaseRef.current !== 'walk') return;
+    canvasRef.current?.setKickoffPause(true);
+    applyIntroPhase('countdown');
+    setIntroCountdown(INTRO_COUNTDOWN_TICKS);
+    const startedAt = Date.now();
+    introTimerRef.current = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.ceil((INTRO_TOTAL_MS - elapsed) / 1000);
+      if (remaining > 0) {
+        setIntroCountdown(Math.min(remaining, INTRO_COUNTDOWN_TICKS));
+        return;
+      }
+      if (introTimerRef.current !== null) {
+        window.clearInterval(introTimerRef.current);
+        introTimerRef.current = null;
+      }
+      setIntroCountdown(0);
+      applyIntroPhase(null);
+      canvasRef.current?.setKickoffPause(false);
+      canvasRef.current?.play();
+    }, INTRO_POLL_MS);
+  }, [applyIntroPhase]);
+
+  // Skip affordance (story 7.10): a click on the ceremony overlay (or
+  // Space) jumps straight to the kickoff — the engine's play() snaps the
+  // walking teams to frame 0 and playback starts immediately
+  const skipIntro = useCallback(() => {
+    if (introPhaseRef.current === null) return;
+    cancelOverlays();
+    canvasRef.current?.play();
+    const { currentFrame: frame, totalFrames: total } = useCanvasStore.getState();
+    updatePlaybackState(true, frame, total);
+  }, [cancelOverlays, updatePlaybackState]);
 
   /**
    * Pitch click (story 3.11): the selection -> log-filter semantics that
@@ -316,23 +423,23 @@ export const MatchPage: React.FC = () => {
 
   // Playback controls, driven by the canvas handle
   const handlePlay = useCallback(() => {
-    cancelCelebration();
+    cancelOverlays();
     canvasRef.current?.play();
     updatePlaybackState(true, currentFrame, totalFrames);
-  }, [cancelCelebration, updatePlaybackState, currentFrame, totalFrames]);
+  }, [cancelOverlays, updatePlaybackState, currentFrame, totalFrames]);
 
   const handlePause = useCallback(() => {
-    cancelCelebration();
+    cancelOverlays();
     canvasRef.current?.pause();
     updatePlaybackState(false, currentFrame, totalFrames);
-  }, [cancelCelebration, updatePlaybackState, currentFrame, totalFrames]);
+  }, [cancelOverlays, updatePlaybackState, currentFrame, totalFrames]);
 
   const handleSeek = useCallback(
     (frame: number) => {
-      cancelCelebration();
+      cancelOverlays();
       canvasRef.current?.seekFrame(frame);
     },
-    [cancelCelebration]
+    [cancelOverlays]
   );
 
   // Playback speed (story 7.7): the timeline owns the label and pushes each
@@ -344,13 +451,19 @@ export const MatchPage: React.FC = () => {
   // Space play/pause (story 3.8 AC #3): toggle only when the keystroke does
   // not belong to an editable surface or an activatable control
   const togglePlayback = useCallback(() => {
+    // Space during the ceremony skips straight to the kickoff (story 7.10)
+    if (introPhaseRef.current !== null) {
+      skipIntro();
+      return;
+    }
+
     const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
       useCanvasStore.getState();
 
     // Nothing loaded: no-op — toggling would set a phantom "playing" state
     if (total === 0) return;
 
-    cancelCelebration();
+    cancelOverlays();
     if (playing) {
       canvasRef.current?.pause();
       updatePlaybackState(false, frame, total);
@@ -358,19 +471,26 @@ export const MatchPage: React.FC = () => {
       canvasRef.current?.play();
       updatePlaybackState(true, frame, total);
     }
-  }, [cancelCelebration, updatePlaybackState]);
+  }, [skipIntro, cancelOverlays, updatePlaybackState]);
 
   // Arrow navigation (story 3.9 AC #3/#4): ±1 tick per press, ±60 ticks
   // (1 second at the engine's 60 fps) with Shift. Stepping while playing
   // pauses first (video-player convention).
   const stepPlayback = useCallback(
     (direction: 'forward' | 'backward', ticks: number) => {
+      // Arrows during the ceremony skip to the kickoff too — every takeover
+      // key means "I want the match now" (story 7.10)
+      if (introPhaseRef.current !== null) {
+        skipIntro();
+        return;
+      }
+
       const { isPlaying: playing, currentFrame: frame, totalFrames: total } =
         useCanvasStore.getState();
 
       if (total === 0) return;
 
-      cancelCelebration();
+      cancelOverlays();
       if (playing) {
         canvasRef.current?.pause();
         updatePlaybackState(false, frame, total);
@@ -384,7 +504,7 @@ export const MatchPage: React.FC = () => {
         canvasRef.current?.seekFrame(target);
       }
     },
-    [cancelCelebration, updatePlaybackState]
+    [skipIntro, cancelOverlays, updatePlaybackState]
   );
 
   // Skip buttons (⏮/⏭): frame-by-frame step, not start/end jumps — the
@@ -464,10 +584,10 @@ export const MatchPage: React.FC = () => {
       // Same takeover contract as the scrubber/step/play paths: a drawer
       // seek during the live-goal countdown cancels the overlay and its
       // auto-resume timer
-      cancelCelebration();
+      cancelOverlays();
       canvasRef.current?.seekFrame(frame);
     },
-    [cancelCelebration]
+    [cancelOverlays]
   );
 
   return (
@@ -482,6 +602,8 @@ export const MatchPage: React.FC = () => {
             onPlayerDeselected={handlePlayerDeselected}
             onFrameChanged={handleFrameChanged}
             onGoalScored={handleGoalScored}
+            onIntroStart={handleIntroStart}
+            onIntroComplete={handleIntroComplete}
           />
 
           {/* Exit chip */}
@@ -494,9 +616,47 @@ export const MatchPage: React.FC = () => {
             Quitter
           </button>
 
+          {/* Pre-match ceremony (story 7.10): the two teams walk onto the
+              pitch from their sideline under the VS card, then the 3-2-1
+              countdown — no score anywhere, nothing is 0-0 yet. A click
+              anywhere skips straight to the kickoff. zIndex below the exit
+              chip keeps "Quitter" reachable during the ceremony. The
+              isPlaying guard is the rogue-load escape hatch: a duplicate
+              frames-load without the ceremony flag (store re-emit) starts
+              playback and the overlay must not hang over a live match. */}
+          {introPhase && replayReady && !isPlaying && (
+            <div
+              data-testid="match-intro-overlay"
+              role="status"
+              aria-live="polite"
+              onClick={skipIntro}
+              style={styles.intro}
+            >
+              {introPhase === 'walk' ? (
+                <div className="lachatadede-goal-overlay" style={styles.introCard}>
+                  <span style={{ ...styles.introTeam, color: homeHex }}>{challengerName}</span>
+                  <span style={styles.introVs}>VS</span>
+                  <span style={{ ...styles.introTeam, color: awayHex }}>{opponentName}</span>
+                </div>
+              ) : (
+                introCountdown > 0 && (
+                  <span
+                    data-testid="match-intro-countdown"
+                    className="lachatadede-goal-overlay"
+                    style={styles.countdownSolo}
+                    aria-hidden="true"
+                  >
+                    {introCountdown}
+                  </span>
+                )
+              )}
+            </div>
+          )}
+
           {/* Broadcast score pill (story 7.7 AC #1): names in their colors,
-              live score, minute, frame counter in mono */}
-          {replayReady && (
+              live score, minute, frame counter in mono — hidden during the
+              pre-match ceremony (story 7.10): no 0-0 on screen */}
+          {replayReady && introPhase === null && (
             <div data-testid="score-display" style={styles.scorePill}>
               <span style={{ ...styles.scoreTeam, color: homeHex }}>{challengerName}</span>
               <span style={styles.scoreValue}>
@@ -687,6 +847,40 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '7px 13px',
     borderRadius: 11,
     backdropFilter: 'blur(4px)',
+  },
+  intro: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 5,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  introCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 22,
+    padding: '20px 42px',
+    borderRadius: 'var(--r-modal)',
+    background: 'rgba(10, 20, 14, 0.72)',
+    backdropFilter: 'blur(6px)',
+    boxShadow: 'var(--shadow-lg)',
+    color: '#fff',
+    animation: 'lachatadede-goal-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both',
+  },
+  introTeam: {
+    fontSize: 24,
+    fontWeight: 800,
+    letterSpacing: '0.03em',
+    textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
+    whiteSpace: 'nowrap',
+  },
+  introVs: {
+    fontFamily: 'var(--mono)',
+    fontSize: 17,
+    fontWeight: 800,
+    color: 'var(--sun)',
   },
   scorePill: {
     position: 'absolute',

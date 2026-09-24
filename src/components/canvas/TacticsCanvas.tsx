@@ -67,14 +67,24 @@ export interface TacticsCanvasProps {
 
   /** Callback when the selection is cleared by clicking empty pitch */
   onPlayerDeselected?: () => void;
+
+  /**
+   * Callback when the pre-match intro walk finished (story 7.10): the
+   * sprites are snapped to frame 0 — the page owns the kickoff countdown.
+   */
+  onIntroComplete?: () => void;
+
+  /** Callback when the pre-match intro walk actually starts (story 7.10) */
+  onIntroStart?: () => void;
 }
 
 export interface TacticsCanvasHandle {
   /** Charger une tactique */
   loadTactic: (tactic: TacticData) => void;
 
-  /** Charger des frames de replay (story 3.7) */
-  loadFrames: (frames: MatchFrame[]) => void;
+  /** Charger des frames de replay (story 3.7). `intro` (story 7.10): the
+   * teams walk onto the pitch before playback may start */
+  loadFrames: (frames: MatchFrame[], opts?: { intro?: boolean }) => void;
 
   /** Assigner un script à un joueur */
   assignScript: (playerId: string, scriptId: string) => void;
@@ -140,6 +150,8 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
           onPlayerHovered,
           onFrameChanged,
           onGoalScored,
+          onIntroComplete,
+          onIntroStart,
           onSimulationComplete,
           onScriptAssigned,
           onPlayerMoved,
@@ -181,6 +193,15 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         },
         onGoalScored: (team, scorerSlot, live) => {
           onGoalScored?.(team, scorerSlot, live);
+        },
+        onIntroComplete: () => {
+          // The ball just became visible again (walk done) — the census
+          // must reflect it like any other engine state change
+          publishMatchCensus();
+          onIntroComplete?.();
+        },
+        onIntroStart: () => {
+          onIntroStart?.();
         },
         onSimulationComplete: (result) => {
           onSimulationComplete?.(result);
@@ -242,8 +263,8 @@ export const TacticsCanvas = forwardRef<TacticsCanvasHandle, TacticsCanvasProps>
         gameRef.current?.loadTactic(tactic);
         publishMatchCensus();
       },
-      loadFrames: (frames: MatchFrame[]) => {
-        gameRef.current?.loadFrames(frames);
+      loadFrames: (frames: MatchFrame[], opts?: { intro?: boolean }) => {
+        gameRef.current?.loadFrames(frames, opts);
         publishMatchCensus();
       },
       assignScript: (playerId: string, scriptId: string) => {

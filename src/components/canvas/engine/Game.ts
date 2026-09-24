@@ -54,6 +54,18 @@ export interface GameCallbacks {
   onPlayerDragStart?: () => void;
   /** Fired when the selection is cleared by clicking empty pitch */
   onPlayerDeselected?: () => void;
+  /**
+   * Fired once the pre-match intro walk finished: the sprites are snapped
+   * to frame 0 and the ball is visible again — the consumer owns the
+   * kickoff countdown that follows (story 7.10).
+   */
+  onIntroComplete?: () => void;
+  /**
+   * Fired when the pre-match intro walk starts (story 7.10) — including
+   * from a frames load that queued behind init: the consumer may raise its
+   * ceremony overlay exactly when the walk actually begins.
+   */
+  onIntroStart?: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -83,6 +95,7 @@ export class Game {
   // Frames queued before initialization completes
   private pendingTactic: TacticData | null = null;
   private pendingFrames: MatchFrame[] | null = null;
+  private pendingFramesIntro: boolean = false;
 
   // Goal celebration — last frame whose goal already fired (dedup)
   private lastCelebratedFrame: number = -1;
@@ -103,6 +116,19 @@ export class Game {
   private kickoffPauseActive: boolean = false;
   private kickoffElapsed: number = 0;
   private kickoffRing: Graphics;
+
+  // Pre-match intro (story 7.10): sprites walk in from their sideline to
+  // their frame-0 (kickoff) positions before playback may start
+  private introActive: boolean = false;
+  private introReducedMotion: boolean = false;
+  private introElapsed: number = 0;
+  private introEntries: { sprite: PlayerSprite; spawn: Position; target: Position; delay: number }[] = [];
+
+  // Pre-match intro tuning: walk duration + per-slot stagger (~60 ticks/s)
+  private readonly INTRO_WALK_TICKS = 84; // ~1.4s of walking
+  private readonly INTRO_STAGGER_TICKS = 6; // ~100ms between slots
+  private readonly INTRO_REDUCED_HOLD_TICKS = 60; // ~1s static hold (reduced motion)
+  private readonly INTRO_SPAWN_X = 6; // % beyond each sideline
 
   // Identity of the currently loaded tactic (for getTactic read-back)
   private currentTacticId: string = '';
@@ -192,8 +218,9 @@ export class Game {
       this.pendingTactic = null;
     }
     if (this.pendingFrames) {
-      this.loadFramesInternal(this.pendingFrames);
+      this.loadFramesInternal(this.pendingFrames, this.pendingFramesIntro);
       this.pendingFrames = null;
+      this.pendingFramesIntro = false;
     }
   }
 
@@ -204,6 +231,12 @@ export class Game {
 
     if (this.kickoffPauseActive) {
       this.updateKickoffRing(ticker.deltaTime);
+    }
+
+    // Pre-match intro walk (story 7.10): playback cannot start while the
+    // teams walk in — isPlaying stays false for the whole phase
+    if (this.introActive) {
+      this.updateIntro(ticker.deltaTime);
     }
 
     if (this.isPlaying && this.matchFrames.length > 0) {
@@ -456,8 +489,14 @@ export class Game {
    * Load match replay frames (story 3.7). Creates the 10 match player
    * sprites + the ball, resets playback, and renders frame 0. Guarded by
    * the pendingFrames queue like loadTactic (deferred-work pattern).
+   *
+   * `opts.intro` (story 7.10): instead of snapping to frame 0 and
+   * autoplaying, the sprites spawn beyond their sideline and walk to their
+   * frame-0 (kickoff) positions — onIntroComplete fires when placed, the
+   * ball staying hidden until then. Purely presentational: the frames are
+   * never mutated.
    */
-  loadFrames(frames: MatchFrame[]): void {
+  loadFrames(frames: MatchFrame[], opts: { intro?: boolean } = {}): void {
     // Engine frames carry y in field units (0-50); the canvas renders
     // percent coords. Normalize once here so every consumer (sprites,
     // timeline callbacks, debug panel) sees pitch percents.
@@ -466,15 +505,20 @@ export class Game {
       // Queue the frames to load after initialization. Last-request-wins:
       // a tactic queued earlier is dropped in favor of the frames.
       this.pendingFrames = normalized;
+      this.pendingFramesIntro = opts.intro === true;
       this.pendingTactic = null;
       return;
     }
-    this.loadFramesInternal(normalized);
+    this.loadFramesInternal(normalized, opts.intro === true);
   }
 
-  private loadFramesInternal(frames: MatchFrame[]): void {
+  private loadFramesInternal(frames: MatchFrame[], intro: boolean): void {
     const firstFrame: MatchFrame | undefined = frames[0];
     if (!firstFrame) return;
+
+    // A load during a running intro replaces it: the queued entries would
+    // reference sprites that destroyAllPlayerSprites is about to destroy
+    this.resetIntroState();
 
     // Validate the payload shape once at load — frames arrive from the API
     // or the test hook. A malformed payload must not tear the engine down
@@ -497,7 +541,6 @@ export class Game {
     // Replay sides keep the loaded team colors (set from the match payload)
     this.applyTeamColors();
     this.ensureBallSprite();
-    this.ballSprite?.setVisible(true);
     this.restackLayers();
 
     this.matchFrames = frames;
@@ -505,11 +548,121 @@ export class Game {
     this.setKickoffPause(false);
     this.resetCelebration();
     this.currentFrame = 0;
+
+    if (intro) {
+      this.startIntro(firstFrame);
+      return;
+    }
+
+    this.ballSprite?.setVisible(true);
     // Autoplay (story 3.8, AC #1): playback starts from frame 0 immediately.
     // Loop off — gameLoop clamps at the last frame and stops there.
     this.isPlaying = true;
 
     this.applyFrame(0);
+  }
+
+  // ==========================================================================
+  // Pre-match intro (story 7.10): the two teams walk onto the pitch from
+  // their own sideline and take their kickoff (frame-0) spots. Presentation
+  // only — real-time tween on the sprites, the frames stay untouched.
+  // ==========================================================================
+
+  private startIntro(firstFrame: MatchFrame): void {
+    const reduced = this.prefersReducedMotion();
+    this.introReducedMotion = reduced;
+    this.introEntries = [];
+    let homeIndex = 0;
+    let awayIndex = 0;
+
+    for (const framePlayer of firstFrame.players) {
+      const key = matchPlayerKey(framePlayer.team, framePlayer.slot);
+      const sprite = this.players.get(key);
+      if (!sprite) continue;
+      // The mapping law (teamMapping.ts): frames speak challenger/opponent,
+      // the renderer speaks home/away — challenger walks in from the left
+      const teamId = teamIdFromMatchTeam(framePlayer.team);
+      const target: Position = { x: framePlayer.x, y: framePlayer.y };
+      const spawn: Position = {
+        x: teamId === 'home' ? -this.INTRO_SPAWN_X : 100 + this.INTRO_SPAWN_X,
+        y: target.y,
+      };
+      sprite.setPosition(spawn);
+      this.introEntries.push({
+        sprite,
+        spawn,
+        target,
+        delay: (teamId === 'home' ? homeIndex++ : awayIndex++) * this.INTRO_STAGGER_TICKS,
+      });
+    }
+
+    // The ball waits in the tunnel: it appears with the kickoff frame
+    this.ballSprite?.setVisible(false);
+    this.isPlaying = false;
+    this.introActive = true;
+    this.introElapsed = 0;
+    this.callbacks.onIntroStart?.();
+  }
+
+  private updateIntro(deltaTime: number): void {
+    this.introElapsed += deltaTime;
+
+    // Reduced motion: no walk — the teams stand at their spots for the
+    // hold, then the same completion path fires (names + countdown still
+    // play in the page; only the movement is dropped)
+    if (this.introReducedMotion) {
+      if (this.introElapsed >= this.INTRO_REDUCED_HOLD_TICKS) {
+        this.completeIntro();
+      }
+      return;
+    }
+
+    const lastDelay = this.introEntries.reduce((max, entry) => Math.max(max, entry.delay), 0);
+    if (this.introElapsed < lastDelay + this.INTRO_WALK_TICKS) {
+      const elapsed = this.introElapsed;
+      for (const entry of this.introEntries) {
+        const progress = Math.max(0, Math.min(1, (elapsed - entry.delay) / this.INTRO_WALK_TICKS));
+        const eased = 1 - Math.pow(1 - progress, 3);
+        entry.sprite.setPosition({
+          x: entry.spawn.x + (entry.target.x - entry.spawn.x) * eased,
+          y: entry.spawn.y + (entry.target.y - entry.spawn.y) * eased,
+        });
+      }
+      return;
+    }
+
+    this.completeIntro();
+  }
+
+  /** Walk finished: snap to the kickoff frame, reveal the ball, hand over */
+  private completeIntro(): void {
+    this.resetIntroState();
+    this.ballSprite?.setVisible(true);
+    this.applyFrame(0);
+    this.callbacks.onIntroComplete?.();
+  }
+
+  /**
+   * Any playback takeover (play/pause/seek/step through the page) ends the
+   * ceremony: the tween stops and, when `snap` is set, the sprites land on
+   * the kickoff frame immediately.
+   */
+  private cancelIntro(snap: boolean): void {
+    const wasActive = this.introActive;
+    this.resetIntroState();
+    if (wasActive) {
+      this.ballSprite?.setVisible(true);
+      if (snap) {
+        this.applyFrame(0);
+      }
+    }
+  }
+
+  private resetIntroState(): void {
+    this.introActive = false;
+    this.introReducedMotion = false;
+    this.introElapsed = 0;
+    this.introEntries = [];
   }
 
   /** Create the 10 replay sprites (5 challenger + 5 opponent) + scratch states */
@@ -548,6 +701,8 @@ export class Game {
 
   /** Destroy every player sprite (tactic or match) */
   private destroyAllPlayerSprites(): void {
+    // Destroyed sprites can never stay intro targets (story 7.10)
+    this.resetIntroState();
     for (const player of this.players.values()) {
       player.destroy();
     }
@@ -873,6 +1028,8 @@ export class Game {
 
   // Contrôles de lecture
   play(): void {
+    // Play during the pre-match intro skips the ceremony: kickoff now
+    this.cancelIntro(true);
     // Play at the end of playback restarts from frame 0 (rewatch without
     // reload) — loop-off leaves currentFrame clamped at the last frame
     if (this.matchFrames.length > 0 && this.currentFrame >= this.matchFrames.length - 1) {
@@ -882,6 +1039,8 @@ export class Game {
   }
 
   pause(): void {
+    // Pause during the intro lands the kickoff paused at frame 0
+    this.cancelIntro(true);
     this.isPlaying = false;
   }
 
@@ -896,6 +1055,8 @@ export class Game {
   }
 
   step(direction: 'forward' | 'backward'): void {
+    // A step during the intro scrubs from the kickoff — ceremony over
+    this.cancelIntro(false);
     this.isPlaying = false;
     if (this.matchFrames.length === 0) return;
     // Time-based playback (story 3.8) leaves currentFrame fractional when
@@ -911,6 +1072,8 @@ export class Game {
   }
 
   seekFrame(frameIndex: number): void {
+    // A seek during the intro scrubs from the kickoff — ceremony over
+    this.cancelIntro(false);
     if (this.matchFrames.length === 0) return;
     this.currentFrame = Math.max(0, Math.min(frameIndex, this.matchFrames.length - 1));
     this.applyFrame(this.currentFrame);
@@ -964,6 +1127,7 @@ export class Game {
 
   destroy(): void {
     try {
+      this.resetIntroState();
       this.setKickoffPause(false);
       this.resetCelebration();
       this.field?.dispose();

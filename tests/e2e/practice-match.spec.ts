@@ -111,6 +111,74 @@ test.describe('Practice Match', () => {
     expect(simulationMs, 'NFR2: simulation within the engine hard cap').toBeLessThan(30000);
   });
 
+  // Story 7.10: a fresh generation (?fresh=1) plays the pre-match ceremony —
+  // the two teams walk onto the pitch under the VS card, then the 3-2-1
+  // countdown, no score anywhere (nothing is 0-0 yet) — before playback.
+  // A reload of the same viewer skips the ceremony entirely.
+  test('plays the pre-match ceremony on a fresh generation, skips it on reload', async ({
+    page,
+    userFactory,
+    scriptFactory,
+    matchFactory,
+  }) => {
+    test.setTimeout(180_000);
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.createStarter(user.token!);
+    const tacticName = 'Intro Formation';
+    await matchFactory.createTactic({
+      token: user.token!,
+      scriptIds: [script.id, script.id, script.id, script.id, script.id],
+      name: tacticName,
+    });
+
+    await seedAuthToken(page, user.token!);
+    await page.goto('/teams');
+
+    const framesResponse = page.waitForResponse((route) => route.url().includes('/frames'), { timeout: 90000 });
+    const startButton = page.getByTestId('test-vs-bot-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
+
+    await page.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 90000 });
+    await framesResponse;
+
+    // Ceremony: the VS card (names in their colors) owns the pitch, the
+    // score pill stays off, the 10 sprites exist and the ball is still
+    // in the tunnel
+    const intro = page.getByTestId('match-intro-overlay');
+    await expect(intro).toBeVisible({ timeout: 30000 });
+    await expect(intro).toContainText('VS');
+    await expect(intro).toContainText(tacticName);
+    await expect(page.getByTestId('score-display')).toBeHidden();
+    await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-match-players', '10');
+
+    // Walk done: the 3-2-1 countdown (no score card) takes over
+    const countdown = page.getByTestId('match-intro-countdown');
+    await expect(countdown).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('score-display')).toBeHidden();
+
+    // Skip affordance: one click on the ceremony overlay jumps straight
+    // to the kickoff — well before the 3s countdown would end on its own
+    await intro.click();
+    await expect(page.getByTestId('score-display')).toBeVisible({ timeout: 3000 });
+    await expect(intro).toBeHidden();
+
+    // Kickoff playing: the ball is live and the counter advances
+    await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-match-ball', 'true');
+    const counter = page.getByTestId('frame-counter');
+    const frameAtStart = await currentFrameOf(counter);
+    await expect
+      .poll(() => currentFrameOf(counter), { timeout: 10000 })
+      .toBeGreaterThan(frameAtStart);
+
+    // A reload drops the ?fresh=1 flag (consumed + stripped): the same
+    // viewer loads WITHOUT the ceremony — straight to the broadcast
+    await page.reload();
+    await expect(page.getByTestId('score-display')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('match-intro-overlay')).toHaveCount(0);
+    await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-match-ball', 'true');
+  });
+
   test('prevents starting a match without a complete lineup', async ({
     page,
     userFactory,

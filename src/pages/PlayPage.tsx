@@ -108,7 +108,9 @@ export const PlayPage: React.FC = () => {
       await startPracticeMatch(bestTactic.id);
       const { lastMatch, matchError } = useMatchStore.getState();
       if (lastMatch && lastMatch.status === 'completed' && !matchError) {
-        navigate(`/match/${lastMatch.id}`);
+        // ?fresh=1 (story 7.10): the pre-match ceremony plays — the match
+        // was just generated, the teams walk onto the pitch
+        navigate(`/match/${lastMatch.id}?fresh=1`);
       }
     })();
   }, [bestTactic, isSimulating, startPracticeMatch, navigate]);
@@ -125,9 +127,11 @@ export const PlayPage: React.FC = () => {
     [navigate]
   );
 
+  // Result card only (story 4.3): the match was just settled — the watch
+  // hand-off carries ?fresh=1 so the ceremony plays (story 7.10)
   const handleWatchRankedResult = useCallback(
     (matchId: string) => {
-      navigate(`/match/${matchId}`);
+      navigate(`/match/${matchId}?fresh=1`);
     },
     [navigate]
   );

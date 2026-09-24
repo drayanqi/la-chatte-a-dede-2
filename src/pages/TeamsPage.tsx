@@ -438,7 +438,8 @@ export const TeamsPage: React.FC = () => {
       await startPracticeMatch(activeTactic.id);
       const { lastMatch, matchError } = useMatchStore.getState();
       if (lastMatch && lastMatch.status === 'completed' && !matchError) {
-        navigate(`/match/${lastMatch.id}`);
+        // ?fresh=1 (story 7.10): the pre-match ceremony plays
+        navigate(`/match/${lastMatch.id}?fresh=1`);
       }
     })();
   }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch, navigate]);
@@ -452,7 +453,8 @@ export const TeamsPage: React.FC = () => {
       await startPracticeMatch(activeTactic.id);
       const { lastMatch, matchError } = useMatchStore.getState();
       if (lastMatch && lastMatch.status === 'completed' && !matchError) {
-        navigate(`/match/${lastMatch.id}`);
+        // ?fresh=1 (story 7.10): the pre-match ceremony plays
+        navigate(`/match/${lastMatch.id}?fresh=1`);
       }
     })();
   }, [activeTactic, lineupComplete, isSimulating, startPracticeMatch, navigate]);
