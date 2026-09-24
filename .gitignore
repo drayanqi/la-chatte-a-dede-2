@@ -33,3 +33,6 @@ tmp/
 
 # AgentVibes audio cache
 .claude/audio/
+
+# Playwright scratch state (test-runner artifacts)
+raw/

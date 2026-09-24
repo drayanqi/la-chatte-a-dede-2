@@ -4,7 +4,7 @@ baseline_commit: a4bf3f89a8dac6bb9aee6239155645138f1f2cd3
 
 # Story 6.4: HTTPS with Let's Encrypt
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
