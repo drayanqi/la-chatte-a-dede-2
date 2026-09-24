@@ -5,6 +5,7 @@
  * Configure global mocks, test utilities, and cleanup here.
  */
 import '@testing-library/jest-dom/vitest';
+import { vi } from 'vitest';
 
 // Mock ResizeObserver (needed for Monaco Editor)
 global.ResizeObserver = class ResizeObserver {
@@ -27,6 +28,10 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 });
+
+// jsdom does not implement scrollIntoView (GuidePage TOC navigation);
+// a vi.fn() so tests can assert the call if they ever need to.
+Element.prototype.scrollIntoView ??= vi.fn();
 
 // Pixi's text metrics reference these 2d globals for feature detection —
 // jsdom does not define them without the `canvas` package

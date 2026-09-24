@@ -9,7 +9,14 @@ coverage
 lachatadede-api
 lachatadede-engine
 _bmad*
-docs
+# docs/scripting/img must stay in the web build context: src/lib/scriptingGuide.ts
+# imports those assets directly (one source of truth with the docs pipeline).
+# Keep the img files committed — they're pipeline-generated (npm run docs:scripting)
+# but the web image build needs them in the checkout.
+docs/*
+!docs/scripting
+docs/scripting/*
+!docs/scripting/img
 .git
 deploy/ansible
 playwright-report
