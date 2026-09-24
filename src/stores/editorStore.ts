@@ -138,9 +138,10 @@ const generateDefaultCode = (name: string): string => {
 
 function update() {
   // Your AI logic here — game holds the current tick's state
+  // Your goal is at x=0, the opponent goal at x=100 (always).
 
-  // Example: Move toward the ball if closest
-  if (game.me.isClosestToBall()) {
+  // Example: chase the free ball
+  if (game.ball.owner === null) {
     game.me.moveToward(game.ball.position.x, game.ball.position.y);
   }
 }

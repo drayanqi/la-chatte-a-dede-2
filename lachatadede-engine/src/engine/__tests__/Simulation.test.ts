@@ -721,8 +721,8 @@ describe('Simulation - sandboxed scripts (IsolatedScriptRunner)', () => {
   const ATTACKER_SCRIPT = `
 function update(game) {
   const { me, ball } = game;
-  const goalX = me.team === 'home' ? 100 : 0;
-  if (me.hasBall) {
+  const goalX = 100; // own goal at x=0, attack toward x=100 (v3 mirror)
+  if (ball.owner === me) {
     me.dribble(goalX, 25);
   } else {
     me.moveToward(ball.position.x, ball.position.y);

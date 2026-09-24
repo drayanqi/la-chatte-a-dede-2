@@ -12,9 +12,11 @@ import { fileURLToPath } from 'node:url';
  * seeds them as script rows owned by the system user. The EasyBot test suite
  * guards the .js <-> scripts.json sync.
  *
- * Bots are team-generic: the engine maps challenger->'home' and
- * opponent->'away', and the user always plays the challenger side, so in
- * production the bots run as 'away' (own goal x=100, attack toward x=0).
+ * Bots are side-free: scripts are written in the ego frame (own goal x=0,
+ * attack toward x=100, script-ia-api.md v3.0) and the engine's script
+ * membrane mirrors the pitch for whichever seat defends the right goal. The
+ * user always plays the challenger side, so in production the bot runs the
+ * away seat — the very same scripts as if it played home.
  */
 export interface EasyBotScripts {
   goalkeeper: string;

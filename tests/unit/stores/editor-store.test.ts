@@ -938,7 +938,7 @@ describe('Editor Store', () => {
       const postedCode = (JSON.parse(init.body) as { code: string }).code;
       expect(postedCode).toContain('function update() {');
       expect(postedCode).not.toContain('@param {Game}');
-      expect(postedCode).toContain('game.me.isClosestToBall()');
+      expect(postedCode).toContain('game.ball.owner === null');
     });
 
     it('should open created script in editor automatically', async () => {

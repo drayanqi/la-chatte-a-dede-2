@@ -1,5 +1,6 @@
 import ivm from 'isolated-vm';
 import {
+  FIELD_WIDTH,
   MAX_LOGS_PER_MATCH,
   MEMORY_LIMIT_MB,
   MATCH_TIME_BUDGET_MS,
@@ -12,12 +13,10 @@ import {
   PREAMBLE_LINE_OFFSET,
   SCRIPT_PREAMBLE,
   SCRIPT_SHIM,
-  buildPlayerTickData,
-  buildSharedTickData,
-  engineTeamToScript,
+  buildTeamTickData,
 } from './contextBuilder.js';
 import type { PlayerScript, ScriptRunner, ScriptTickContext, TickOutcome } from './ScriptRunner.js';
-import type { FrameLog, PlayerAction, SlotAction } from './types.js';
+import type { FrameLog, PlayerAction, SlotAction, Team } from './types.js';
 
 export interface IsolatedScriptRunnerOptions {
   /** Per-script V8 heap limit in MB (AC #3). */
@@ -131,7 +130,6 @@ export class IsolatedScriptRunner implements ScriptRunner {
       return { actions: [], logs: this.flushDeferredErrors() };
     }
 
-    const shared = buildSharedTickData(context);
     const actions: SlotAction[] = [];
     const logs: FrameLog[] = [];
 
@@ -143,7 +141,7 @@ export class IsolatedScriptRunner implements ScriptRunner {
       }
       if (player.status !== 'active' || player.run === null) continue;
 
-      const tickData = buildPlayerTickData(shared, engineTeamToScript(player.team), player.slot);
+      const tickData = buildTeamTickData(context, player.team, player.slot);
       let resultJson: string;
       try {
         resultJson = player.run.applySync(undefined, [tickData], {
@@ -180,7 +178,7 @@ export class IsolatedScriptRunner implements ScriptRunner {
         continue;
       }
       if (result.actions.length > 0) {
-        const action = this.toPlayerAction(result.actions[0] as RawAction);
+        const action = this.toWorldAction(result.actions[0] as RawAction, player.team);
         if (action !== null) {
           actions.push({ team: player.team, slot: player.slot, action });
         }
@@ -384,6 +382,35 @@ export class IsolatedScriptRunner implements ScriptRunner {
         return { type: 'stop' };
       default:
         return null;
+    }
+  }
+
+  /**
+   * Story 8.5 membrane, output half: the away seat scripts in its ego frame
+   * (own goal at x=0, attacks toward x=100), so its coordinate actions are
+   * un-mirrored back to world space (x -> 100 - x). The challenger seat is
+   * already in world orientation and passes through untouched; `stop` carries
+   * no coordinates. The transform set is CLOSED over the coordinate actions:
+   * a future action type carrying coordinates must be added here explicitly
+   * (and to contextBuilder's mirrored tick data) or it will throw — a new
+   * membrane half is never silently half-wired.
+   */
+  private toWorldAction(raw: RawAction, team: Team): PlayerAction | null {
+    const action = this.toPlayerAction(raw);
+    if (action === null || team !== 'opponent') return action;
+    switch (action.type) {
+      case 'moveToward':
+      case 'dribble':
+      case 'shoot':
+        return { ...action, x: FIELD_WIDTH - action.x };
+      case 'stop':
+        return action;
+      default: {
+        // Exhaustiveness guard: a coordinate action added to toPlayerAction
+        // without a membrane decision must fail loudly, not pass through.
+        const exhaustive: never = action;
+        throw new Error(`un-mirrored action type reached the membrane: ${JSON.stringify(exhaustive)}`);
+      }
     }
   }
 

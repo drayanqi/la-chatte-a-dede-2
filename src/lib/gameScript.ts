@@ -4,7 +4,7 @@
  *
  * The script editor's TypeScript worker only knows the game API when the
  * `game` value it sees is typed. Two script styles exist (script-ia-api.md
- * v2.1):
+ * v3.0):
  *  - global style (preferred): `function update() { game... }` reads the
  *    sandbox global declared in gameApiTypes.ts — typed with no JSDoc at all;
  *  - parameter style (legacy): `function update(game) { ... }` needs the

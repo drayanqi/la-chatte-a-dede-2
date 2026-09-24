@@ -13,19 +13,23 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Default starter AI script code (canonical script-ia-api.md v2.1 API).
+     * Default starter AI script code (canonical script-ia-api.md v3.0 API,
+     * kept in sync with the engine's bots/starter-ai.js fixture).
      */
     private const STARTER_AI_CODE = <<<'JAVASCRIPT'
 /**
  * StarterAI - Your first AI script!
  *
- * Every tick the engine calls your update() function. The game state is
- * available as the global variable "game":
- *   game.me         - your player (position, hasBall, team, slot, actions...)
- *   game.ball       - the ball (position, velocity, owner)
+ * Every tick the engine calls your update(game) function with:
+ *   game.me         - your player (position, slot, isTeammate, actions...)
+ *   game.ball       - the ball (position, velocity, owner as a Player)
  *   game.teammates  - your 4 teammates (read-only)
  *   game.opponents  - the 5 opponents (read-only)
  *   game.field      - field dimensions, goals and zones
+ *
+ * You always attack left to right: your goal is at x=0, the opponent's at
+ * x=100. The engine mirrors the pitch for you when your team defends the
+ * right goal — you never need to know which side you play.
  *
  * This starter attacks: chase the ball, dribble toward the goal, and
  * shoot when close. Modify it to build your own strategy!
@@ -34,9 +38,9 @@ class AuthController extends Controller
  */
 function update() {
   const { me, ball } = game;
-  const goalX = me.team === 'home' ? 100 : 0;
+  const goalX = 100;
 
-  if (me.hasBall) {
+  if (ball.owner === me) {
     const distToGoal = Math.abs(me.position.x - goalX);
 
     if (distToGoal < 30) {

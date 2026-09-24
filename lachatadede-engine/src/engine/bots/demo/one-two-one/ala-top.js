@@ -2,29 +2,30 @@
 // Pushes up the top flank to support the pivot in possession, harasses when
 // defending: presses the carrier early on the flank and man-marks the top
 // lane all over the field, goal-side, so no opponent can build up unpressured.
+//
+// Ego frame (script-ia-api.md v3.0): own goal at x=0, opponent goal at
+// x=100, always attacking left to right.
 var held = 0;
 
 function update(game) {
   const { me, ball, teammates, opponents } = game;
-  const home = me.team === 'home';
-  const X = (x) => (home ? x : 100 - x);
-  held = me.hasBall ? held + 1 : 0;
+  held = ball.owner === me ? held + 1 : 0;
 
-  if (me.hasBall) {
-    onBall(me, teammates, opponents, X(100), home ? 1 : -1, home, held);
+  if (ball.owner === me) {
+    onBall(me, teammates, opponents, 100, held);
     return;
   }
 
-  const ownerTeam = ball.owner === null ? null : ball.owner.split('-')[0];
-  if (ownerTeam === me.team) {
+  const mineHasIt = ball.owner !== null && ball.owner.isTeammate;
+  if (mineHasIt) {
     // Support: push up the top flank behind the play.
-    me.moveToward(X(62), clamp(11 + (ball.position.y - 11) * 0.2, 4, 24));
+    me.moveToward(62, clamp(11 + (ball.position.y - 11) * 0.2, 4, 24));
     return;
   }
-  if (ownerTeam !== null) {
+  if (ball.owner !== null) {
     // Harass: press the carrier as the closest player, or as soon as the
     // ball enters the flank's pressing radius.
-    if (me.isClosestToBall() || distance(me.position, ball.position) < 22) {
+    if (isClosestToBall(game) || distance(me.position, ball.position) < 22) {
       chase(me, ball);
       return;
     }
@@ -34,23 +35,40 @@ function update(game) {
     const mark = nearestLaneOpponent(ball.position, opponents, true);
     if (mark) {
       me.moveToward(
-        clamp(mark.position.x + (home ? -3 : 3), 3, 97),
+        clamp(mark.position.x - 3, 3, 97),
         clamp(mark.position.y, 2, 27),
       );
       return;
     }
     // Cover the top flank band.
-    me.moveToward(X(28), clamp(ball.position.y, 5, 23));
+    me.moveToward(28, clamp(ball.position.y, 5, 23));
     return;
   }
-  if (me.isClosestToBall()) {
+  if (isClosestToBall(game)) {
     chase(me, ball);
     return;
   }
-  me.moveToward(X(42), 12);
+  me.moveToward(42, 12);
 }
 
-function onBall(me, teammates, opponents, attackX, dir, home, held) {
+
+// Closest outfield opponent of my lane (top: y < 25; bottom: y >= 25),
+// wherever he stands on the field; the keeper is never tracked.
+function nearestLaneOpponent(point, opponents, topLane) {
+  let best = null;
+  let bestD = Infinity;
+  for (const o of opponents) {
+    if (o.slot === 1) continue;
+    if (topLane ? o.position.y >= 25 : o.position.y < 25) continue;
+    const d = distance(point, o.position);
+    if (d < bestD) {
+      bestD = d;
+      best = o;
+    }
+  }
+  return best;
+}
+function onBall(me, teammates, opponents, attackX, held) {
   const distGoal = Math.abs(me.position.x - attackX);
   const keeper = opponents.find((o) => o.slot === 1) ?? null;
   const cornerY = keeper && keeper.position.y >= 25 ? 17 : 33;
@@ -80,7 +98,7 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
   // scramble). A defender inside 3 forces the release immediately.
   const nearest = nearestOpponentDistance(me.position, opponents);
   if (nearest < 4.5 && (held >= 2 || nearest < 3)) {
-    const outlet = bestPass(me, teammates, opponents, dir, false);
+    const outlet = bestPass(me, teammates, opponents, false);
     if (outlet) {
       me.shoot(
         outlet.position.x,
@@ -89,13 +107,13 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
       );
       return;
     }
-    me.shoot(home ? 62 : 38, me.position.y >= 25 ? 40 : 10, 0.95);
+    me.shoot(62, me.position.y >= 25 ? 40 : 10, 0.95);
     return;
   }
 
   // In space: carry the ball forward; release it only to a teammate who is
   // clearly better placed (well ahead, open, lane clear), after the shield.
-  const target = held >= 2 ? bestPass(me, teammates, opponents, dir, true) : null;
+  const target = held >= 2 ? bestPass(me, teammates, opponents, true) : null;
   if (target) {
     me.shoot(
       target.position.x,
@@ -140,23 +158,6 @@ function nearestOpponentDistance(point, opponents) {
   return best;
 }
 
-// Closest outfield opponent of my flank lane (top: y < 25; bottom: y >= 25),
-// wherever he stands on the field; the keeper is never tracked.
-function nearestLaneOpponent(point, opponents, topLane) {
-  let best = null;
-  let bestD = Infinity;
-  for (const o of opponents) {
-    if (o.slot === 1) continue;
-    if (topLane ? o.position.y >= 25 : o.position.y < 25) continue;
-    const d = distance(point, o.position);
-    if (d < bestD) {
-      bestD = d;
-      best = o;
-    }
-  }
-  return best;
-}
-
 function laneBlocked(from, to, opponents, margin) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -175,7 +176,7 @@ function laneBlocked(from, to, opponents, margin) {
 
 // Most advanced open teammate: clear pass lane, target not crowded, scored
 // by forward progress + openness - length.
-function bestPass(me, teammates, opponents, dir, strict) {
+function bestPass(me, teammates, opponents, strict) {
   let best = null;
   let bestScore = -Infinity;
   for (const mate of teammates) {
@@ -184,7 +185,7 @@ function bestPass(me, teammates, opponents, dir, strict) {
     const openness = nearestOpponentDistance(mate.position, opponents);
     if (openness < 5) continue;
     if (laneBlocked(me.position, mate.position, opponents, 4)) continue;
-    const progress = dir * (mate.position.x - me.position.x);
+    const progress = mate.position.x - me.position.x;
     if (strict && progress < 10) continue;
     const score = progress
       + 1.5 * Math.min(openness, 12)
@@ -210,3 +211,20 @@ function chase(me, ball) {
     clamp(ball.position.y + ball.velocity.vy * 3, 0, 50),
   );
 }
+
+// The closest player of my team to the ball (ties resolved by the lower
+// slot) — the engine no longer computes it, two lines of math do.
+function isClosestToBall(game) {
+  const ball = game.ball.position;
+  let best = game.me;
+  let bestD = distance(best.position, ball);
+  for (const p of [game.me, ...game.teammates]) {
+    const d = distance(p.position, ball);
+    if (d < bestD || (d === bestD && p.slot < best.slot)) {
+      best = p;
+      bestD = d;
+    }
+  }
+  return best === game.me;
+}
+

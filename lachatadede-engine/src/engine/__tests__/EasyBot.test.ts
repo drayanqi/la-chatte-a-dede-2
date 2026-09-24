@@ -265,3 +265,58 @@ describe('Easy Bot predictability (AC #3)', () => {
     expect(a).toBe(b);
   }, 30_000);
 });
+
+describe('Easy Bot perfect mirror (story 8.5, AC #4)', () => {
+  /** Payload with the EASY BOT on BOTH sides (home-side geometry everywhere). */
+  function mirrorPayload(seed: number): SimulatePayload {
+    const homePlayers = [
+      { slot: 1, x: 8, y: 25, script: EASY_BOT_SCRIPTS.goalkeeper },
+      { slot: 2, x: 25, y: 15, script: EASY_BOT_SCRIPTS.defender1 },
+      { slot: 3, x: 25, y: 35, script: EASY_BOT_SCRIPTS.defender2 },
+      { slot: 4, x: 40, y: 15, script: EASY_BOT_SCRIPTS.attacker1 },
+      { slot: 5, x: 40, y: 35, script: EASY_BOT_SCRIPTS.attacker2 },
+    ];
+    return {
+      match_id: 'easy-bot-mirror-test',
+      seed,
+      output_path: '/tmp/unused',
+      challenger: { players: homePlayers.map((p) => ({ ...p })) },
+      opponent: { players: EASY_BOT_OPPONENT_PLAYERS.map((p) => ({ ...p })) },
+    };
+  }
+
+  it('scripts contain no home/away vocabulary at all (side-free by construction)', () => {
+    for (const role of ROLES) {
+      expect(EASY_BOT_SCRIPTS[role]).not.toMatch(/\bme\.team\b|'home'|'away'/);
+    }
+  });
+
+  it('plays the same seed in BOTH seats and every goal lands in the right net', async () => {
+    const file = await new Simulation(mirrorPayload(1234), new IsolatedScriptRunner(integrationRunnerOptions)).run();
+    expect(file.frames.length).toBe(10800);
+
+    // The Easy Bot baseline is the sterile 0-0 draw pinned by
+    // EasyBotBalance.test — no side even attempts a shot, so there is no
+    // goal event to direction-check here; the mirrored keeper-shape test
+    // below pins each seat's attacking frame geometrically.
+    expect(file.result).toEqual({ score_challenger: 0, score_opponent: 0, winner: 'draw' });
+
+    // The membrane must not surface a single script error across both seats.
+    const errorLogs = file.frames.flatMap((frame) => frame.logs.filter((l) => l.type === 'SCRIPT_ERROR'));
+    expect(errorLogs).toEqual([]);
+  }, 60_000);
+
+  it('mirrors the goalkeeping shape: each seat keeper holds ITS ego x=5 line', async () => {
+    const file = await new Simulation(mirrorPayload(1234), new IsolatedScriptRunner(integrationRunnerOptions)).run();
+
+    // World-space truth: the challenger GK defends x=0 (ego line 5), the
+    // opponent GK defends x=100 (ego line 5 mirrored to world 95). If the
+    // membrane broke, one of them would wander to the wrong half.
+    for (const frame of file.frames) {
+      const homeGk = frame.players.find((p) => p.team === 'challenger' && p.slot === 1);
+      const awayGk = frame.players.find((p) => p.team === 'opponent' && p.slot === 1);
+      expect(homeGk!.x).toBeLessThanOrEqual(12);
+      expect(awayGk!.x).toBeGreaterThanOrEqual(88);
+    }
+  }, 60_000);
+});

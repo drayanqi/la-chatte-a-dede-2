@@ -1462,6 +1462,36 @@ So that the stats panel explains WHY the match was lost, not just by how much.
 
 **Notes:** full design = planning-artifacts/stadium-mockup-ronde-replay-stats-s1-tableau-de-bord.html (S1 "Tableau de bord", validated by Pelo). The drawer shell + honest aggregates shipped in 7.7 Task 3 (ghost states in place). Verification: engine determinism tests byte-compare, unit drawer v2, e2e seek-on-shot.
 
+### Story 7.10: Pre-Match Ceremony
+
+As a player,
+I want a freshly generated match to open with both teams walking onto the pitch in their colors and taking their tactic spots under a VS card, followed by a 3-2-1 kickoff countdown,
+So that the match feels like it is being staged in front of me instead of appearing fully formed.
+
+**Acceptance Criteria:**
+
+**Given** a match just generated (practice or ranked — the flows navigate with `?fresh=1`)
+**When** the viewer loads its frames
+**Then** the ten sprites walk in from their own sideline (staggered, ease-out) to the frame-0 kickoff positions — purely presentational: the frames, the sim and determinism are untouched — with the ball hidden until the walk ends and the score pill absent the whole time (no 0-0 on screen)
+
+**Given** the walk finished
+**When** the teams stand at their kickoff spots
+**Then** a 3-2-1 countdown (same cadence and visuals as the goal countdown, no score card) plays over the frozen kickoff frame (pulsing ring at the keeper's ball), then playback starts
+
+**Given** the ceremony running
+**When** the player clicks the overlay or presses Space (or any seek/step/pause)
+**Then** the ceremony is skipped — teams snap to frame 0 and the match plays immediately
+
+**Given** a non-fresh load (history, palmarès, deep link, reload — the flag is consumed and stripped)
+**When** the viewer loads
+**Then** no ceremony plays; the broadcast starts as before
+
+**Given** prefers-reduced-motion
+**When** the ceremony runs
+**Then** the walk is skipped (teams stand at their spots for a short hold) but the VS card and countdown still play
+
+**Notes:** locked with Pelo (party session 2026-09-24): ceremony ONLY after generation (freshMatch flag), entry from the sidelines, 3-2-1 countdown like goals. Engine owns the walk tween (pattern of the goal celebration: no per-frame allocation) and fires onIntroStart/onIntroComplete; the page owns the VS card, countdown and skip. Test hook `TEST_LOAD_FRAMES_EVENT` bypasses the ceremony (fast e2e path preserved).
+
 ## Epic 8: Scripting Documentation Cookbook
 
 A single reference page (`docs/scripting.md`) teaches every script author the four actions AND the read-side `game` object, with animated pitch examples generated end-to-end by the real system: the deterministic engine simulates each situation, the real Pixi canvas renders it, and the render pipeline assembles the GIFs. **Laws locked with Pelo:** docs live in the repo; ONE page (no doc-site, no app route); NO training cones or any fabricated scenery — every pixel of gameplay comes from a real `Simulation` run (the field diagram SVG is generated from the real `FIELD_DATA` constants); GIF format (viewable on GitHub/VS Code, zero JS in markdown); a 5th "versus" situation contrasts `moveToward` vs `dribble`; the read-side reference (`me`, `ball`, `teammates`, `opponents`, `field`, warnings) needs no per-item visuals. The generator is committed tooling, so the page can never silently drift from the engine: regenerating after any physics change makes the difference visible (frames double as golden fixtures).
@@ -1561,3 +1591,16 @@ So that understanding the game's AI API does not require leaving it — and the 
 **Given** the routing table
 **When** the unit suite runs
 **Then** /guide is covered as a smoke route, the page tests cover topic rendering/copy/TOC, and no modal code remains
+
+### Story 8.5: Ego-Centric Script Contract v3 (Perfect Mirror)
+
+As a script author,
+I want the `game` object to always describe MY attacking frame — own goal at x=0, opponent goal at x=100, I always attack left→right,
+So that I write my tactic in football terms and never compute side-dependent math, no matter which seat my team plays in.
+
+**Laws locked with Pelo (party session 2026-09-24):** perfect mirror — the script creator calculates NOTHING based on home/away; the engine flips the pitch for the away seat (inputs mirrored x → 100−x and vx → −vx, actions un-mirrored at host). Contract breaks forward-only to v3.0 (pre-launch, zero real scripts to migrate): `field.ownGoal`/`opponentGoal`/`ownBox`/`opponentBox`, players `{ slot, position, isTeammate }` (`isTeammate` a boolean property, not a method), `ball.owner` is the Player itself (`ball.owner === me`), and `team`, `hasBall`, `isClosestToBall`, `moveTo` are REMOVED. Engine internals, frames, telemetry and replay stay world-space; determinism byte-identity unchanged. Docs (scripting.md, script-ia-api.md v3.0, /guide, regenerated GIFs/SVG) explain the mirror UP FRONT: "you always attack left→right, the engine flips the pitch for you — you never need to know." Full spec: implementation-artifacts/8-5-ego-centric-script-contract.md
+
+**Acceptance Criteria:**
+1. **Given** a tick built for either seat, **When** the script reads its context, **Then** own goal = x=0, opponent goal = x=100, and away-seat actions land un-mirrored in world space.
+2. **Given** the v3 shim, **When** a script runs, **Then** `ball.owner === me` holds and `team`/`hasBall`/`isClosestToBall`/`moveTo` no longer exist.
+3. **Given** the bot fixtures, **When** the Easy Bot plays both seats, **Then** the scripts are side-free and the pinned 0-0 balance baseline holds.

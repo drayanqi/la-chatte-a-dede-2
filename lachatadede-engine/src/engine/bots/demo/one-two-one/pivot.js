@@ -2,49 +2,49 @@
 // Posts up in front of the box to finish moves in possession, and presses
 // high when defending: jumps at the opponent build-up from the midfield line
 // as soon as the ball is in reach, looking to force turnovers up the field.
+//
+// Ego frame (script-ia-api.md v3.0): own goal at x=0, opponent goal at
+// x=100, always attacking left to right.
 var held = 0;
 
 function update(game) {
   const { me, ball, teammates, opponents } = game;
-  const home = me.team === 'home';
-  const X = (x) => (home ? x : 100 - x);
-  held = me.hasBall ? held + 1 : 0;
+  held = ball.owner === me ? held + 1 : 0;
 
-  if (me.hasBall) {
-    onBall(me, teammates, opponents, X(100), home ? 1 : -1, home, held);
+  if (ball.owner === me) {
+    onBall(me, teammates, opponents, 100, held);
     return;
   }
 
-  const ownerTeam = ball.owner === null ? null : ball.owner.split('-')[0];
-  if (ownerTeam === me.team) {
+  const mineHasIt = ball.owner !== null && ball.owner.isTeammate;
+  if (mineHasIt) {
     // Attack: post deep between the last defender line and the keeper,
     // offset from the ball line so a mirroring defence cannot track the post.
-    const bx = home ? ball.position.x : 100 - ball.position.x;
     me.moveToward(
-      X(clamp(bx + 20, 86, 88)),
+      clamp(ball.position.x + 20, 86, 88),
       ball.position.y < 25 ? 20 : 28,
     );
     return;
   }
-  if (ownerTeam !== null) {
+  if (ball.owner !== null) {
     // Harass: press the carrier as the closest player, and jump at the
     // opponent build-up from the high line whenever the ball is in reach.
-    if (me.isClosestToBall() || distance(me.position, ball.position) < 30) {
+    if (isClosestToBall(game) || distance(me.position, ball.position) < 30) {
       chase(me, ball);
       return;
     }
     // Hold the high pressing line, ready to jump.
-    me.moveToward(X(52), clamp(25 + (ball.position.y - 25) * 0.5, 12, 38));
+    me.moveToward(52, clamp(25 + (ball.position.y - 25) * 0.5, 12, 38));
     return;
   }
-  if (me.isClosestToBall()) {
+  if (isClosestToBall(game)) {
     chase(me, ball);
     return;
   }
-  me.moveToward(X(62), 25);
+  me.moveToward(62, 25);
 }
 
-function onBall(me, teammates, opponents, attackX, dir, home, held) {
+function onBall(me, teammates, opponents, attackX, held) {
   const distGoal = Math.abs(me.position.x - attackX);
   const keeper = opponents.find((o) => o.slot === 1) ?? null;
   const cornerY = keeper && keeper.position.y >= 25 ? 17 : 33;
@@ -74,7 +74,7 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
   // scramble). A defender inside 3 forces the release immediately.
   const nearest = nearestOpponentDistance(me.position, opponents);
   if (nearest < 4.5 && (held >= 2 || nearest < 3)) {
-    const outlet = bestPass(me, teammates, opponents, dir, false);
+    const outlet = bestPass(me, teammates, opponents, false);
     if (outlet) {
       me.shoot(
         outlet.position.x,
@@ -83,13 +83,13 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
       );
       return;
     }
-    me.shoot(home ? 62 : 38, me.position.y >= 25 ? 40 : 10, 0.95);
+    me.shoot(62, me.position.y >= 25 ? 40 : 10, 0.95);
     return;
   }
 
   // In space: carry the ball forward; release it only to a teammate who is
   // clearly better placed (well ahead, open, lane clear), after the shield.
-  const target = held >= 2 ? bestPass(me, teammates, opponents, dir, true) : null;
+  const target = held >= 2 ? bestPass(me, teammates, opponents, true) : null;
   if (target) {
     me.shoot(
       target.position.x,
@@ -152,7 +152,7 @@ function laneBlocked(from, to, opponents, margin) {
 
 // Most advanced open teammate: clear pass lane, target not crowded, scored
 // by forward progress + openness - length.
-function bestPass(me, teammates, opponents, dir, strict) {
+function bestPass(me, teammates, opponents, strict) {
   let best = null;
   let bestScore = -Infinity;
   for (const mate of teammates) {
@@ -161,7 +161,7 @@ function bestPass(me, teammates, opponents, dir, strict) {
     const openness = nearestOpponentDistance(mate.position, opponents);
     if (openness < 5) continue;
     if (laneBlocked(me.position, mate.position, opponents, 4)) continue;
-    const progress = dir * (mate.position.x - me.position.x);
+    const progress = mate.position.x - me.position.x;
     if (strict && progress < 10) continue;
     const score = progress
       + 1.5 * Math.min(openness, 12)
@@ -187,3 +187,20 @@ function chase(me, ball) {
     clamp(ball.position.y + ball.velocity.vy * 3, 0, 50),
   );
 }
+
+// The closest player of my team to the ball (ties resolved by the lower
+// slot) — the engine no longer computes it, two lines of math do.
+function isClosestToBall(game) {
+  const ball = game.ball.position;
+  let best = game.me;
+  let bestD = distance(best.position, ball);
+  for (const p of [game.me, ...game.teammates]) {
+    const d = distance(p.position, ball);
+    if (d < bestD || (d === bestD && p.slot < best.slot)) {
+      best = p;
+      bestD = d;
+    }
+  }
+  return best === game.me;
+}
+

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { IsolatedScriptRunner, extractErrorLine } from '../IsolatedScriptRunner.js';
-import { buildSharedTickData } from '../contextBuilder.js';
 import type { PlayerScript, ScriptTickContext } from '../ScriptRunner.js';
 import type { FrameLog } from '../types.js';
 
@@ -54,107 +53,53 @@ function prepareRunner(
   return { runner, run: (overrides = {}) => runner.runTick(0, makeContext(overrides)) };
 }
 
+function prepareAwayRunner(
+  code: string,
+  options = {},
+): { run: (overrides?: Partial<ScriptTickContext>) => ReturnType<IsolatedScriptRunner['runTick']> } {
+  const runner = new IsolatedScriptRunner({ tickTimeoutMs: 1000, ...options });
+  const scripts = makeScripts((slot, team) => (slot === 3 && team === 'opponent' ? code : ''));
+  runner.prepare(scripts);
+  return { run: (overrides = {}) => runner.runTick(0, makeContext(overrides)) };
+}
+
 function consoleScript(expression: string): string {
   return `function update(game) {\n  console.log(JSON.stringify(${expression}));\n}`;
 }
 
-function loggedMessage(logs: FrameLog[]): string {
+function loggedMessage(logs: FrameLog[], team: 'challenger' | 'opponent' = 'challenger'): string {
   expect(logs).toHaveLength(1);
   const entry = logs[0] as FrameLog;
-  expect(entry.team).toBe('challenger');
-  expect(entry.slot).toBe(1);
+  expect(entry.team).toBe(team);
   expect(entry.level).toBe('log');
   expect(entry.type).toBe('CONSOLE');
   return entry.message;
 }
 
-describe('contextBuilder - buildSharedTickData', () => {
-  it('maps engine teams to script teams and exposes the owner as a player id string', () => {
-    const shared = buildSharedTickData(
-      makeContext({ ball: { x: 50, y: 25, vx: 1, vy: -1, owner: { slot: 3, team: 'opponent' } } }),
-    );
-    expect(shared.ball).toEqual({
-      position: { x: 50, y: 25 },
-      velocity: { vx: 1, vy: -1 },
-      owner: 'away-3',
-    });
-    expect(shared.players[0]?.team).toBe('home');
-    expect(shared.players[5]?.team).toBe('away');
-    expect(shared.field).toEqual({
-      width: 100,
-      height: 50,
-      goals: { home: { x: 0, y: 25, width: 20 }, away: { x: 100, y: 25, width: 20 } },
-      zones: {
-        homeBox: { x1: 0, y1: 15, x2: 16, y2: 35 },
-        awayBox: { x1: 84, y1: 15, x2: 100, y2: 35 },
-        center: { x: 50, y: 25 },
-      },
-    });
-  });
-
-  it('computes hasBall from the ball owner', () => {
-    const shared = buildSharedTickData(
-      makeContext({ ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 2, team: 'challenger' } } }),
-    );
-    expect(shared.players.map((p) => p.hasBall)).toEqual([
-      false,
-      true,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-    ]);
-  });
-
-  it('computes isClosestToBall within the team, resolving ties by the lower slot', () => {
-    // Slot 1 at (5,25) and slot 2 at (7,25) are both 1.0 from the ball at (6,25).
-    const players = makePlayers();
-    players[0] = { slot: 1, team: 'challenger', x: 5, y: 25 };
-    players[1] = { slot: 2, team: 'challenger', x: 7, y: 25 };
-    const shared = buildSharedTickData(
-      makeContext({ players, ball: { x: 6, y: 25, vx: 0, vy: 0, owner: null } }),
-    );
-    const challenger = shared.players.slice(0, 5);
-    expect(challenger.map((p) => p.isClosestToBall)).toEqual([true, false, false, false, false]);
-  });
-
-  it('marks the closest player of each team independently', () => {
-    const players = makePlayers();
-    players[0] = { slot: 1, team: 'challenger', x: 55, y: 25 }; // closest challenger
-    players[5] = { slot: 1, team: 'opponent', x: 45, y: 25 }; // closest opponent
-    const shared = buildSharedTickData(makeContext({ players }));
-    expect(shared.players[0]?.isClosestToBall).toBe(true);
-    expect(shared.players[5]?.isClosestToBall).toBe(true);
-  });
-});
-
-describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
+describe('IsolatedScriptRunner - script-ia-api v3.0 game context (AC #1, #3)', () => {
   it('provides me, ball, teammates, opponents and field to the script', () => {
     const { run } = prepareRunner(
       consoleScript(
         `{
-        me: { position: game.me.position, hasBall: game.me.hasBall, slot: game.me.slot, team: game.me.team },
+        me: { position: game.me.position, slot: game.me.slot, isTeammate: game.me.isTeammate },
         ball: { position: game.ball.position, velocity: game.ball.velocity, owner: game.ball.owner },
         teammates: game.teammates.length,
         opponents: game.opponents.length,
         field: { width: game.field.width, height: game.field.height,
-                 homeGoal: game.field.goals.home, zones: !!game.field.zones.homeBox }
+                 ownGoal: game.field.ownGoal, opponentGoal: game.field.opponentGoal,
+                 ownBox: !!game.field.ownBox, center: game.field.center }
       }`,
       ),
     );
     const { logs } = run();
     const data = JSON.parse(loggedMessage(logs)) as {
-      me: { position: { x: number; y: number }; hasBall: boolean; slot: number; team: string };
+      me: { position: { x: number; y: number }; slot: number; isTeammate: boolean };
       ball: { position: { x: number; y: number }; velocity: { vx: number; vy: number }; owner: null };
       teammates: number;
       opponents: number;
-      field: { width: number; height: number; homeGoal: { x: number; y: number; width: number }; zones: boolean };
+      field: { width: number; height: number; ownGoal: { x: number }; opponentGoal: { x: number }; ownBox: boolean; center: { x: number } };
     };
-    expect(data.me).toEqual({ position: { x: 5, y: 25 }, hasBall: false, slot: 1, team: 'home' });
+    expect(data.me).toEqual({ position: { x: 5, y: 25 }, slot: 1, isTeammate: true });
     expect(data.ball).toEqual({
       position: { x: 50, y: 25 },
       velocity: { vx: 0, vy: 0 },
@@ -165,19 +110,49 @@ describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
     expect(data.field).toEqual({
       width: 100,
       height: 50,
-      homeGoal: { x: 0, y: 25, width: 20 },
-      zones: true,
+      ownGoal: { x: 0, y: 25, width: 20 },
+      opponentGoal: { x: 100, y: 25, width: 20 },
+      ownBox: true,
+      center: { x: 50, y: 25 },
     });
   });
 
-  it('reflects possession in me.hasBall and ball.owner', () => {
+  it('resolves the ball owner to the actual player object (ball.owner === me)', () => {
     const { run } = prepareRunner(
-      consoleScript(`{ hasBall: game.me.hasBall, owner: game.ball.owner }`),
+      consoleScript(`{ isMe: game.ball.owner === game.me, slot: game.ball.owner.slot }`),
     );
     const { logs } = run({
       ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 1, team: 'challenger' } },
     });
-    expect(JSON.parse(loggedMessage(logs))).toEqual({ hasBall: true, owner: 'home-1' });
+    expect(JSON.parse(loggedMessage(logs))).toEqual({ isMe: true, slot: 1 });
+  });
+
+  it('resolves a teammate owner to the same object as the teammates entry', () => {
+    const { run } = prepareRunner(
+      consoleScript(`{
+        inRoster: game.teammates.some(function (p) { return p === game.ball.owner; }),
+        isTeammate: game.ball.owner.isTeammate,
+        slot: game.ball.owner.slot
+      }`),
+    );
+    const { logs } = run({
+      ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 2, team: 'challenger' } },
+    });
+    expect(JSON.parse(loggedMessage(logs))).toEqual({ inRoster: true, isTeammate: true, slot: 2 });
+  });
+
+  it('resolves an opponent owner with isTeammate false', () => {
+    const { run } = prepareRunner(
+      consoleScript(`{
+        inRoster: game.opponents.some(function (p) { return p === game.ball.owner; }),
+        isTeammate: game.ball.owner.isTeammate,
+        slot: game.ball.owner.slot
+      }`),
+    );
+    const { logs } = run({
+      ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 3, team: 'opponent' } },
+    });
+    expect(JSON.parse(loggedMessage(logs))).toEqual({ inRoster: true, isTeammate: false, slot: 3 });
   });
 
   it('exposes action methods on me only; teammates and opponents are read-only', () => {
@@ -188,8 +163,7 @@ describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
         meStop: typeof game.me.stop,
         meShoot: typeof game.me.shoot,
         teammateAction: typeof game.teammates[0].moveToward,
-        opponentAction: typeof game.opponents[0].shoot,
-        teammateClosest: typeof game.teammates[0].isClosestToBall
+        opponentAction: typeof game.opponents[0].shoot
       }`),
     );
     const { logs } = run();
@@ -200,23 +174,33 @@ describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
       meShoot: 'function',
       teammateAction: 'undefined',
       opponentAction: 'undefined',
-      teammateClosest: 'function',
     });
   });
 
-  it('does not provide kick or kickBall on any player', () => {
+  it('does not provide kick, kickBall, moveTo, hasBall, team or isClosestToBall (v3.0 removals)', () => {
     const { run } = prepareRunner(
-      consoleScript(`{ kick: typeof game.me.kick, kickBall: typeof game.me.kickBall }`),
+      consoleScript(`{
+        kick: typeof game.me.kick,
+        kickBall: typeof game.me.kickBall,
+        moveTo: typeof game.me.moveTo,
+        hasBall: typeof game.me.hasBall,
+        team: typeof game.me.team,
+        closest: typeof game.me.isClosestToBall,
+        playerTeam: typeof game.teammates[0].team,
+        playerHasBall: typeof game.opponents[0].hasBall
+      }`),
     );
     const { logs } = run();
-    expect(JSON.parse(loggedMessage(logs))).toEqual({ kick: 'undefined', kickBall: 'undefined' });
-  });
-
-  it('supports the isClosestToBall() engine-computed helper', () => {
-    const { run } = prepareRunner(consoleScript(`{ closest: game.me.isClosestToBall() }`));
-    // Challenger slot 1 at (5,25) stands on the ball -> it is the closest.
-    const { logs } = run({ ball: { x: 5, y: 25, vx: 0, vy: 0, owner: null } });
-    expect(JSON.parse(loggedMessage(logs))).toEqual({ closest: true });
+    expect(JSON.parse(loggedMessage(logs))).toEqual({
+      kick: 'undefined',
+      kickBall: 'undefined',
+      moveTo: 'undefined',
+      hasBall: 'undefined',
+      team: 'undefined',
+      closest: 'undefined',
+      playerTeam: 'undefined',
+      playerHasBall: 'undefined',
+    });
   });
 
   it('captures console.log/warn/error per player per tick', () => {
@@ -271,6 +255,88 @@ describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
   });
 });
 
+describe('IsolatedScriptRunner - perfect mirror membrane (story 8.5)', () => {
+  it('mirrors the away seat view: own goal at x=0, teammates near it, velocity flipped', () => {
+    const { run } = prepareAwayRunner(
+      consoleScript(`{
+        meX: game.me.position.x,
+        gkX: game.teammates[0].position.x,
+        ball: game.ball.position,
+        velocity: game.ball.velocity,
+        ownGoal: game.field.ownGoal.x,
+        opponentGoal: game.field.opponentGoal.x
+      }`),
+    );
+    // Opponent slot 3 at world x=80 -> ego x=20; ball world (70, 25, vx -0.5)
+    // -> ego (30, 25, vx +0.5).
+    const { logs } = run({
+      ball: { x: 70, y: 25, vx: -0.5, vy: 0.25, owner: null },
+    });
+    expect(JSON.parse(loggedMessage(logs, 'opponent'))).toEqual({
+      meX: 20,
+      gkX: 5,
+      ball: { x: 30, y: 25 },
+      velocity: { vx: 0.5, vy: 0.25 },
+      ownGoal: 0,
+      opponentGoal: 100,
+    });
+  });
+
+  it('un-mirrors away-seat moveToward/dribble/shoot x back to world space', () => {
+    // The away script aims at ITS opponent goal in the ego frame (x=100,
+    // world x=0); the host must translate the target back to world space.
+    const move = prepareAwayRunner(`function update(game) { game.me.moveToward(90, 25); }`).run();
+    expect(move.actions).toEqual([
+      { team: 'opponent', slot: 3, action: { type: 'moveToward', x: 10, y: 25 } },
+    ]);
+
+    const owned = {
+      ball: { x: 80, y: 25, vx: 0, vy: 0, owner: { slot: 3, team: 'opponent' as const } },
+    };
+    const dribble = prepareAwayRunner(`function update(game) { game.me.dribble(30, 12); }`).run(owned);
+    expect(dribble.actions).toEqual([
+      { team: 'opponent', slot: 3, action: { type: 'dribble', x: 70, y: 12 } },
+    ]);
+
+    const shoot = prepareAwayRunner(
+      `function update(game) { game.me.shoot(100, 20, 1.0); }`,
+    ).run(owned);
+    expect(shoot.actions).toEqual([
+      { team: 'opponent', slot: 3, action: { type: 'shoot', x: 0, y: 20, power: 1 } },
+    ]);
+  });
+
+  it('keeps the challenger seat in world orientation (no transform either way)', () => {
+    const { run } = prepareRunner(`function update(game) { game.me.moveToward(90, 25); }`);
+    expect(run().actions).toEqual([
+      { team: 'challenger', slot: 1, action: { type: 'moveToward', x: 90, y: 25 } },
+    ]);
+  });
+
+  it('lets an away script resolve possession and shoot at its ego opponent goal', () => {
+    // End-to-end membrane round trip: away carrier aims at world x=0 through
+    // the ego frame; dribble guard works through the resolved owner identity.
+    const { run } = prepareAwayRunner(
+      `function update(game) {
+        if (game.ball.owner === game.me) { game.me.shoot(100, 25, 0.9); }
+        else { game.me.moveToward(game.ball.position.x, game.ball.position.y); }
+      }`,
+    );
+    const owned = run({
+      ball: { x: 80, y: 25, vx: 0, vy: 0, owner: { slot: 3, team: 'opponent' } },
+    });
+    expect(owned.actions).toEqual([
+      { team: 'opponent', slot: 3, action: { type: 'shoot', x: 0, y: 25, power: 0.9 } },
+    ]);
+    expect(owned.logs).toHaveLength(0);
+
+    const free = run({ ball: { x: 70, y: 30, vx: 0, vy: 0, owner: null } });
+    expect(free.actions).toEqual([
+      { team: 'opponent', slot: 3, action: { type: 'moveToward', x: 70, y: 30 } },
+    ]);
+  });
+});
+
 describe('IsolatedScriptRunner - action selection and warnings (AC #5)', () => {
   it('applies only the first action and warns MULTIPLE_ACTIONS for later calls', () => {
     const { run } = prepareRunner(
@@ -320,8 +386,10 @@ describe('IsolatedScriptRunner - action selection and warnings (AC #5)', () => {
     expect(logs[0]?.type).toBe('DRIBBLE_NO_BALL');
   });
 
-  it('dribbles and shoots normally when the player owns the ball', () => {
-    const { run } = prepareRunner(`function update(game) { game.me.dribble(10, 10); }`);
+  it('dribbles and shoots normally when the player owns the ball (owner identity check)', () => {
+    const { run } = prepareRunner(
+      `function update(game) { if (game.ball.owner === game.me) game.me.dribble(10, 10); }`,
+    );
     const owned = { ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 1, team: 'challenger' as const } } };
     expect(run(owned).actions).toEqual([
       { team: 'challenger', slot: 1, action: { type: 'dribble', x: 10, y: 10 } },
@@ -329,16 +397,9 @@ describe('IsolatedScriptRunner - action selection and warnings (AC #5)', () => {
     expect(run(owned).logs).toHaveLength(0);
   });
 
-  it('provides moveTo as a compatibility alias of moveToward', () => {
-    const { run } = prepareRunner(`function update(game) { game.me.moveTo(30, 30); }`);
-    expect(run().actions).toEqual([
-      { team: 'challenger', slot: 1, action: { type: 'moveToward', x: 30, y: 30 } },
-    ]);
-  });
-
   it('clamps shoot power into [0.1, 1.0]', () => {
     const { run } = prepareRunner(
-      `function update(game) { if (game.me.hasBall) game.me.shoot(100, 25, game.me.slot === 1 ? 5 : 0.5); }`,
+      `function update(game) { if (game.ball.owner === game.me) game.me.shoot(100, 25, game.me.slot === 1 ? 5 : 0.5); }`,
     );
     const owned = { ball: { x: 50, y: 25, vx: 0, vy: 0, owner: { slot: 1, team: 'challenger' as const } } };
     const { actions } = run(owned);

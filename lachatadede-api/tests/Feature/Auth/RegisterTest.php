@@ -42,7 +42,7 @@ class RegisterTest extends TestCase
             'language' => 'javascript',
         ]);
 
-        // The starter uses the canonical script-ia-api.md v2.1 API (sandbox
+        // The starter uses the canonical script-ia-api.md v3.0 API (sandbox
         // global game, no parameter, no JSDoc) and is engine-valid by
         // construction (Story 3.4).
         $starter = Script::where('user_id', $user->id)->firstOrFail();
@@ -52,6 +52,22 @@ class RegisterTest extends TestCase
         $this->assertStringContainsString('me.dribble', $starter->code);
         $this->assertStringContainsString('me.shoot', $starter->code);
         $this->assertTrue($starter->is_valid);
+
+        // v3.0 vocabulary: possession is the owner identity, and no removed
+        // v2 member (hasBall / team) may creep back into the starter.
+        $this->assertStringContainsString('ball.owner === me', $starter->code);
+        $this->assertStringNotContainsString('me.hasBall', $starter->code);
+        $this->assertDoesNotMatchRegularExpression('/\bme\.team\b/', $starter->code);
+
+        // The starter must stay the exact twin of the engine's fixture
+        // (same invariant the engine balance tests rely on; story 8.5).
+        $engineStarter = dirname(__DIR__, 4).'/lachatadede-engine/src/engine/bots/starter-ai.js';
+        if (is_file($engineStarter)) {
+            $this->assertSame(
+                trim((string) file_get_contents($engineStarter)),
+                trim($starter->code),
+            );
+        }
 
         // HTTP-only auth cookie is set alongside the bearer token
         $response->assertCookie('auth_token');

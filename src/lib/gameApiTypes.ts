@@ -2,17 +2,23 @@
  * Game API Type Definitions for AI Script IntelliSense
  * OWNER: Dev Team
  *
- * Canonical AI API contract (script-ia-api.md v2.1, validated by Pelo).
+ * Canonical AI API contract (script-ia-api.md v3.0, validated by Pelo).
  * The engine calls `update(game)` every tick. This single source is consumed
  * two ways: as ambient declarations for Monaco's TypeScript worker
  * (src/lib/gameApiDts.ts -> monacoSetup.ts), which provides hover docs,
  * signature help and completions in the editor; and by tests asserting the
  * engine shim stays aligned with it.
+ *
+ * THE MIRROR LAW (v3.0): every script lives in its own attacking frame.
+ * Your own goal is ALWAYS at x=0, the opponent goal ALWAYS at x=100, and
+ * you ALWAYS attack from left to right — no matter which side of the pitch
+ * your team plays on. The engine mirrors the pitch for you behind the
+ * scenes; scripts never see or compute a home/away distinction.
  */
 
 /**
- * Represents a 2D position on the pitch.
- * X ranges from 0 (home goal line) to 100 (away goal line).
+ * Represents a 2D position on the pitch, in your attacking frame.
+ * X ranges from 0 (YOUR goal line) to 100 (the opponent goal line).
  */
 export interface Vector2D {
   /** X coordinate on the pitch (horizontal position) */
@@ -28,7 +34,7 @@ export interface Vector2D {
  */
 export interface Player {
   /**
-   * Current position of the player on the pitch.
+   * Current position of the player on the pitch, in your attacking frame.
    * @example
    * const myPos = me.position;
    * console.log(`Player at (${myPos.x}, ${myPos.y})`);
@@ -36,40 +42,21 @@ export interface Player {
   readonly position: Vector2D;
 
   /**
-   * Whether this player currently holds the ball.
-   * @example
-   * if (me.hasBall) {
-   *   me.shoot(100, 25, 1.0);
-   * }
-   */
-  readonly hasBall: boolean;
-
-  /**
    * Slot of the player in their team, from 1 (goalkeeper) to 5 (attacker).
    * @example
    * if (me.slot === 1) {
-   *   // I am the goalkeeper: stay close to my goal
+   *   // I am the goalkeeper: stay close to my own goal (x=0)
    * }
    */
   readonly slot: number;
 
   /**
-   * Team of the player: 'home' (your team) or 'away' (opponents).
+   * Whether this player is on YOUR team (true for you and your teammates,
+   * false for opponents).
    * @example
-   * const goalX = me.team === 'home' ? 100 : 0;
+   * const friends = [...game.teammates, game.me].filter((p) => p.isTeammate);
    */
-  readonly team: 'home' | 'away';
-
-  /**
-   * Check if this player is the closest to the ball among teammates
-   * (engine-computed, ties resolved by the lower slot).
-   * @returns true if this player is closest to the ball
-   * @example
-   * if (me.isClosestToBall()) {
-   *   me.moveToward(ball.position.x, ball.position.y);
-   * }
-   */
-  isClosestToBall(): boolean;
+  readonly isTeammate: boolean;
 }
 
 /**
@@ -81,7 +68,7 @@ export interface SelfPlayer extends Player {
    * Move the player toward the specified coordinates WITHOUT the ball.
    * If the player had the ball, it is dropped at the current position.
    * Only the first action per tick applies.
-   * @param x - Target X coordinate (0-100)
+   * @param x - Target X coordinate (0-100, your goal at 0)
    * @param y - Target Y coordinate (0-50)
    * @example
    * me.moveToward(ball.position.x, ball.position.y);
@@ -91,10 +78,10 @@ export interface SelfPlayer extends Player {
   /**
    * Move the player toward the specified coordinates WITH the ball.
    * The ball follows the player. Warning if the player has no ball.
-   * @param x - Target X coordinate (0-100)
+   * @param x - Target X coordinate (0-100, your goal at 0)
    * @param y - Target Y coordinate (0-50)
    * @example
-   * me.dribble(75, 30);
+   * me.dribble(90, 30); // Carry the ball toward the opponent goal
    */
   dribble(x: number, y: number): void;
 
@@ -107,21 +94,15 @@ export interface SelfPlayer extends Player {
 
   /**
    * Shoot the ball toward a position. The ball travels in a straight line
-   * at `power * 5` units per tick and can be intercepted.
-   * Warning if the player has no ball.
-   * @param x - Target X coordinate (0-100)
+   * at `power * 1.76` units per tick and decays with friction (~0.9583/tick),
+   * so it can be intercepted. Warning if the player has no ball.
+   * @param x - Target X coordinate (0-100, the opponent goal is at x=100)
    * @param y - Target Y coordinate (0-50)
    * @param power - Shot power between 0.1 and 1.0
    * @example
-   * me.shoot(100, 25, 1.0); // Full-power shot at the goal center
+   * me.shoot(100, 25, 1.0); // Full-power shot at the opponent goal center
    */
   shoot(x: number, y: number, power: number): void;
-
-  /**
-   * Legacy alias of {@link moveToward}, kept for old scripts only.
-   * @deprecated Use moveToward instead.
-   */
-  moveTo(x: number, y: number): void;
 }
 
 /**
@@ -129,7 +110,7 @@ export interface SelfPlayer extends Player {
  */
 export interface Ball {
   /**
-   * Current position of the ball on the pitch.
+   * Current position of the ball on the pitch, in your attacking frame.
    * @example
    * me.moveToward(ball.position.x, ball.position.y);
    */
@@ -144,21 +125,25 @@ export interface Ball {
   readonly velocity: { readonly vx: number; readonly vy: number };
 
   /**
-   * Id of the player owning the ball (e.g. "home-3" or "away-1"),
-   * or null when the ball is free.
+   * The player currently holding the ball, or null when the ball is free.
+   * It is the ACTUAL player object, so identity checks work directly:
+   * `ball.owner === me` (you have it), `ball.owner.isTeammate` (a teammate
+   * has it). Valid for the current tick only.
    * @example
-   * if (ball.owner === null) {
-   *   // Ball is free: go get it
+   * if (ball.owner === me) {
+   *   me.shoot(100, 25, 1.0); // I have the ball: shoot at the opponent goal
+   * } else if (ball.owner === null) {
+   *   me.moveToward(ball.position.x, ball.position.y); // Free ball: go get it
    * }
    */
-  readonly owner: string | null;
+  readonly owner: Player | null;
 }
 
 /**
- * Represents a goal on the pitch.
+ * Represents a goal on the pitch, in your attacking frame.
  */
 export interface Goal {
-  /** X coordinate of the goal line (0 for home, 100 for away) */
+  /** X coordinate of the goal line (0 for your goal, 100 for the opponent goal) */
   readonly x: number;
   /** Y coordinate of the goal center (25) */
   readonly y: number;
@@ -177,34 +162,39 @@ export interface Zone {
 }
 
 /**
- * Represents the pitch: dimensions, goals and zones.
+ * Represents the pitch: dimensions, goals and zones, in your attacking
+ * frame. Identical for every seat: your own goal is always at x=0.
  */
 export interface Field {
   /** Pitch width (100) */
   readonly width: number;
   /** Pitch height (50) */
   readonly height: number;
-  /** The two goals: home at x=0, away at x=100 */
-  readonly goals: { readonly home: Goal; readonly away: Goal };
-  /** Key zones: penalty boxes and the center spot */
-  readonly zones: {
-    readonly homeBox: Zone;
-    readonly awayBox: Zone;
-    readonly center: Vector2D;
-  };
+  /** YOUR goal: always at x=0 — defend it */
+  readonly ownGoal: Goal;
+  /** The opponent goal: always at x=100 — attack it */
+  readonly opponentGoal: Goal;
+  /** Your penalty box: the zone to defend around your own goal */
+  readonly ownBox: Zone;
+  /** The opponent penalty box: the zone to attack around their goal */
+  readonly opponentBox: Zone;
+  /** The center spot of the pitch (50, 25) */
+  readonly center: Vector2D;
 }
 
 /**
  * The game context passed to your AI script on every tick (60 per second).
  * It is also available as the sandbox global `game` (see below).
  *
+ * Your own goal is ALWAYS at x=0 and you ALWAYS attack toward x=100,
+ * whichever side you play on — the engine mirrors the pitch for you.
+ *
  * @example
  * function update() {
  *   const { me, ball, field } = game;
- *   const goalX = me.team === 'home' ? 100 : 0;
  *
- *   if (me.hasBall) {
- *     me.dribble(goalX, 25);
+ *   if (ball.owner === me) {
+ *     me.dribble(field.opponentGoal.x, 25); // Carry the ball to the goal
  *   } else {
  *     me.moveToward(ball.position.x, ball.position.y);
  *   }
@@ -219,7 +209,7 @@ export interface Game {
   readonly teammates: Player[];
   /** The opponents (read-only) */
   readonly opponents: Player[];
-  /** The pitch: dimensions, goals and zones */
+  /** The pitch: dimensions, goals and zones, in your attacking frame */
   readonly field: Field;
 }
 

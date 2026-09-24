@@ -226,10 +226,12 @@ function fieldCoordinatesSvg(): string {
   <circle cx="${gx(50)}" cy="${gy(25)}" r="0.8" fill="#ffffff"/>
   ${goalMouth(0)}
   ${goalMouth(FIELD_WIDTH)}
-  ${zone(FIELD_DATA.zones.homeBox)}
-  ${zone(FIELD_DATA.zones.awayBox)}
-  <text x="${gx(1.5)}" y="${gy(13.5)}">homeBox</text>
-  <text x="${gx(W - 8.5)}" y="${gy(13.5)}">awayBox</text>
+  ${zone(FIELD_DATA.ownBox)}
+  ${zone(FIELD_DATA.opponentBox)}
+  <text x="${gx(1.5)}" y="${gy(13.5)}">ownBox</text>
+  <text x="${gx(W - 1.5)}" y="${gy(13.5)}" text-anchor="end">opponentBox</text>
+  <text x="${gx(2)}" y="${gy(6)}">own goal (x=0)</text>
+  <text x="${gx(W - 2)}" y="${gy(6)}" text-anchor="end">opponent goal (x=100) — attack</text>
   <text x="${gx(0)}" y="${gy(GOAL_Y_MAX) + 4}">goal: y ${GOAL_Y_MIN}-${GOAL_Y_MAX}</text>
   ${xTicks}
   ${yTicks}

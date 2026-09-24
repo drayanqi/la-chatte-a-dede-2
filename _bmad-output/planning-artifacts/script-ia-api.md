@@ -2,9 +2,22 @@
 
 > **Statut** : VALIDE par Pelo
 > **Date** : 2026-09-24
-> **Version** : 2.1 (Global game - zero JSDoc)
+> **Version** : 3.0 (Contrat miroir / ego-centrique — story 8.5)
 
 > **Guide compagnon** : [docs/scripting.md](../../docs/scripting.md) — chaque action démontrée en GIF par le vrai moteur, la référence lisible de l'objet `game` et des warnings. Cette spec reste la source contractuelle exhaustive.
+
+---
+
+## Loi du Miroir (v3.0)
+
+**Un script voit toujours SON but a x=0 et le but adverse a x=100 : il attaque toujours de gauche a droite.**
+
+Peu importe le cote du terrain reel ou joue son equipe : le moteur remet le terrain a l'endroit pour lui (miroir autour de la ligne mediane pour le siege away). Le script ne connait jamais son cote :
+
+- il n'existe AUCUNE notion de home/away dans la vue script (pas de propriete `team`, pas de condition de cote) ;
+- le meme script se comporte de facon identique dans les deux sieges ;
+- la membrane : le monde reste en coordonnees monde (simulation, frames, telemetrie, replay, canvas) — le miroir n'existe QUE dans la vue script (entree : x et vx remises en miroir pour le siege away ; sortie : les x des actions sont remises en coordonnees monde par l'hote) ;
+- la symetrie miroir entre les deux sieges n'est PAS bit-exacte (l'operation flottante `100 - x` n'est pas involutive) et n'est pas une exigence.
 
 ---
 
@@ -13,17 +26,17 @@
 Chaque joueur execute un script IA a chaque tick de la simulation.
 Le script recoit un objet **game** et appelle des **methodes** sur `me`.
 
-L'objet `game` est disponible de DEUX façons (v2.1) :
+L'objet `game` est disponible de DEUX façons (depuis la v2.1) :
 
-1. **Global** (recommandé) : le sandbox assigne `game` comme variable globale avant chaque tick. Ni parametre, ni JSDoc — et les fonctions utilitaires lisent `game` directement.
+1. **Global** (recommande) : le sandbox assigne `game` comme variable globale avant chaque tick. Ni parametre, ni JSDoc — et les fonctions utilitaires lisent `game` directement.
 2. **Parametre** (legacy, toujours supporte) : `function update(game)` recoit l'objet en premier argument.
 
 ```javascript
 function update() {
-  const { me, ball, teammates, opponents, field } = game;
+  const { me, ball, field } = game;
 
-  if (me.hasBall) {
-    me.shoot(100, 25, 1.0);
+  if (ball.owner === me) {
+    me.shoot(field.opponentGoal.x, 25, 1.0); // le but adverse : toujours x=100
   } else {
     me.moveToward(ball.position.x, ball.position.y);
   }
@@ -38,6 +51,7 @@ function update() {
 
 | Regle | Description |
 |-------|-------------|
+| **Loi du miroir** | Ton but a x=0, le but adverse a x=100 — toujours (voir Loi du Miroir) |
 | **Sandboxing** | Le script ne peut pas modifier directement le jeu |
 | **Une action par tick** | Seule la PREMIERE action est executee |
 | **Actions instantanees** | Pas d'animation, effet immediat |
@@ -56,9 +70,23 @@ interface Game {
   ball: Ball;           // Le ballon
   teammates: Player[];  // Coequipiers (sans soi-meme)
   opponents: Player[];  // Adversaires
-  field: Field;         // Terrain
+  field: Field;         // Terrain (repere attaquant, identique pour tous)
 }
 ```
+
+---
+
+## Changements v3.0 (rupture forward-only)
+
+Pre-lancement, zero vrai script a migrer (comme les migrations : break forward-only).
+
+| Membre v2 | Replacement v3 |
+|-----------|----------------|
+| `hasBall` | `ball.owner === me` (identite d'objet, voir Ball) |
+| `team: 'home' \| 'away'` | supprime — la loi du miroir rend le cote invisible |
+| `isClosestToBall()` | calcule toi-meme : compare ta distance `Math.hypot` de `me.position` a `ball.position` avec celle de chaque coequipier |
+| `moveTo` (alias) | supprime — `moveToward` uniquement |
+| `ball.owner: string \| null` | `Player \| null` — l'objet joueur reel (identite, voir Ball) |
 
 ---
 
@@ -67,10 +95,9 @@ interface Game {
 ```typescript
 interface Player {
   // === PROPRIETES (lecture seule) ===
-  position: { x: number, y: number };  // 0-100 pour x, 0-50 pour y
-  hasBall: boolean;
+  position: { x: number, y: number };  // 0-100 pour x (ton but a 0), 0-50 pour y
   slot: 1 | 2 | 3 | 4 | 5;
-  team: 'home' | 'away';
+  isTeammate: boolean;                 // true pour toi et tes coequipiers
 
   // === METHODES (actions - seulement sur `me`) ===
   moveToward(x: number, y: number): void;
@@ -90,27 +117,27 @@ interface Player {
 interface Ball {
   position: { x: number, y: number };
   velocity: { vx: number, vy: number };
-  owner: string | null;  // playerId ou null si libre
+  owner: Player | null;  // le joueur qui le porte, ou null si libre
 }
 ```
+
+**`owner` est l'objet joueur reel** (pas un identifiant) : `ball.owner === me` est vrai quand TU portes le ballon ; `ball.owner.isTeammate` dit si un coequipier le porte. L'identite n'est garantie que pendant le tick courant.
 
 ---
 
 ## Field
 
+Le repere est identique pour les deux sieges : ton but est TOUJOURS a x=0.
+
 ```typescript
 interface Field {
   width: 100;
   height: 50;
-  goals: {
-    home: { x: 0, y: 25, width: 20 };    // But gauche
-    away: { x: 100, y: 25, width: 20 };  // But droite
-  };
-  zones: {
-    homeBox: { x1: 0, y1: 15, x2: 16, y2: 35 };
-    awayBox: { x1: 84, y1: 15, x2: 100, y2: 35 };
-    center: { x: 50, y: 25 };
-  };
+  ownGoal: { x: 0, y: 25, width: 20 };        // TON but — defendre
+  opponentGoal: { x: 100, y: 25, width: 20 }; // Le but adverse — attaquer
+  ownBox: { x1: 0, y1: 15, x2: 16, y2: 35 };
+  opponentBox: { x1: 84, y1: 15, x2: 100, y2: 35 };
+  center: { x: 50, y: 25 };
 }
 ```
 
@@ -242,10 +269,10 @@ Si le script n'appelle aucune action, le joueur continue son mouvement precedent
 Vitesse initiale = power * MAX_BALL_SPEED
 Vitesse tick N = Vitesse tick N-1 * FRICTION
 
-Constantes:
-- MAX_BALL_SPEED = 5.0 unites/tick
-- FRICTION = 0.95 (perd 5% de vitesse par tick)
-- MIN_BALL_SPEED = 0.1 (en dessous, ballon s'arrete)
+Constantes (v1.7 — les valeurs de docs/scripting.md en decoulent):
+- MAX_BALL_SPEED = 1.76 unites/tick
+- FRICTION = 0.9583 (perd ~4.17% de vitesse par tick)
+- MIN_BALL_SPEED = 0.07 (en dessous, ballon s'arrete)
 ```
 
 ---
@@ -256,8 +283,10 @@ Constantes:
 |-------|-------------|
 | Condition | Le ballon traverse la ligne de but |
 | Zone | y entre 15 et 35 |
-| Home marque | Ballon x >= 100 |
-| Away marque | Ballon x <= 0 |
+| Tu marques | Ballon x >= 100 (le but adverse dans TON repere) |
+| Tu encaisses | Ballon x <= 0 (TON but dans ton repere) |
+
+Dans le monde (replay/canvas), le challenger marque a x >= 100 et l'opponent a x <= 0 — le miroir fait que chaque siege voit "je marque a x >= 100".
 
 ---
 
@@ -282,14 +311,16 @@ Constantes:
 
 ## Exemples de Scripts
 
+Tous les exemples sont sans cote (loi du miroir) : ils se comportent a l'identique dans les deux sieges.
+
 ### Attaquant Simple
 
 ```javascript
 function update() {
   const { me, ball, field } = game;
-  const goalX = me.team === 'home' ? 100 : 0;
+  const goalX = field.opponentGoal.x; // toujours 100
 
-  if (me.hasBall) {
+  if (ball.owner === me) {
     const distToGoal = Math.abs(me.position.x - goalX);
 
     if (distToGoal < 30) {
@@ -310,8 +341,8 @@ function update() {
   const { me, ball, teammates } = game;
   const myZone = { x: 20, y: 15 + me.slot * 7 };
 
-  if (me.hasBall) {
-    // Passer vers l'avant
+  if (ball.owner === me) {
+    // Passer vers l'avant (vers x=100 : le but adverse)
     const target = teammates
       .filter(t => t.position.x > me.position.x)
       .sort((a, b) => b.position.x - a.position.x)[0];
@@ -341,10 +372,10 @@ function update() {
 
 ```javascript
 function update() {
-  const { me, ball, teammates } = game;
-  const goalX = me.team === 'home' ? 5 : 95;
+  const { me, ball, field, teammates } = game;
+  const myLine = field.ownGoal.x + 5; // toujours 5 : MON but est a x=0
 
-  if (me.hasBall) {
+  if (ball.owner === me) {
     const target = teammates
       .sort((a, b) => {
         const distA = Math.abs(a.position.x - 50);
@@ -360,7 +391,7 @@ function update() {
   } else {
     // Suivre le ballon en Y, rester sur la ligne
     const targetY = Math.max(15, Math.min(35, ball.position.y));
-    me.moveToward(goalX, targetY);
+    me.moveToward(myLine, targetY);
   }
 }
 ```
@@ -371,13 +402,15 @@ function update() {
 
 | Constante | Valeur | Description |
 |-----------|--------|-------------|
-| PLAYER_SPEED | 1.0 | Vitesse deplacement joueur |
-| MAX_BALL_SPEED | 5.0 | Vitesse max du ballon |
-| BALL_FRICTION | 0.95 | Multiplicateur vitesse/tick |
-| MIN_BALL_SPEED | 0.1 | Seuil d'arret du ballon |
+| PLAYER_SPEED | 0.3535 | Vitesse deplacement joueur (unites/tick, ~21/s) |
+| MAX_BALL_SPEED | 1.76 | Vitesse max du ballon |
+| BALL_FRICTION | 0.9583 | Multiplicateur vitesse/tick |
+| MIN_BALL_SPEED | 0.07 | Seuil d'arret du ballon |
 | COLLISION_RADIUS | 2.0 | Rayon collision joueur-ballon |
 | FIELD_WIDTH | 100 | Largeur terrain |
 | FIELD_HEIGHT | 50 | Hauteur terrain |
 | GOAL_Y_MIN | 15 | Limite basse du but |
 | GOAL_Y_MAX | 35 | Limite haute du but |
 | TICK_TIMEOUT | 10 | Timeout script en ms |
+
+Source de verite : `lachatadede-engine/src/engine/constants.ts` (v1.7) — ces valeurs sont celles citees par docs/scripting.md ; toute evolution de la physique doit re-piner les tests d'equilibre et cette table.

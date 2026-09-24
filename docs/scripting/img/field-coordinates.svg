@@ -14,8 +14,10 @@
   <line x1="108.0" y1="19.0" x2="108.0" y2="39.0" stroke="#ffffff" stroke-width="1.8"/>
   <rect x="8.0" y="19.0" width="16" height="20" fill="none" stroke="#ffe9a8" stroke-width="0.5" stroke-dasharray="2 1.4"/>
   <rect x="92.0" y="19.0" width="16" height="20" fill="none" stroke="#ffe9a8" stroke-width="0.5" stroke-dasharray="2 1.4"/>
-  <text x="9.5" y="17.5">homeBox</text>
-  <text x="99.5" y="17.5">awayBox</text>
+  <text x="9.5" y="17.5">ownBox</text>
+  <text x="106.5" y="17.5" text-anchor="end">opponentBox</text>
+  <text x="10.0" y="10.0">own goal (x=0)</text>
+  <text x="106.0" y="10.0" text-anchor="end">opponent goal (x=100) — attack</text>
   <text x="8.0" y="39.04">goal: y 15-35</text>
   <text x="8.0" y="54.05" text-anchor="middle">0</text><text x="33.0" y="54.05" text-anchor="middle">25</text><text x="58.0" y="54.05" text-anchor="middle">50</text><text x="83.0" y="54.05" text-anchor="middle">75</text><text x="108.0" y="54.05" text-anchor="middle">100</text>
   <text x="5.5" y="4.01" text-anchor="end">0</text><text x="5.5" y="29.01" text-anchor="end">25</text><text x="5.5" y="54.01" text-anchor="end">50</text>

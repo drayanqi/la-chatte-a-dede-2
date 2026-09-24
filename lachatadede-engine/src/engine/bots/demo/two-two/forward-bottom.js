@@ -2,66 +2,65 @@
 // the attacking pair. Makes runs behind the defence in possession, forms the
 // high first pressing line when defending, presses when closest, and attacks
 // the bottom half of the box.
+//
+// Ego frame (script-ia-api.md v3.0): own goal at x=0, opponent goal at
+// x=100, always attacking left to right.
 var held = 0;
 var deepSince = 0;
 
 function update(game) {
   const { me, ball, teammates, opponents } = game;
-  const home = me.team === 'home';
-  const X = (x) => (home ? x : 100 - x);
-  held = me.hasBall ? held + 1 : 0;
+  held = ball.owner === me ? held + 1 : 0;
 
-  if (me.hasBall) {
-    onBall(me, teammates, opponents, X(100), home ? 1 : -1, home, held);
+  if (ball.owner === me) {
+    onBall(me, teammates, opponents, 100, held);
     return;
   }
 
-  const ownerTeam = ball.owner === null ? null : ball.owner.split('-')[0];
-  if (ownerTeam === me.team) {
-    // Attack: post on the bottom seam past the marking line, a firm pass
+  const mineHasIt = ball.owner !== null && ball.owner.isTeammate;
+  if (mineHasIt) {
+    // Attack: post on the seam past the marking line, a firm pass
     // over the top finds the run.
-    const bx = home ? ball.position.x : 100 - ball.position.x;
-    me.moveToward(X(clamp(bx + 20, 68, 88)), 28);
+    me.moveToward(clamp(ball.position.x + 20, 68, 88), 28);
     return;
   }
-  if (ownerTeam !== null) {
-    const inOwnHalf = home ? ball.position.x < 50 : ball.position.x > 50;
+  if (ball.owner !== null) {
+    const inOwnHalf = ball.position.x < 50;
     // Read the settled build in our half: once it lingers past the press
     // line, drop onto the seam lane in front of the box and seal the deep
     // post — cover beats pressure.
-    const ballThreat = home ? ball.position.x < 38 : ball.position.x > 62;
+    const ballThreat = ball.position.x < 38;
     deepSince = ballThreat ? deepSince + 1 : 0;
     if (inOwnHalf && deepSince >= 10) {
-      me.moveToward(X(14), 28);
+      me.moveToward(14, 28);
       return;
     }
     // Press: chase as the closest player, or as soon as the ball enters the
     // forward line's pressing radius.
-    if (me.isClosestToBall() || distance(me.position, ball.position) < 20) {
+    if (isClosestToBall(game) || distance(me.position, ball.position) < 20) {
       chase(me, ball);
       return;
     }
     if (inOwnHalf) {
       // Collapse between the ball and the own goal: a compact box line.
-      const step = home ? -12 : 12;
       me.moveToward(
-        clamp(ball.position.x + step, home ? 22 : 62, home ? 38 : 84),
+        clamp(ball.position.x - 12, 22, 38),
         clamp(ball.position.y, 26, 45),
       );
       return;
     }
-    // Screen the bottom band otherwise.
-    me.moveToward(X(38), clamp(ball.position.y, 26, 45));
+    // Screen the band otherwise.
+    me.moveToward(38, clamp(ball.position.y, 26, 45));
     return;
   }
-  if (me.isClosestToBall()) {
+  if (isClosestToBall(game)) {
     chase(me, ball);
     return;
   }
-  me.moveToward(X(50), 35);
+  me.moveToward(50, 35);
 }
 
-function onBall(me, teammates, opponents, attackX, dir, home, held) {
+function onBall(me, teammates, opponents, attackX, held) {
   const distGoal = Math.abs(me.position.x - attackX);
   const keeper = opponents.find((o) => o.slot === 1) ?? null;
   const cornerY = keeper && keeper.position.y >= 25 ? 17 : 33;
@@ -91,7 +90,7 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
   // scramble). A defender inside 3 forces the release immediately.
   const nearest = nearestOpponentDistance(me.position, opponents);
   if (nearest < 4.5 && (held >= 2 || nearest < 3)) {
-    const outlet = bestPass(me, teammates, opponents, dir, false);
+    const outlet = bestPass(me, teammates, opponents, false);
     if (outlet) {
       me.shoot(
         outlet.position.x,
@@ -100,13 +99,13 @@ function onBall(me, teammates, opponents, attackX, dir, home, held) {
       );
       return;
     }
-    me.shoot(home ? 62 : 38, me.position.y >= 25 ? 40 : 10, 0.95);
+    me.shoot(62, me.position.y >= 25 ? 40 : 10, 0.95);
     return;
   }
 
   // In space: carry the ball forward; release it only to a teammate who is
   // clearly better placed (well ahead, open, lane clear), after the shield.
-  const target = held >= 2 ? bestPass(me, teammates, opponents, dir, true) : null;
+  const target = held >= 2 ? bestPass(me, teammates, opponents, true) : null;
   if (target) {
     me.shoot(
       target.position.x,
@@ -169,7 +168,7 @@ function laneBlocked(from, to, opponents, margin) {
 
 // Most advanced open teammate: clear pass lane, target not crowded, scored
 // by forward progress + openness - length.
-function bestPass(me, teammates, opponents, dir, strict) {
+function bestPass(me, teammates, opponents, strict) {
   let best = null;
   let bestScore = -Infinity;
   for (const mate of teammates) {
@@ -178,7 +177,7 @@ function bestPass(me, teammates, opponents, dir, strict) {
     const openness = nearestOpponentDistance(mate.position, opponents);
     if (openness < 5) continue;
     if (laneBlocked(me.position, mate.position, opponents, 4)) continue;
-    const progress = dir * (mate.position.x - me.position.x);
+    const progress = mate.position.x - me.position.x;
     if (strict && progress < 10) continue;
     const score = progress
       + 1.5 * Math.min(openness, 12)
@@ -204,3 +203,20 @@ function chase(me, ball) {
     clamp(ball.position.y + ball.velocity.vy * 3, 0, 50),
   );
 }
+
+// The closest player of my team to the ball (ties resolved by the lower
+// slot) — the engine no longer computes it, two lines of math do.
+function isClosestToBall(game) {
+  const ball = game.ball.position;
+  let best = game.me;
+  let bestD = distance(best.position, ball);
+  for (const p of [game.me, ...game.teammates]) {
+    const d = distance(p.position, ball);
+    if (d < bestD || (d === bestD && p.slot < best.slot)) {
+      best = p;
+      bestD = d;
+    }
+  }
+  return best === game.me;
+}
+

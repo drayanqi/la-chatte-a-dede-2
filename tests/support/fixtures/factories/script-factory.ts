@@ -18,12 +18,13 @@ export type Script = {
   updatedAt: string;
 };
 
-// Default starter AI code (canonical script-ia-api.md v2.0 API)
+// Default starter AI code (canonical script-ia-api.md v3.0 API: own goal
+// at x=0, attack toward x=100, possession via ball.owner === me)
 const STARTER_AI_CODE = `function update(game) {
   const { me, ball } = game;
-  const goalX = me.team === 'home' ? 100 : 0;
+  const goalX = 100;
 
-  if (me.hasBall) {
+  if (ball.owner === me) {
     me.dribble(goalX, 25);
   } else {
     me.moveToward(ball.position.x, ball.position.y);
@@ -33,9 +34,9 @@ const STARTER_AI_CODE = `function update(game) {
 // Goalkeeper AI code
 const GOALKEEPER_AI_CODE = `function update(game) {
   const { me, ball } = game;
-  const goalX = me.team === 'home' ? 5 : 95;
+  const goalX = 5; // own goal line, in the script's attacking frame
 
-  if (me.hasBall) {
+  if (ball.owner === me) {
     if (game.teammates.length > 0) {
       me.shoot(game.teammates[0].position.x, game.teammates[0].position.y, 0.8);
     } else {

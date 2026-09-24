@@ -2,23 +2,23 @@
 // the ball -> own goal centre axis, sweep free or opponent-carried balls that
 // reach the box, and open play with a short pass to the deepest open teammate
 // when in possession.
+//
+// Ego frame (script-ia-api.md v3.0): own goal at x=0, opponent goal at
+// x=100, always attacking left to right.
 function update(game) {
   const { me, ball, teammates, opponents } = game;
-  const home = me.team === 'home';
-  const lineX = home ? 6 : 94;
-  const goalX = home ? 0 : 100;
+  const lineX = 6;
+  const goalX = 0;
 
-  if (me.hasBall) {
-    distribute(me, teammates, opponents, home);
+  if (ball.owner === me) {
+    distribute(me, teammates, opponents);
     return;
   }
 
-  const ownerTeam = ball.owner === null ? null : ball.owner.split('-')[0];
-
   // Sweep: a free or opponent-carried ball inside our box, close enough to
   // claim it before the attacker does.
-  const inOwnBox = home ? ball.position.x < 20 : ball.position.x > 80;
-  if (ownerTeam !== me.team && inOwnBox
+  const inOwnBox = ball.position.x < 20;
+  if ((ball.owner === null || !ball.owner.isTeammate) && inOwnBox
       && distance(me.position, ball.position) < 16) {
     chase(me, ball);
     return;
@@ -27,13 +27,7 @@ function update(game) {
   // Hold the line: stand where the ball owner -> goal centre segment crosses
   // the keeper line; shade to the ball itself when the source is already
   // between the keeper and the goal.
-  let source = ball.position;
-  if (ball.owner !== null) {
-    const [ownerTeam, ownerSlot] = ball.owner.split('-');
-    const roster = ownerTeam === me.team ? teammates : opponents;
-    const owner = roster.find((player) => player.slot === Number(ownerSlot));
-    if (owner) source = owner.position;
-  }
+  const source = ball.owner === null ? ball.position : ball.owner.position;
   let targetY = 25;
   const deltaX = goalX - source.x;
   const crossing = deltaX === 0 ? -1 : (lineX - source.x) / deltaX;
@@ -45,9 +39,9 @@ function update(game) {
   me.moveToward(lineX, clamp(targetY, 15, 35));
 }
 
-function distribute(me, teammates, opponents, home) {
+function distribute(me, teammates, opponents) {
   if (nearestOpponentDistance(me.position, opponents) >= 4.5) {
-    const target = bestPass(me, teammates, opponents, home ? 1 : -1);
+    const target = bestPass(me, teammates, opponents);
     if (target) {
       me.shoot(
         target.position.x,
@@ -58,7 +52,7 @@ function distribute(me, teammates, opponents, home) {
     }
   }
   // Pressed with no outlet, or no open teammate: clear toward midfield.
-  me.shoot(home ? 58 : 42, clamp(me.position.y >= 25 ? 40 : 10, 6, 44), 0.95);
+  me.shoot(58, clamp(me.position.y >= 25 ? 40 : 10, 6, 44), 0.95);
 }
 
 function clamp(value, min, max) {
@@ -95,7 +89,7 @@ function laneBlocked(from, to, opponents, margin) {
 
 // Most advanced open teammate: clear pass lane, target not crowded, scored
 // by forward progress + openness - length.
-function bestPass(me, teammates, opponents, dir) {
+function bestPass(me, teammates, opponents) {
   let best = null;
   let bestScore = -Infinity;
   for (const mate of teammates) {
@@ -104,7 +98,7 @@ function bestPass(me, teammates, opponents, dir) {
     const openness = nearestOpponentDistance(mate.position, opponents);
     if (openness < 5) continue;
     if (laneBlocked(me.position, mate.position, opponents, 4)) continue;
-    const score = dir * (mate.position.x - me.position.x)
+    const score = mate.position.x - me.position.x
       + 1.5 * Math.min(openness, 12)
       - 0.2 * d;
     if (score > bestScore) {

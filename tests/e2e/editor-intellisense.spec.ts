@@ -8,11 +8,11 @@
  * `@param {Game} game` JSDoc line (legacy scripts, gameScript.ts).
  *
  * Covered contract: EVERY typed API path completes — including deep chains
- * (game.ball.position., field.zones.homeBox.), destructuring and local
+ * (game.ball.position., field.opponentGoal.), destructuring and local
  * aliases — not just one hot spot.
  *
  * @see gameApiTypes.ts (canonical contract)
- * @see script-ia-api.md v2.1
+ * @see script-ia-api.md v3.0
  */
 import { test, expect } from '../support/fixtures';
 import {
@@ -79,7 +79,7 @@ test.describe('Editor IntelliSense - typed game API', () => {
     expect(labels.some((label) => label.startsWith('y'))).toBe(true);
   });
 
-  test('completes deep chain field.zones.homeBox. with the zone corners @P0', async ({
+  test('completes deep chain field.opponentGoal. with the goal coordinates @P0', async ({
     page,
     userFactory,
     scriptFactory,
@@ -92,12 +92,12 @@ test.describe('Editor IntelliSense - typed game API', () => {
     });
 
     await openWorkspaceScript(page, user.token, script.id);
-    await typeInsideUpdate(page, 'game.field.zones.homeBox.');
+    await typeInsideUpdate(page, 'game.field.opponentGoal.');
 
     const labels = await suggestionLabels(page);
     const joined = labels.join(' ');
-    expect(joined).toMatch(/x1/);
-    expect(joined).toMatch(/y2/);
+    expect(joined).toMatch(/x/);
+    expect(joined).toMatch(/width/);
   });
 
   test('completes ball.velocity. with vx and vy @P1', async ({
@@ -142,7 +142,7 @@ test.describe('Editor IntelliSense - typed game API', () => {
     expect(joined).toMatch(/position|velocity|owner/);
   });
 
-  test('completes the me.team property on the typed API @P2', async ({
+  test('completes the me.isTeammate property on the typed API @P2', async ({
     page,
     userFactory,
     scriptFactory,
@@ -155,10 +155,10 @@ test.describe('Editor IntelliSense - typed game API', () => {
     });
 
     await openWorkspaceScript(page, user.token, script.id);
-    await typeInsideUpdate(page, 'game.me.te');
+    await typeInsideUpdate(page, 'game.me.isTe');
 
     const labels = await suggestionLabels(page);
-    expect(labels.some((label) => label.startsWith('team'))).toBe(true);
+    expect(labels.some((label) => label.startsWith('isTeammate'))).toBe(true);
   });
 
   test('shows JSDoc documentation on hover over moveToward @P0', async ({

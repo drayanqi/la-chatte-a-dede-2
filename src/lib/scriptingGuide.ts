@@ -45,7 +45,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     gif: fieldSvg,
     gifAlt: 'Coordonnées du terrain : x de 0 à 100, y de 0 à 50',
     paragraphs: [
-      "x va de 0 (but home) à 100 (but away), y va de 0 (haut) à 50 (bas). Les buts sont sur les lignes x = 0 et x = 100, leur bouche couvre y = 15 à 35.",
+      "LOI DU MIROIR : ton script voit toujours TON but à x=0 et le but adverse à x=100 — tu attaques toujours de gauche à droite, quel que soit ton côté du terrain. Le moteur retourne le terrain quand ton équipe défend le but de droite — aucun script n'a besoin de savoir de quel côté il joue.",
+      "x va donc de 0 (ton but) à 100 (le but adverse), y va de 0 (haut) à 50 (bas). Les buts sont sur les lignes x = 0 et x = 100, leur bouche couvre y = 15 à 35.",
       "Repères utiles : un joueur court à 0.3535 unités/tick (~21/s), un porteur à 0.8× cette vitesse, une frappe pleine puissance part à 1.76/tick avec une friction de 0.9583/tick. Un joueur prend (ou tacle) le ballon à moins de 2.0 unités de lui.",
     ],
   },
@@ -123,9 +124,9 @@ function update() {
       {
         body: `function update() {
   const { me } = game;
-  if (game.me.hasBall && game.me.position.x < 65) {
+  if (game.ball.owner === me && game.me.position.x < 65) {
     me.dribble(65, 25);       // on approche au pied
-  } else if (game.me.hasBall) {
+  } else if (game.ball.owner === me) {
     me.shoot(100, 32, 1.0);   // pleine puissance au corner
   } else {
     me.stop();
@@ -174,7 +175,7 @@ function update() {
         label: 'Le coureur (challenger)',
         body: `function update() {
   const { me } = game;
-  if (game.ball.owner === null && !game.me.hasBall) {
+  if (game.ball.owner === null) {
     me.moveToward(game.ball.position.x, game.ball.position.y);
   } else {
     me.stop();
@@ -185,8 +186,8 @@ function update() {
         label: 'Le dribbleur (opponent)',
         body: `function update() {
   const { me } = game;
-  if (game.me.hasBall) {
-    me.dribble(70, 25); // on l'emmène
+  if (game.ball.owner === me) {
+    me.dribble(30, 25); // on l'emmène (x=70 monde, vu en miroir)
   } else {
     me.moveToward(game.ball.position.x, game.ball.position.y);
   }
@@ -202,14 +203,13 @@ function update() {
       "À chaque tick, le sandbox réassigne l'objet game (variable globale) : ton joueur, le ballon, les autres et le terrain. Tout est en lecture seule — seuls les appels d'action sur me agissent. Tes fonctions utilitaires lisent game directement, sans paramètre.",
     ],
     facts: [
-      { term: 'me.position', description: '{ x, y } — x 0–100, y 0–50' },
-      { term: 'me.hasBall', description: 'booléen : possession réelle' },
-      { term: 'me.slot / me.team', description: '1–5 et "home" / "away" (le moteur dit challenger / opponent)' },
-      { term: 'me.isClosestToBall()', description: 'FONCTION — l\'appeler avec des parenthèses ; le plus proche de ton équipe, départage au slot' },
+      { term: 'me.position', description: '{ x, y } — x 0–100 (ton but à 0), y 0–50' },
+      { term: 'me.slot / me.isTeammate', description: '1–5 ; true pour toi et tes coéquipiers — false pour les adversaires' },
+      { term: 'ball.owner === me', description: 'possession réelle — ball.owner est le joueur lui-même (ou null si le ballon est libre)' },
+      { term: 'isClosestToBall (supprimée)', description: 'plus de méthode toute faite : compare ta distance Math.hypot jusqu\'à ball.position avec celle de chaque coéquipier' },
       { term: 'ball.position / ball.velocity', description: 'positions et vitesse en unités/tick' },
-      { term: 'ball.owner', description: '"home-3" / "away-1" ou null si le ballon est libre' },
       { term: 'teammates / opponents', description: 'les autres joueurs, même forme que me, sans méthodes d\'action' },
-      { term: 'field', description: 'width 100, height 50, goals, zones (homeBox, awayBox, center)' },
+      { term: 'field', description: 'width 100, height 50, ownGoal (x=0), opponentGoal (x=100), ownBox, opponentBox, center' },
       { term: 'Une action par tick', description: 'la PREMIÈRE seule s\'applique ; les suivantes → warning MULTIPLE_ACTIONS' },
       { term: 'console.log/warn/error', description: 'capturés dans les logs du replay (100/tick, 500 caractères)' },
     ],

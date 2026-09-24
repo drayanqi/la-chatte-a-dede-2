@@ -1,153 +1,124 @@
 import type { ScriptTickContext } from './ScriptRunner.js';
+import { FIELD_WIDTH } from './constants.js';
 import type { Team } from './types.js';
 
 /**
- * Host side of the script-ia-api.md v2.0 contract.
+ * Host side of the script-ia-api.md v3.0 contract (ego-centric, story 8.5).
  *
  * Each tick, for each player, a plain-data snapshot is built on the host and
  * deep-copied into the player's isolate. The in-isolate shim (SCRIPT_SHIM
  * below) turns that raw data into the `game` object the script sees, attaching
- * action methods to `me` only. The copy is the isolation boundary: scripts can
- * mutate what they receive without affecting the simulation or other players.
+ * action methods to `me` only and resolving `ball.owner` to the actual player
+ * object. The copy is the isolation boundary: scripts can mutate what they
+ * receive without affecting the simulation or other players.
  *
- * Engine team names map to script team names:
- *   challenger -> 'home', opponent -> 'away'.
+ * The contract is a PERFECT MIRROR (Pelo's law, story 8.5): every script lives
+ * in its own attacking frame — own goal at x=0, opponent goal at x=100, always
+ * attacking left to right. The challenger seat sees world coordinates as-is
+ * (the payload places it defending x=0); the opponent seat sees the pitch
+ * mirrored (x -> 100 - x, vx -> -vx) and its coordinate actions are
+ * un-mirrored back to world space by the host (IsolatedScriptRunner). Scripts
+ * never know which side they play: no home/away vocabulary exists in the
+ * script view.
  */
-
-export type ScriptTeam = 'home' | 'away';
 
 export interface ScriptPlayerData {
   slot: number;
-  team: ScriptTeam;
   position: { x: number; y: number };
-  hasBall: boolean;
-  isClosestToBall: boolean;
+  /** True for the viewer and their teammates, false for opponents. */
+  isTeammate: boolean;
 }
 
 export interface ScriptFieldData {
   width: number;
   height: number;
-  goals: {
-    home: { x: number; y: number; width: number };
-    away: { x: number; y: number; width: number };
-  };
-  zones: {
-    homeBox: { x1: number; y1: number; x2: number; y2: number };
-    awayBox: { x1: number; y1: number; x2: number; y2: number };
-    center: { x: number; y: number };
-  };
+  ownGoal: { x: number; y: number; width: number };
+  opponentGoal: { x: number; y: number; width: number };
+  ownBox: { x1: number; y1: number; x2: number; y2: number };
+  opponentBox: { x1: number; y1: number; x2: number; y2: number };
+  center: { x: number; y: number };
 }
 
 export interface ScriptBallData {
   position: { x: number; y: number };
   velocity: { vx: number; vy: number };
-  /** `"home-3"` / `"away-1"` style player id, or null when the ball is free. */
-  owner: string | null;
+  /**
+   * The ball owner relative to the viewer — resolved by the shim into the
+   * actual player object, so `ball.owner === me` works in scripts.
+   */
+  owner: { side: 'me' | 'teammate' | 'opponent'; slot: number } | null;
 }
 
-export interface SharedTickData {
-  ball: ScriptBallData;
-  players: ScriptPlayerData[];
-  field: ScriptFieldData;
-}
-
-export interface PlayerTickData {
+export interface TeamTickData {
   me: ScriptPlayerData;
+  teammates: ScriptPlayerData[];
+  opponents: ScriptPlayerData[];
   ball: ScriptBallData;
-  players: ScriptPlayerData[];
   field: ScriptFieldData;
 }
 
-export function engineTeamToScript(team: Team): ScriptTeam {
-  return team === 'challenger' ? 'home' : 'away';
-}
-
-export function scriptTeamToEngine(team: ScriptTeam): Team {
-  return team === 'home' ? 'challenger' : 'opponent';
-}
-
-export function scriptOwnerId(team: Team, slot: number): string {
-  return `${engineTeamToScript(team)}-${slot}`;
-}
-
-/** Field description per script-ia-api.md (goal width = GOAL_Y_MAX - GOAL_Y_MIN). */
+/**
+ * Field description per script-ia-api.md v3.0 (goal width = GOAL_Y_MAX -
+ * GOAL_Y_MIN). The ego frame is IDENTICAL for both seats: own goal at x=0.
+ */
 export const FIELD_DATA: ScriptFieldData = {
   width: 100,
   height: 50,
-  goals: {
-    home: { x: 0, y: 25, width: 20 },
-    away: { x: 100, y: 25, width: 20 },
-  },
-  zones: {
-    homeBox: { x1: 0, y1: 15, x2: 16, y2: 35 },
-    awayBox: { x1: 84, y1: 15, x2: 100, y2: 35 },
-    center: { x: 50, y: 25 },
-  },
+  ownGoal: { x: 0, y: 25, width: 20 },
+  opponentGoal: { x: 100, y: 25, width: 20 },
+  ownBox: { x1: 0, y1: 15, x2: 16, y2: 35 },
+  opponentBox: { x1: 84, y1: 15, x2: 100, y2: 35 },
+  center: { x: 50, y: 25 },
 };
 
 /**
- * Builds the tick-wide view shared by all players: ball with velocity, every
- * player with hasBall and the engine-computed isClosestToBall flag, and the
- * constant field description.
+ * Builds the per-viewer tick data for one player (story 8.5 membrane).
  *
- * isClosestToBall is computed among a player's own team (the player itself
- * included); ties are resolved by the lower slot so the flag is deterministic.
+ * The world stays untouched — mirroring happens ONLY here and in the
+ * un-mirroring of the away seat's actions (IsolatedScriptRunner). The
+ * challenger view equals world coordinates; the opponent view is mirrored
+ * across the halfway line (x and vx), so both seats see their own goal at
+ * x=0 and attack toward x=100.
  */
-export function buildSharedTickData(context: ScriptTickContext): SharedTickData {
-  const owner = context.ball.owner;
-  const players: ScriptPlayerData[] = context.players.map((p) => ({
-    slot: p.slot,
-    team: engineTeamToScript(p.team),
-    position: { x: p.x, y: p.y },
-    hasBall: owner !== null && owner.slot === p.slot && owner.team === p.team,
-    isClosestToBall: false,
-  }));
-  for (const p of players) {
-    // Candidates: same team. The tie-break is by slot, NOT by array position —
-    // the /simulate payload validates slot uniqueness but not ordering.
-    const candidates = players.filter((c) => c.team === p.team);
-    let best = candidates[0] as ScriptPlayerData;
-    let bestDistance = distanceSquaredToBall(best, context);
-    for (const c of candidates) {
-      const d = distanceSquaredToBall(c, context);
-      if (d < bestDistance || (d === bestDistance && c.slot < best.slot)) {
-        best = c;
-        bestDistance = d;
-      }
-    }
-    p.isClosestToBall = best.slot === p.slot;
-  }
-  return {
-    ball: {
-      position: { x: context.ball.x, y: context.ball.y },
-      velocity: { vx: context.ball.vx, vy: context.ball.vy },
-      owner:
-        owner === null
-          ? null
-          : scriptOwnerId(owner.team, owner.slot),
-    },
-    players,
-    field: FIELD_DATA,
-  };
-}
-
-/** Assembles the per-player tick data (`me` plus the shared view). */
-export function buildPlayerTickData(
-  shared: SharedTickData,
-  team: ScriptTeam,
+export function buildTeamTickData(
+  context: ScriptTickContext,
+  team: Team,
   slot: number,
-): PlayerTickData {
-  const me = shared.players.find((p) => p.team === team && p.slot === slot);
+): TeamTickData {
+  const mirror = team === 'opponent';
+  const mx = (x: number): number => (mirror ? FIELD_WIDTH - x : x);
+  const toPlayer = (p: ScriptTickContext['players'][number]): ScriptPlayerData => ({
+    slot: p.slot,
+    position: { x: mx(p.x), y: p.y },
+    isTeammate: p.team === team,
+  });
+  const mine = context.players.filter((p) => p.team === team);
+  const me = mine.find((p) => p.slot === slot);
   if (me === undefined) {
     throw new Error(`no player data for team ${team} slot ${slot}`);
   }
-  return { me, ball: shared.ball, players: shared.players, field: shared.field };
-}
-
-function distanceSquaredToBall(p: ScriptPlayerData, context: ScriptTickContext): number {
-  const dx = p.position.x - context.ball.x;
-  const dy = p.position.y - context.ball.y;
-  return dx * dx + dy * dy;
+  const owner = context.ball.owner;
+  return {
+    me: toPlayer(me),
+    teammates: mine.filter((p) => p.slot !== slot).map(toPlayer),
+    opponents: context.players.filter((p) => p.team !== team).map(toPlayer),
+    ball: {
+      position: { x: mx(context.ball.x), y: context.ball.y },
+      velocity: {
+        vx: mirror ? -context.ball.vx : context.ball.vx,
+        vy: context.ball.vy,
+      },
+      owner:
+        owner === null
+          ? null
+          : {
+              side:
+                owner.team === team ? (owner.slot === slot ? 'me' : 'teammate') : 'opponent',
+              slot: owner.slot,
+            },
+    },
+    field: FIELD_DATA,
+  };
 }
 
 /**
@@ -166,7 +137,9 @@ export const PREAMBLE_LINE_OFFSET = 1;
 /**
  * In-isolate shim appended after the user code. Defines globalThis.__run(data)
  * which, per tick:
- *  1. builds the script-ia-api.md `game` object from the raw tick data
+ *  1. builds the script-ia-api.md v3.0 `game` object from the raw tick data,
+ *     resolving `ball.owner` into the actual player object (identity holds
+ *     within the tick: `ball.owner === me` when the viewer carries the ball)
  *  2. wraps `me` with action methods that record actions/warnings
  *  3. captures console.log/warn/error per tick
  *  4. exposes the game object as globalThis.game (scripts can read `game`
@@ -179,13 +152,14 @@ export const PREAMBLE_LINE_OFFSET = 1;
  *    MULTIPLE_ACTIONS warning
  *  - dribble/shoot without possession produce DRIBBLE_NO_BALL / SHOOT_NO_BALL
  *    and are ignored (they do not consume the one-action budget)
- *  - moveTo is provided as a compatibility alias of moveToward
- *  - kick/kickBall are deliberately NOT provided
+ *  - kick/kickBall are deliberately NOT provided (and the v2 `moveTo` alias
+ *    is gone — story 8.5)
  */
 export const SCRIPT_SHIM = `
 ;(function() {
   "use strict";
   var state = { actions: [], logs: [], actionTaken: false };
+  var iHaveTheBall = false;
   var MAX_LOGS_PER_TICK = 100;
   var MAX_MESSAGE_LENGTH = 500;
   function serialize(v) {
@@ -214,21 +188,18 @@ export const SCRIPT_SHIM = `
   function makePlayer(data, isMe) {
     var p = {
       position: data.position,
-      hasBall: data.hasBall,
       slot: data.slot,
-      team: data.team,
-      isClosestToBall: function() { return data.isClosestToBall === true; }
+      isTeammate: data.isTeammate === true
     };
     if (isMe) {
       p.moveToward = function(x, y) { take({ type: "moveToward", x: num(x), y: num(y) }); };
-      p.moveTo = p.moveToward;
       p.stop = function() { take({ type: "stop" }); };
       p.dribble = function(x, y) {
         if (state.actionTaken) {
           pushLog("warn", "MULTIPLE_ACTIONS", "only the first action per tick is applied");
           return;
         }
-        if (!p.hasBall) {
+        if (!iHaveTheBall) {
           pushLog("warn", "DRIBBLE_NO_BALL", "dribble ignored: player does not have the ball");
           return;
         }
@@ -239,7 +210,7 @@ export const SCRIPT_SHIM = `
           pushLog("warn", "MULTIPLE_ACTIONS", "only the first action per tick is applied");
           return;
         }
-        if (!p.hasBall) {
+        if (!iHaveTheBall) {
           pushLog("warn", "SHOOT_NO_BALL", "shoot ignored: player does not have the ball");
           return;
         }
@@ -251,22 +222,39 @@ export const SCRIPT_SHIM = `
     }
     return p;
   }
+  function resolveOwner(owner) {
+    if (owner === null) return null;
+    if (owner.side === "me") return __me;
+    var pool = owner.side === "teammate" ? __teammates : __opponents;
+    for (var i = 0; i < pool.length; i++) {
+      if (pool[i].slot === owner.slot) return pool[i];
+    }
+    return null;
+  }
+  var __me = null;
+  var __teammates = [];
+  var __opponents = [];
   globalThis.__run = function(data) {
     state.actions = [];
     state.logs = [];
     state.actionTaken = false;
+    iHaveTheBall = data.ball.owner !== null && data.ball.owner.side === "me";
+    __teammates = [];
+    __opponents = [];
+    __me = makePlayer(data.me, true);
+    for (var i = 0; i < data.teammates.length; i++) {
+      __teammates.push(makePlayer(data.teammates[i], false));
+    }
+    for (var j = 0; j < data.opponents.length; j++) {
+      __opponents.push(makePlayer(data.opponents[j], false));
+    }
     var game = {
-      me: makePlayer(data.me, true),
-      ball: { position: data.ball.position, velocity: data.ball.velocity, owner: data.ball.owner },
-      teammates: [],
-      opponents: [],
+      me: __me,
+      ball: { position: data.ball.position, velocity: data.ball.velocity, owner: resolveOwner(data.ball.owner) },
+      teammates: __teammates,
+      opponents: __opponents,
       field: data.field
     };
-    for (var i = 0; i < data.players.length; i++) {
-      var d = data.players[i];
-      if (d.slot === data.me.slot && d.team === data.me.team) continue;
-      (d.team === data.me.team ? game.teammates : game.opponents).push(makePlayer(d, false));
-    }
     globalThis.console = {
       log: function() { pushLog("log", "CONSOLE", Array.prototype.map.call(arguments, serialize).join(" ")); },
       warn: function() { pushLog("warn", "CONSOLE", Array.prototype.map.call(arguments, serialize).join(" ")); },

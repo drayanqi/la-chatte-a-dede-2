@@ -6,18 +6,24 @@ Every player runs one AI script. The engine calls your `update()` function **60 
 
 **Every animation below is real.** Each GIF was produced by running the actual deterministic engine on a minimal situation, then rendering the result with the actual match canvas. Nothing is hand-drawn. See [Regenerating](#regenerating).
 
+## The mirror law (read this first)
+
+**Your script always sees its own goal at `x=0` and the opponent goal at `x=100` — you always attack from left to right.** No matter which side of the real pitch your team plays on, the engine hands your script the whole pitch in that attacking frame: every coordinate you read or pass to an action lives there.
+
+You never compute a home/away distinction: there is no `team` property, no conditional on which side you play. The same script behaves identically in both seats — that is the whole point. The replay canvas always shows the real pitch orientation; the frame flip happens between your script and the engine, never on screen.
+
 ---
 
-## The field (coordinates)
+## The field (coordinates — your attacking frame)
 
 ![Field coordinates](scripting/img/field-coordinates.svg)
 
 | Thing | Value |
 |---|---|
-| Width (x) | `0 → 100`, left to right |
+| Width (x) | `0 → 100`, left to right — **your goal at 0, the opponent goal at 100** |
 | Height (y) | `0 → 50`, **top to bottom** (y grows downward) |
-| Goals | On `x = 0` (home) and `x = 100` (away); mouth spans `y = 15 → 35` |
-| Zones | `homeBox` = x 0–16, `awayBox` = x 84–100 (both y 15–35); center = `(50, 25)` |
+| Goals | `field.ownGoal` on `x = 0`, `field.opponentGoal` on `x = 100`; mouth spans `y = 15 → 35` |
+| Zones | `field.ownBox` = x 0–16, `field.opponentBox` = x 84–100 (both y 15–35); `field.center` = `(50, 25)` |
 
 Speeds worth knowing: a player moves **0.3535 units/tick** (~21 units/s); a carrier moves at **0.8×** that; a full-power ball flies at **1.76 units/tick** and decays with friction **0.9583/tick**. A player takes (or tackles) the ball within **2.0 units** of it.
 
@@ -77,9 +83,9 @@ Releases the ball toward `(x, y)` at `power × 1.76` units/tick. `power` is clam
 ```js
 function update() {
   const { me } = game;
-  if (game.me.hasBall && game.me.position.x < 65) {
+  if (game.ball.owner === me && game.me.position.x < 65) {
     me.dribble(65, 25);       // carry toward the edge of the box
-  } else if (game.me.hasBall) {
+  } else if (game.ball.owner === me) {
     me.shoot(100, 32, 1.0);   // full power into the corner
   } else {
     me.stop();
@@ -119,7 +125,7 @@ Mover's script (challenger):
 ```js
 function update() {
   const { me } = game;
-  if (game.ball.owner === null && !game.me.hasBall) {
+  if (game.ball.owner === null) {
     me.moveToward(game.ball.position.x, game.ball.position.y); // race to the ball
   } else {
     me.stop();
@@ -127,13 +133,13 @@ function update() {
 }
 ```
 
-Dribbler's script (opponent):
+Dribbler's script (opponent seat — the same attacking frame: its world-space carry to x=70 is `100 - 70 = 30` in its own view):
 
 ```js
 function update() {
   const { me } = game;
-  if (game.me.hasBall) {
-    me.dribble(70, 25); // carry it away
+  if (game.ball.owner === me) {
+    me.dribble(30, 25); // carry it away (world x=70 through the mirror)
   } else {
     me.moveToward(game.ball.position.x, game.ball.position.y);
   }
@@ -160,27 +166,41 @@ interface Game {
 
 | Member | Type | Notes |
 |---|---|---|
-| `position` | `{ x, y }` | x 0–100, y 0–50 |
-| `hasBall` | `boolean` | possession truth |
+| `position` | `{ x, y }` | x 0–100 (your goal at 0), y 0–50 |
 | `slot` | `1 – 5` | jersey number |
-| `team` | `'home' \| 'away'` | script names; the engine calls them `challenger` / `opponent` |
-| `isClosestToBall()` | **function** | call it with parentheses — closest **of your own team**, ties broken by lower slot |
-| `moveToward(x, y)` | action | `me` only; `moveTo` is a compatibility alias |
+| `isTeammate` | `boolean` | true for you and your teammates, false for opponents |
+| `moveToward(x, y)` | action | `me` only |
 | `dribble(x, y)` | action | `me` only |
 | `shoot(x, y, power)` | action | `me` only |
 | `stop()` | action | `me` only |
+
+There is deliberately **no** `hasBall`, **no** `team`, **no** `isClosestToBall()` and **no** `moveTo` alias anymore (v3.0):
+
+- possession is `ball.owner === me` — identity, not a flag;
+- the side you play on does not exist in the script view (the mirror law);
+- "am I closest to the ball?" is two lines: compare the `Math.hypot` distance from `me.position` to `ball.position` with each teammate's distance to it;
+- `moveTo` was a compatibility alias of `moveToward` — call `moveToward` instead.
 
 ### `game.ball`
 
 | Member | Type | Notes |
 |---|---|---|
-| `position` | `{ x, y }` | |
+| `position` | `{ x, y }` | your attacking frame |
 | `velocity` | `{ vx, vy }` | units per tick |
-| `owner` | `string \| null` | `"home-3"` / `"away-1"` style id, or `null` when free |
+| `owner` | `Player \| null` | the actual player object — `ball.owner === me`, `ball.owner.isTeammate` — or `null` when free |
 
 ### `game.field`
 
-`width: 100`, `height: 50`, `goals` (`home` at `x: 0`, `away` at `x: 100`, both `y: 25`, `width: 20`), `zones` (`homeBox`, `awayBox`, `center` — see the diagram above).
+| Member | Type | Notes |
+|---|---|---|
+| `width` / `height` | `100` / `50` | |
+| `ownGoal` | `{ x, y, width }` | `x: 0`, `y: 25`, `width: 20` — defend it |
+| `opponentGoal` | `{ x, y, width }` | `x: 100` — same geometry, attack it |
+| `ownBox` | `Zone` | x 0–16, y 15–35 |
+| `opponentBox` | `Zone` | x 84–100, y 15–35 |
+| `center` | `{ x, y }` | `(50, 25)` |
+
+Identical for every seat: the frame never flips — see the diagram above.
 
 ---
 

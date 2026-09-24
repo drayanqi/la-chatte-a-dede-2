@@ -957,7 +957,7 @@ test.describe('Story 2.4 - Game API IntelliSense', () => {
 
     // THEN: Autocomplete popup appears with player methods
     const labels = await suggestionLabels(page);
-    expect(labels.join(' ')).toMatch(/moveToward|dribble|shoot|isClosestToBall|hasBall|position/);
+    expect(labels.join(' ')).toMatch(/moveToward|dribble|shoot|position|slot/);
   });
 
   test('should show moveToward method in suggestions @P1', async ({
@@ -1026,7 +1026,7 @@ test.describe('Story 2.4 - Game API IntelliSense', () => {
 
     // THEN: Autocomplete shows field properties
     const labels = await suggestionLabels(page);
-    expect(labels.join(' ')).toMatch(/width|goals|zones/);
+    expect(labels.join(' ')).toMatch(/width|ownGoal|opponentGoal/);
   });
 
   test('should insert suggestion with Tab key @P0', async ({
@@ -1060,7 +1060,7 @@ test.describe('Story 2.4 - Game API IntelliSense', () => {
     // The editor should now contain the inserted member
     const editorContent = await page.locator('.monaco-editor .view-lines').textContent();
     expect(editorContent).toMatch(
-      /game\.me\.(moveToward|dribble|shoot|stop|isClosestToBall|hasBall|position|slot|team)/,
+      /game\.me\.(moveToward|dribble|shoot|stop|position|slot|isTeammate)/,
     );
   });
 
@@ -1114,10 +1114,10 @@ test.describe('Story 2.4 - Game API IntelliSense', () => {
     await typeInsideUpdate(page, 'game.teammates[0].');
 
     // THEN: Autocomplete shows the read-only player surface
-    // (position/hasBall/slot/team + isClosestToBall) and NO action methods,
-    // matching the engine shim which attaches actions to `me` only.
+    // (position/slot/isTeammate) and NO action methods, matching the engine
+    // shim which attaches actions to `me` only.
     const labels = await suggestionLabels(page);
-    expect(labels.join(' ')).toMatch(/isClosestToBall|position|hasBall/);
+    expect(labels.join(' ')).toMatch(/position|slot|isTeammate/);
     const suggestionText = await page.locator('.suggest-widget').textContent();
     expect(suggestionText).not.toContain('moveToward');
     expect(suggestionText).not.toContain('dribble');

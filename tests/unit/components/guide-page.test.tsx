@@ -79,7 +79,28 @@ describe('GuidePage Component', () => {
     const versusCodes = screen.getAllByTestId('guide-code-versus');
     expect(versusCodes.length).toBe(2);
     expect(versusCodes[0]?.textContent).toContain('moveToward');
-    expect(versusCodes[1]?.textContent).toContain('dribble(70, 25)');
+    // The dribbler plays the opponent seat: its ego-frame target (30) is the
+    // mirrored world x=70 shown in the GIF — never the raw world literal.
+    expect(versusCodes[1]?.textContent).toContain('dribble(30, 25)');
+    expect(versusCodes[1]?.textContent).not.toContain('dribble(70, 25)');
+  });
+
+  it('teaches the v3.0 mirror law with no removed v2 vocabulary', () => {
+    renderPage();
+
+    // The mirror law opens the terrain topic, in plain terms.
+    const terrain = GUIDE_TOPICS.find((topic) => topic.id === 'terrain');
+    expect(terrain?.paragraphs[0]).toContain('TON but à x=0');
+    expect(terrain?.paragraphs[0]).toContain('aucun script');
+
+    // No topic may USE a removed v2 member (the removal itself is named on
+    // purpose in the facts list, to teach the replacement).
+    const serialized = JSON.stringify(GUIDE_TOPICS);
+    expect(serialized).not.toContain('me.hasBall');
+    expect(serialized).not.toContain('me.isClosestToBall');
+    expect(serialized).not.toContain('me.team');
+    expect(serialized).toContain('ball.owner === me');
+    expect(serialized).toContain('isTeammate');
   });
 
   it('copies an example to the clipboard with feedback', async () => {

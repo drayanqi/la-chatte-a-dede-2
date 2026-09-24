@@ -61,8 +61,8 @@ describe('GAME_API_DTS (generated from the real contract)', () => {
   it('exposes the nested paths used for deep completions', () => {
     // game.ball.position. / ball.velocity.
     expect(GAME_API_DTS).toMatch(/readonly position: Vector2D/);
-    expect(GAME_API_DTS).toMatch(/readonly velocity: \{ readonly vx: number; readonly vy: number \}/);    // field.zones.homeBox.
-    expect(GAME_API_DTS).toMatch(/readonly homeBox: Zone/);
+    expect(GAME_API_DTS).toMatch(/readonly velocity: \{ readonly vx: number; readonly vy: number \}/);    // field.ownBox.
+    expect(GAME_API_DTS).toMatch(/readonly ownBox: Zone/);
     // game.me. actions vs read-only teammates.
     expect(GAME_API_DTS).toMatch(/readonly me: SelfPlayer/);
     expect(GAME_API_DTS).toMatch(/readonly teammates: Player\[\]/);
@@ -83,7 +83,22 @@ describe('GAME_API_DTS (generated from the real contract)', () => {
     expect(GAME_API_DTS).toContain('@param power - Shot power between 0.1 and 1.0');
   });
 
-  it('marks the moveTo alias deprecated', () => {
-    expect(GAME_API_DTS).toContain('@deprecated Use moveToward instead.');
+  it('exposes the v3.0 mirror vocabulary (ownGoal, opponentGoal, isTeammate)', () => {
+    // script-ia-api.md v3.0: the script always sees its own goal at x=0.
+    expect(GAME_API_DTS).toMatch(/readonly ownGoal: Goal/);
+    expect(GAME_API_DTS).toMatch(/readonly opponentGoal: Goal/);
+    expect(GAME_API_DTS).toMatch(/readonly isTeammate: boolean/);
+    // ball.owner is the resolved player object: identity checks work.
+    expect(GAME_API_DTS).toMatch(/readonly owner: Player \| null/);
+    expect(GAME_API_DTS).toContain('ball.owner === me');
+  });
+
+  it('no longer exposes the removed v2.1 members', () => {
+    // v3.0 removals (story 8.5): team, hasBall, isClosestToBall, moveTo.
+    expect(GAME_API_DTS).not.toMatch(/\bteam: 'home' \| 'away'/);
+    expect(GAME_API_DTS).not.toMatch(/hasBall: boolean/);
+    expect(GAME_API_DTS).not.toMatch(/isClosestToBall\(\): boolean/);
+    expect(GAME_API_DTS).not.toMatch(/moveTo\(x: number, y: number\): void/);
+    expect(GAME_API_DTS).not.toContain('@deprecated Use moveToward instead.');
   });
 });

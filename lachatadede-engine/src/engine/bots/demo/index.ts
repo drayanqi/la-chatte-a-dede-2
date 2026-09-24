@@ -13,10 +13,11 @@ import { fileURLToPath } from 'node:url';
  * tactics.php at the repo root) seeds it into an existing database. The
  * DemoBots test suite guards the .js <-> scripts.json sync.
  *
- * Scripts are team-generic: the engine maps challenger->'home' and
- * opponent->'away', and the tactic is stored home-side (defends x=0,
- * attacks toward x=100); GameEngineService mirrors the away side across the
- * halfway line. Engine tests build away payloads via demoOpponentPlayers.
+ * Scripts are side-free: they are written in the ego frame (own goal x=0,
+ * attack toward x=100, script-ia-api.md v3.0) and stored home-side (defends
+ * x=0, attacks toward x=100); the engine's script membrane mirrors the pitch
+ * for whichever seat defends the right goal. Engine tests build away payloads
+ * via demoOpponentPlayers.
  */
 
 export interface DemoFormationPlayer {
