@@ -25,6 +25,15 @@
   --r-modal: 24px;
   --font: 'Sora', system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'Monaco', 'Menlo', monospace;
+
+  /* Guide code tokens (light) — La Ronde hues, deepened for white paper */
+  --code-kw: #d34f66;
+  --code-str: #1d8f5f;
+  --code-num: #2273b8;
+  --code-fn: #a06a00;
+  --code-comment: #5b7265;
+  --code-op: #5b7265;
+  --code-punct: #7a8f83;
 }
 
 [data-theme='dark'] {
@@ -38,6 +47,15 @@
   --pitch-dark: #286e45;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  /* Guide code tokens (dark) — the La Ronde hues at full brightness */
+  --code-kw: #ff8a78;
+  --code-str: #45d69b;
+  --code-num: #6db9f2;
+  --code-fn: #ffc244;
+  --code-comment: #8fa89a;
+  --code-op: #8fa89a;
+  --code-punct: #a8bfb2;
 }
 
 * {
@@ -106,4 +124,32 @@ button {
   .lachatadede-goal-overlay {
     animation: none !important;
   }
+}
+
+/* Guide code blocks (story 8.4) — Prism token colors, scoped to the guide */
+.guide-code .token.keyword {
+  color: var(--code-kw);
+  font-weight: 600;
+}
+.guide-code .token.string {
+  color: var(--code-str);
+}
+.guide-code .token.number {
+  color: var(--code-num);
+}
+.guide-code .token.function {
+  color: var(--code-fn);
+}
+.guide-code .token.comment {
+  color: var(--code-comment);
+  font-style: italic;
+}
+.guide-code .token.operator {
+  color: var(--code-op);
+}
+.guide-code .token.punctuation {
+  color: var(--code-punct);
+}
+.guide-code .token.class-name {
+  color: var(--code-num);
 }

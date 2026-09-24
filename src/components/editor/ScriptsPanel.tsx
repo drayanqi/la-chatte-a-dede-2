@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useEditorStore, useTacticsStore } from '@/stores';
 import type { Script } from '@/types';
 
@@ -313,6 +314,14 @@ export const ScriptsPanel: React.FC<ScriptsPanelProps> = ({ onScriptDeleted }) =
     <div style={styles.container}>
       <div style={styles.colhead}>
         <span style={styles.colheadTitle}>Scripts</span>
+        <Link
+          data-testid="guide-button"
+          to="/guide"
+          style={styles.guideButton}
+          title="Guide des actions"
+        >
+          Guide
+        </Link>
         <button
           data-testid="create-script-button"
           style={{
@@ -529,8 +538,20 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'uppercase',
     color: 'var(--muted)',
   },
-  plus: {
+  guideButton: {
     marginLeft: 'auto',
+    padding: '5px 11px',
+    borderRadius: 'var(--r-btn, 10px)',
+    border: 'none',
+    background: 'var(--panel2)',
+    color: 'var(--ink)',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
+  },
+  plus: {
     width: '26px',
     height: '26px',
     borderRadius: '10px',

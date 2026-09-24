@@ -5,3 +5,4 @@ export { TeamsPage } from './TeamsPage';
 export { MatchPage } from './MatchPage';
 export { PalmaresPage } from './PalmaresPage';
 export { LeaderboardPage } from './LeaderboardPage';
+export { GuidePage } from './GuidePage';

@@ -227,6 +227,15 @@ The full app deploys automatically to a personal Infomaniak VPS on every push to
 
 ---
 
+### Epic 8: Scripting Documentation Cookbook
+Every script author understands the four actions and the `game` context in minutes, through a single reference page whose visual examples are produced by the real engine and the real canvas renderer.
+
+**FRs covered:** None (documentation — makes FR4–FR9 approachable for script authors)
+
+**User Outcome:** A new script author opens one page, sees each action demonstrated on the pitch by the actual simulation (not hand-drawn mockups), reads the exact warnings it can produce, and writes their first working AI with confidence.
+
+---
+
 ## Epic 1: User Authentication & Onboarding
 
 Users can access the platform and start with a working AI template.
@@ -1452,3 +1461,103 @@ So that the stats panel explains WHY the match was lost, not just by how much.
 **Given** the determinism suite, **When** the same seed runs twice, **Then** output is byte-identical WITH stats included; a 50/50 ball contention storm does not make turnover counters explode
 
 **Notes:** full design = planning-artifacts/stadium-mockup-ronde-replay-stats-s1-tableau-de-bord.html (S1 "Tableau de bord", validated by Pelo). The drawer shell + honest aggregates shipped in 7.7 Task 3 (ghost states in place). Verification: engine determinism tests byte-compare, unit drawer v2, e2e seek-on-shot.
+
+## Epic 8: Scripting Documentation Cookbook
+
+A single reference page (`docs/scripting.md`) teaches every script author the four actions AND the read-side `game` object, with animated pitch examples generated end-to-end by the real system: the deterministic engine simulates each situation, the real Pixi canvas renders it, and the render pipeline assembles the GIFs. **Laws locked with Pelo:** docs live in the repo; ONE page (no doc-site, no app route); NO training cones or any fabricated scenery — every pixel of gameplay comes from a real `Simulation` run (the field diagram SVG is generated from the real `FIELD_DATA` constants); GIF format (viewable on GitHub/VS Code, zero JS in markdown); a 5th "versus" situation contrasts `moveToward` vs `dribble`; the read-side reference (`me`, `ball`, `teammates`, `opponents`, `field`, warnings) needs no per-item visuals. The generator is committed tooling, so the page can never silently drift from the engine: regenerating after any physics change makes the difference visible (frames double as golden fixtures).
+
+**FRs covered:** None (documentation)
+
+**User Outcome:** A new script author opens one page, watches each action demonstrated by the actual simulation, checks the warnings it can trigger, and writes their first working AI without archaeology.
+
+### Story 8.1: Deterministic Situations & Frame Files
+
+As a script author,
+I want each documented action backed by a real engine simulation,
+So that the documentation shows what the engine ACTUALLY does, not what we believe it does.
+
+**Acceptance Criteria:**
+
+**Given** the engine's `Simulation`, `BallState` and a scripted runner (the `Simulation.test.ts` staging pattern)
+**When** `npm run docs:frames` runs (engine workspace, via tsx)
+**Then** five situation files are written to `docs/scripting/frames/`: `move-toward` (runner moves, ball elsewhere never moves), `dribble` (carrier zigzags through 3 waypoints, ball glued), `shoot` (carrier beats a tracking goalkeeper, full-power corner shot, goal), `stop` (runner halts mid-chase, ball rolls on), `versus` (two runners race to a free ball — the dribbler ends up carrying it, the mover never does)
+
+**Given** the situations are staged
+**When** the generator writes each file
+**Then** each file carries `{ match_id, seed, total_frames, frames }` with real engine `Frame` records (positions, states, events) — no hand-written positions
+
+**Given** determinism law
+**When** the generator runs twice
+**Then** all frame files are byte-identical
+
+**Given** the versus output
+**When** reviewed
+**Then** the final story is the engine's truth (possession by proximity, moveToward releasing, tackle by the dribbler) and the generator prints a per-situation summary (events, final positions) so the narrative in the docs can be verified against the data
+
+### Story 8.2: Render Pipeline — Viewer, GIFs & Field Diagram
+
+As a script author,
+I want the situations rendered by the real canvas as GIFs,
+So that the documentation reads anywhere GitHub renders markdown, with zero drift from the game's actual look.
+
+**Acceptance Criteria:**
+
+**Given** a situation frame file
+**When** the docs render pipeline runs (`npx playwright test --config=playwright.docs.config.ts`)
+**Then** a standalone viewer page (`scripts/action-docs/viewer.html` + `viewer.tsx`) mounts the REAL `TacticsCanvas`/`Game`, loads the frames and exposes a seek hook; a Playwright spec screenshots the canvas frame-by-frame (60 Hz → ~12 fps) and assembles `docs/scripting/img/<situation>.gif` via `gifenc` (+ `pngjs` for RGBA decode)
+
+**Given** the coordinates diagram
+**When** the frame generator runs
+**Then** `docs/scripting/img/field-coordinates.svg` is generated from the real `FIELD_DATA` and engine constants (axes x 0–100 / y 0–50 with y pointing down, goal mouths y 15–35, homeBox/awayBox zones, center spot) — readable on both light and dark GitHub themes
+
+**Given** the root `package.json`
+**When** a maintainer wants to regenerate everything
+**Then** one command `npm run docs:scripting` produces frames + SVG + GIFs; the Playwright docs config lives OUTSIDE the E2E `testDir` so normal e2e runs are untouched
+
+**Given** the goal moment in the shoot situation
+**When** the GIF is assembled
+**Then** the file ends shortly after the goal so the celebration flash closes the loop instead of polluting half the frames
+
+### Story 8.3: The Single Scripting Reference Page
+
+As a script author,
+I want one page with everything I need to write my first AI,
+So that I never have to piece together the contract from spec files and source code.
+
+**Acceptance Criteria:**
+
+**Given** `docs/scripting.md` (single page, English, repo documentation)
+**When** a script author reads it
+**Then** it contains: the coordinates diagram; one section per action (`moveToward`, `dribble`, `shoot`, `stop`) with signature, semantics, embedded GIF, a minimal runnable `update(game)` example and its warning callout; the versus section contrasting `moveToward` vs `dribble`; the read-side reference (`me` — including `isClosestToBall()` being a FUNCTION and the `moveTo` alias, `ball` with `owner` as `"home-3"`/`null`, `teammates`/`opponents`, `field` with goals and zones); and the tick rules (one action per tick with the budget law, dribble/shoot without ball ignored WITHOUT consuming the budget, power clamped 0.1–1.0, console capped 100 logs/tick truncated at 500 chars, `home`/`away` = `challenger`/`opponent`, `kick`/`kickBall` deliberately absent, missing `update` = "missing update function")
+
+**Given** the full contract
+**When** the author needs the exhaustive spec
+**Then** the page links to `script-ia-api.md`, and `script-ia-api.md` links back to the new page (one source of truth per concern: contract vs hands-on guide)
+
+**Given** the generated assets
+**When** the page is read on GitHub
+**Then** relative links to `scripting/img/*.gif` and the SVG render inline, and a "Regenerating" section documents the command and the golden-fixture law
+
+### Story 8.4: Dedicated Documentation Page
+
+As a script author,
+I want a dedicated documentation page inside the app,
+So that understanding the game's AI API does not require leaving it — and the guide reads like a page, not a popup. (Pelo's call: a full page REPLACED the modal originally shipped under this story.)
+
+**Acceptance Criteria:**
+
+**Given** the app navigation
+**When** the player opens the app
+**Then** the Appbar carries a "Guide" link (`/guide`, protected route) and the Scripts panel header keeps a "Guide" pill linking there — the guide is one click from the atelier and from anywhere
+
+**Given** `/guide`
+**When** the page renders (La Ronde tokens, light/dark safe)
+**Then** it shows a sticky table of contents and one section per topic (Le terrain, moveToward, dribble, shoot, stop, versus, Lire le jeu) with the REAL generated GIF/SVG, explanation, warning callout, facts table and copyable example script(s) with "Copié !" feedback
+
+**Given** the in-app content
+**When** compared with docs/scripting.md
+**Then** it is the SAME source of truth: `src/lib/scriptingGuide.ts` imports the exact generated assets from `docs/scripting/img/`, French UI text, same laws (moveToward releases, dribble without ball ignored without consuming the budget, power clamp, `isClosestToBall()` is a function, one action per tick)
+
+**Given** the routing table
+**When** the unit suite runs
+**Then** /guide is covered as a smoke route, the page tests cover topic rendering/copy/TOC, and no modal code remains

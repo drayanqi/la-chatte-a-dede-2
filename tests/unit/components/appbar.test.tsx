@@ -61,13 +61,14 @@ describe('Appbar Component', () => {
     });
   });
 
-  it('should render the four nav links with labels and testids', () => {
+  it('should render the five nav links with labels and testids', () => {
     renderAppbar();
 
     expect(screen.getByTestId('nav-play')).toHaveTextContent('Jouer');
     expect(screen.getByTestId('nav-teams')).toHaveTextContent('Équipes');
     expect(screen.getByTestId('nav-palmares')).toHaveTextContent('Palmarès');
     expect(screen.getByTestId('nav-leaderboard')).toHaveTextContent('Classement');
+    expect(screen.getByTestId('nav-guide')).toHaveTextContent('Guide');
   });
 
   it('should link the logo back to /play', () => {

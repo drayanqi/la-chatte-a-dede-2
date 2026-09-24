@@ -15,6 +15,7 @@ import {
   MatchPage,
   PalmaresPage,
   LeaderboardPage,
+  GuidePage,
 } from './pages';
 import { ProtectedRoute } from './components/auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -76,6 +77,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <LeaderboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/guide"
+            element={
+              <ProtectedRoute>
+                <GuidePage />
               </ProtectedRoute>
             }
           />

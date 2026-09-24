@@ -4,6 +4,8 @@
 > **Date** : 2026-01-19
 > **Version** : 2.0 (API Orientee Objet)
 
+> **Guide compagnon** : [docs/scripting.md](../../docs/scripting.md) — chaque action démontrée en GIF par le vrai moteur, la référence lisible de l'objet `game` et des warnings. Cette spec reste la source contractuelle exhaustive.
+
 ---
 
 ## Vue d'Ensemble

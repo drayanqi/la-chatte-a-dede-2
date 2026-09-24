@@ -6,6 +6,7 @@
  * - `/play` renders the lobby stub (ranked-open-button)
  * - `/palmares` renders the placeholder
  * - `/classement` renders the leaderboard page
+ * - `/guide` renders the documentation page
  * - Protected routes redirect unauthenticated visitors to /login
  * - The legacy /workspace path falls through to /play
  *
@@ -41,6 +42,7 @@ vi.mock('@/pages', () => ({
   MatchPage: () => <div data-testid="match-page">match</div>,
   PalmaresPage: () => <h1>Palmarès</h1>,
   LeaderboardPage: () => <div data-testid="leaderboard-view">classement</div>,
+  GuidePage: () => <div data-testid="guide-view">guide</div>,
 }));
 
 const navigateTo = (path: string) => {
@@ -97,6 +99,14 @@ describe('App Routes (La Ronde)', () => {
     render(<App />);
 
     expect(await screen.findByTestId('leaderboard-view')).toBeInTheDocument();
+  });
+
+  it('should render the guide page on /guide', async () => {
+    navigateTo('/guide');
+
+    render(<App />);
+
+    expect(await screen.findByTestId('guide-view')).toBeInTheDocument();
   });
 
   it('should fall through from the legacy /workspace path to /play', async () => {

@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/teams', label: 'Équipes', testid: 'nav-teams' },
   { to: '/palmares', label: 'Palmarès', testid: 'nav-palmares' },
   { to: '/classement', label: 'Classement', testid: 'nav-leaderboard' },
+  { to: '/guide', label: 'Guide', testid: 'nav-guide' },
 ];
 
 export const Appbar: React.FC = () => {

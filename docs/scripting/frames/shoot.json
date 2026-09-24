@@ -1,0 +1,2295 @@
+{
+  "match_id": "doc-shoot",
+  "seed": 42,
+  "total_frames": 91,
+  "frames": [
+    {
+      "index": 0,
+      "ball": {
+        "x": 55.282828282828284,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55.282828282828284,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20.353535353535353,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 1,
+      "ball": {
+        "x": 55.56565656565657,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55.56565656565657,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20.707070707070706,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 2,
+      "ball": {
+        "x": 55.84848484848485,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55.84848484848485,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 21.06060606060606,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 3,
+      "ball": {
+        "x": 56.131313131313135,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 56.131313131313135,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 21.41414141414141,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 4,
+      "ball": {
+        "x": 56.41414141414142,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 56.41414141414142,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 21.767676767676765,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 5,
+      "ball": {
+        "x": 56.6969696969697,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 56.6969696969697,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 22.121212121212118,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 6,
+      "ball": {
+        "x": 56.979797979797986,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 56.979797979797986,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 22.47474747474747,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 7,
+      "ball": {
+        "x": 57.26262626262627,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 57.26262626262627,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 22.828282828282823,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 8,
+      "ball": {
+        "x": 57.545454545454554,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 57.545454545454554,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 23.181818181818176,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 9,
+      "ball": {
+        "x": 57.82828282828284,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 57.82828282828284,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 23.53535353535353,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 10,
+      "ball": {
+        "x": 58.11111111111112,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 58.11111111111112,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 23.888888888888882,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 11,
+      "ball": {
+        "x": 58.393939393939405,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 58.393939393939405,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 24.242424242424235,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 12,
+      "ball": {
+        "x": 58.67676767676769,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 58.67676767676769,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 24.595959595959588,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 13,
+      "ball": {
+        "x": 58.95959595959597,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 58.95959595959597,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 24.94949494949494,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 14,
+      "ball": {
+        "x": 59.242424242424256,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 59.242424242424256,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 15,
+      "ball": {
+        "x": 59.52525252525254,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 59.52525252525254,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 16,
+      "ball": {
+        "x": 59.808080808080824,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 59.808080808080824,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 17,
+      "ball": {
+        "x": 60.09090909090911,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 60.09090909090911,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 18,
+      "ball": {
+        "x": 60.37373737373739,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 60.37373737373739,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 19,
+      "ball": {
+        "x": 60.656565656565675,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 60.656565656565675,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 20,
+      "ball": {
+        "x": 60.93939393939396,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 60.93939393939396,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 21,
+      "ball": {
+        "x": 61.22222222222224,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 61.22222222222224,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 22,
+      "ball": {
+        "x": 61.50505050505053,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 61.50505050505053,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 23,
+      "ball": {
+        "x": 61.78787878787881,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 61.78787878787881,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 24,
+      "ball": {
+        "x": 62.070707070707094,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 62.070707070707094,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 25,
+      "ball": {
+        "x": 62.35353535353538,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 62.35353535353538,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 26,
+      "ball": {
+        "x": 62.63636363636366,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 62.63636363636366,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 27,
+      "ball": {
+        "x": 62.919191919191945,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 62.919191919191945,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 28,
+      "ball": {
+        "x": 63.20202020202023,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 63.20202020202023,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 29,
+      "ball": {
+        "x": 63.48484848484851,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 63.48484848484851,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 30,
+      "ball": {
+        "x": 63.7676767676768,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 63.7676767676768,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 31,
+      "ball": {
+        "x": 64.05050505050508,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 64.05050505050508,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 32,
+      "ball": {
+        "x": 64.33333333333336,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 64.33333333333336,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 33,
+      "ball": {
+        "x": 64.61616161616163,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 64.61616161616163,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 34,
+      "ball": {
+        "x": 64.89898989898991,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 64.89898989898991,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 35,
+      "ball": {
+        "x": 65,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 36,
+      "ball": {
+        "x": 65,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 37,
+      "ball": {
+        "x": 65,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 38,
+      "ball": {
+        "x": 65,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 39,
+      "ball": {
+        "x": 65,
+        "y": 25
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "moving"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "moving"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 40,
+      "ball": {
+        "x": 66.72582198921602,
+        "y": 25.345164397843202
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [
+        {
+          "type": "shot",
+          "team": "challenger",
+          "shooterSlot": 2,
+          "onTarget": true
+        }
+      ],
+      "logs": []
+    },
+    {
+      "index": 41,
+      "ball": {
+        "x": 68.37973472888137,
+        "y": 25.67594694577627
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 42,
+      "ball": {
+        "x": 69.96473443772733,
+        "y": 25.992946887545465
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 43,
+      "ball": {
+        "x": 71.48369249203805,
+        "y": 26.296738498407606
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 44,
+      "ball": {
+        "x": 72.93936062741915,
+        "y": 26.587872125483827
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 45,
+      "ball": {
+        "x": 74.33437592382603,
+        "y": 26.866875184765206
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 46,
+      "ball": {
+        "x": 75.67126558288263,
+        "y": 27.134253116576527
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 47,
+      "ball": {
+        "x": 76.9524515061452,
+        "y": 27.390490301229043
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 48,
+      "ball": {
+        "x": 78.18025468260517,
+        "y": 27.636050936521038
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 49,
+      "ball": {
+        "x": 79.35689939337931,
+        "y": 27.871379878675864
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 50,
+      "ball": {
+        "x": 80.48451724120453,
+        "y": 28.096903448240905
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 51,
+      "ball": {
+        "x": 81.56515101203702,
+        "y": 28.313030202407404
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 52,
+      "ball": {
+        "x": 82.6007583757515,
+        "y": 28.5201516751503
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 53,
+      "ball": {
+        "x": 83.59321543264454,
+        "y": 28.718643086528907
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 54,
+      "ball": {
+        "x": 84.54432011216704,
+        "y": 28.908864022433406
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 55,
+      "ball": {
+        "x": 85.45579543004277,
+        "y": 29.091159086008552
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 56,
+      "ball": {
+        "x": 86.32929260967367,
+        "y": 29.265858521934735
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 57,
+      "ball": {
+        "x": 87.16639407348663,
+        "y": 29.433278814697324
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 58,
+      "ball": {
+        "x": 87.96861630964071,
+        "y": 29.59372326192814
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 59,
+      "ball": {
+        "x": 88.73741261928836,
+        "y": 29.747482523857673
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 60,
+      "ball": {
+        "x": 89.47417574936736,
+        "y": 29.894835149873476
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 61,
+      "ball": {
+        "x": 90.18024041569308,
+        "y": 30.036048083138617
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 62,
+      "ball": {
+        "x": 90.85688572092188,
+        "y": 30.17137714418438
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 63,
+      "ball": {
+        "x": 91.50533747176615,
+        "y": 30.301067494353234
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 64,
+      "ball": {
+        "x": 92.12677039965858,
+        "y": 30.42535407993172
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 65,
+      "ball": {
+        "x": 92.72231028888883,
+        "y": 30.544462057777768
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 66,
+      "ball": {
+        "x": 93.29303601606782,
+        "y": 30.658607203213563
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 67,
+      "ball": {
+        "x": 93.83998150461434,
+        "y": 30.767996300922867
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 68,
+      "ball": {
+        "x": 94.36413759780477,
+        "y": 30.872827519560953
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 69,
+      "ball": {
+        "x": 94.86645385377892,
+        "y": 30.973290770755785
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 70,
+      "ball": {
+        "x": 95.34784026575416,
+        "y": 31.06956805315083
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 71,
+      "ball": {
+        "x": 95.80916891056376,
+        "y": 31.16183378211275
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 72,
+      "ball": {
+        "x": 96.25127552850628,
+        "y": 31.250255105701257
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 73,
+      "ball": {
+        "x": 96.67496103736788,
+        "y": 31.334992207473576
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 74,
+      "ball": {
+        "x": 97.08099298336023,
+        "y": 31.416198596672047
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 75,
+      "ball": {
+        "x": 97.47010693160291,
+        "y": 31.494021386320583
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 76,
+      "ball": {
+        "x": 97.84300779866881,
+        "y": 31.56860155973376
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 77,
+      "ball": {
+        "x": 98.20037112960696,
+        "y": 31.640074225921392
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 78,
+      "ball": {
+        "x": 98.54284432175602,
+        "y": 31.708568864351204
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 79,
+      "ball": {
+        "x": 98.87104779756554,
+        "y": 31.774209559513107
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 80,
+      "ball": {
+        "x": 99.18557612854966,
+        "y": 31.83711522570993
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 81,
+      "ball": {
+        "x": 99.48699911240944,
+        "y": 31.897399822481887
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 82,
+      "ball": {
+        "x": 99.77586280527507,
+        "y": 31.95517256105501
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 65,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 25,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 83,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "idle"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "idle"
+        }
+      ],
+      "events": [
+        {
+          "type": "goal",
+          "team": "challenger",
+          "scorerSlot": 2
+        }
+      ],
+      "logs": []
+    },
+    {
+      "index": 84,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 85,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 86,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 87,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 88,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 89,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    },
+    {
+      "index": 90,
+      "ball": {
+        "x": 98,
+        "y": 20
+      },
+      "players": [
+        {
+          "slot": 2,
+          "team": "challenger",
+          "x": 55,
+          "y": 25,
+          "state": "action"
+        },
+        {
+          "slot": 1,
+          "team": "opponent",
+          "x": 98,
+          "y": 20,
+          "state": "action"
+        }
+      ],
+      "events": [],
+      "logs": []
+    }
+  ]
+}
