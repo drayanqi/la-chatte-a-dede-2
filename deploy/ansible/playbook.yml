@@ -166,6 +166,30 @@
         mode: '0755'
 
     # ==========================================================================
+    # Database backups (story 6.5)
+    # deploy/backup.sh (shipped by CI next to docker-compose.yml) dumps all
+    # databases nightly and pre-migrate; retention keeps the 7 newest
+    # *.sql.gz in this one directory. VPS Lite has no provider snapshots —
+    # these dumps ARE the undo for forward-only migrations (with the
+    # previous image tags, see docs/DEPLOYMENT.md).
+    # ==========================================================================
+    - name: Create backups directory
+      file:
+        path: "{{ app_path }}/backups"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Schedule the nightly database backup (03:30)
+      ansible.builtin.cron:
+        name: nightly database backup
+        minute: '30'
+        hour: '3'
+        user: "{{ app_user }}"
+        job: "{{ app_path }}/deploy/backup.sh >> {{ app_path }}/backups/cron.log 2>&1"
+
+    # ==========================================================================
     # 2GB Swapfile (low-RAM mitigation)
     # ==========================================================================
     - name: Check existing swapfile

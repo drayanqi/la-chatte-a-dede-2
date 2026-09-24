@@ -1,79 +1,63 @@
 # CI Secrets Checklist
 
-> **Story 6.3 (2026-09-23):** the deploy job now needs `GHCR_PAT` — a classic
-> PAT of the `drayanqi` account with **read:packages** scope, used by the VPS
-> to `docker login ghcr.io` (CI push uses the workflow's own `GITHUB_TOKEN`,
-> no PAT). `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` are now **unused** —
-> delete them from GitHub during the 6.5 secrets cleanup (full rewrite of this
-> checklist lands with 6.5).
+Seven repository secrets power the deploy pipeline (lint/test/E2E run without any of them — they gate only the deploy job). Set them under **Settings → Secrets and variables → Actions → Repository secrets** (or `gh secret set NAME --body "…"`).
+
+> **Removed with story 6.5:** `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` — images moved to GHCR in story 6.3. Delete them if they are still defined.
 
 ## Required Secrets
 
-Currently, the CI pipeline does not require any secrets. All tests run against a local dev server.
+| Secret | Value | Used by |
+|--------|-------|---------|
+| `VPS_HOST` | Raw VPS IPv4 (e.g. `84.20.XX.XX`) — no `ssh://`, no port suffix | Preflight `nc` probe + ssh/scp deploy steps |
+| `VPS_USER` | `debian` | ssh/scp deploy steps |
+| `VPS_SSH_KEY` | **Full PEM private key** (`~/.ssh/id_rsa_vps`) — `-----BEGIN OPENSSH PRIVATE KEY-----` through `-----END…`, newlines included | ssh/scp deploy steps |
+| `DB_PASSWORD` | Laravel DB user password (any strong string) | Written to VPS `.env` (`DB_PASSWORD`, `MYSQL_PASSWORD`) |
+| `DB_ROOT_PASSWORD` | MySQL **root** password (any strong string) | Written to VPS `.env` (`MYSQL_ROOT_PASSWORD`) — used by `backup.sh` and the restore drill |
+| `APP_KEY` | Laravel key — `base64:…`, generated once (see below) | Written to VPS `.env` (`APP_KEY`) |
+| `GHCR_PAT` | Classic PAT of the `drayanqi` account, **read:packages** scope | VPS-side `docker login ghcr.io` |
 
-## Optional Secrets
+Notes:
 
-If you add integrations later, configure these in GitHub:
+- **CI image push needs no PAT** — the workflow's own `GITHUB_TOKEN` with `packages: write` pushes to GHCR. `GHCR_PAT` is only the VPS pull credential.
+- **Never rotate `APP_KEY` casually**: it encrypts sessions and other encrypted-at-rest values; rotating logs everyone out and can corrupt unreadable data. Generate once, keep it stable.
+- Secrets are shared across the whole repository (no GitHub Environments) — the deploy job is the only consumer today.
 
-**Settings → Secrets and variables → Actions → New repository secret**
+## Generating the one-time values
 
-| Secret | Purpose | When Needed |
-|--------|---------|-------------|
-| `SLACK_WEBHOOK` | Failure notifications | If Slack integration added |
-| `CODECOV_TOKEN` | Coverage reporting | If Codecov integration added |
-| `STAGING_URL` | Staging environment tests | If testing against staging |
-| `API_KEY` | Backend API access | If backend integration tests |
-
-## Adding Secrets
-
-### GitHub UI
-1. Go to repository **Settings**
-2. Navigate to **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Enter name and value
-5. Click **Add secret**
-
-### GitHub CLI
 ```bash
-gh secret set SECRET_NAME --body "secret-value"
+# APP_KEY (run once, from the api repo — reuse the SAME value forever):
+php artisan key:generate --show          # → base64:…
+
+# VPS_SSH_KEY (deploy keypair — private half goes into the secret,
+# public half is attached to the VPS in the Infomaniak console):
+ssh-keygen -t ed25519 -f ~/.ssh/id_rsa_vps -C "lachatadede-deploy"
+cat ~/.ssh/id_rsa_vps                    # paste entire contents into VPS_SSH_KEY
+
+# GHCR_PAT: github.com → Settings → Developer settings →
+# Personal access tokens (classic) → Generate (read:packages only)
 ```
 
-## Using Secrets in Workflow
+## Setup Order
 
-```yaml
-env:
-  API_KEY: ${{ secrets.API_KEY }}
+1. Provision keypair + PAT (commands above)
+2. Order the VPS, attach the deploy public key, note the IPv4 ([DEPLOYMENT.md](DEPLOYMENT.md) § Provisioning)
+3. Set the seven secrets in GitHub (table above)
+4. Push to `main` — the preflight step validates `VPS_HOST` reachability before anything is shipped
 
-steps:
-  - name: Run with secret
-    run: npm run test:e2e
-    env:
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-```
+## Verifying the setup
+
+- **`VPS_HOST`**: the preflight `nc -zv` prints the dialed address — GitHub masks every occurrence of a secret's *value* in logs, so **masked `***` = secret is the real address; unmasked = the secret is wrong** (it's dialing a black hole)
+- **`VPS_SSH_KEY` / `VPS_USER`**: scp/ssh steps fail with `Permission denied (publickey)` → key missing newline/footer, wrong user, or the public half isn't attached on the VPS
+- **`GHCR_PAT`**: deploy log shows `Login Succeeded` at the ghcr.io step; a 403 → expired/insufficient scope
+- **`DB_*` / `APP_KEY`**: not exercised until the VPS-side script runs — a wrong `APP_KEY` (missing `base64:` prefix) crashes Laravel at first request and the health check fails the deploy
+
+## Rotation
+
+Rotate `GHCR_PAT` and `DB_PASSWORD`/`DB_ROOT_PASSWORD` on any suspicion of leakage, and `GHCR_PAT` at expiry. `DB_*` changes take effect on the next deploy but must be applied to the running MySQL first (`ALTER USER`), or the health check fails mid-deploy. `APP_KEY`: do not rotate (see note above). If a private key leaks: generate a new pair, update `VPS_SSH_KEY` and the console-attached public key, remove the old one.
 
 ## Security Best Practices
 
-1. **Never commit secrets** - Use GitHub Secrets only
-2. **Minimal scope** - Only give secrets to jobs that need them
-3. **Rotate regularly** - Update secrets periodically
-4. **Audit access** - Review who has repository access
-5. **No debug output** - Don't print secrets in logs
-
-## Environment Variables
-
-These are NOT secrets but are used in CI:
-
-| Variable | Value | Set In |
-|----------|-------|--------|
-| `CI` | `true` | Workflow env |
-| `NODE_VERSION` | `24` | Workflow env |
-
-## Troubleshooting
-
-### "Secret not found" Error
-- Check secret name matches exactly (case-sensitive)
-- Ensure secret is set at repository level (not org level unless accessible)
-
-### Secrets Not Working in Forks
-- GitHub does not expose secrets to workflows from forks
-- PRs from forks run without secrets (by design, for security)
+1. **Never commit secrets** — GitHub Secrets only; the repo's `.env*` files are templates/placeholders
+2. **Minimal scope** — `GHCR_PAT` is read:packages only, never repo-wide
+3. **No debug output** — never `echo` secret values; GitHub masks them, but rely on that only by accident, not by design
+4. **Fork PRs get no secrets** — by design; the deploy job can only be triggered by pushes to `main`

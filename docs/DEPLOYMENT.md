@@ -1,162 +1,191 @@
-# Deployment Guide - La Chatte à Dédé
+# Deployment Guide — La Chatte à Dédé
 
-This guide covers deploying La Chatte à Dédé to a Debian VPS using Docker and GitHub Actions.
+The operator's entry point: what exists on the box, how it deploys, how to roll back, how to restore, where the logs are. Every command here is meant to be run as-is — if a section can't be executed from this doc alone, that's a bug in the doc.
 
-## Architecture Overview
+## Architecture (the real box)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                     VPS LITE (INFOMANIAK, GENEVA)                             │
-│                     Debian 13 — reproducible via Ansible                      │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │                         DOCKER NETWORK                                  ││
-│  │                        (lachatadede_net)                                ││
-│  │                                                                         ││
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────────┐  ││
-│  │  │   NGINX     │  │   LARAVEL   │  │   NODE.JS   │  │    MYSQL      │  ││
-│  │  │   :80       │  │   :9000     │  │   :3001     │  │    :3306      │  ││
-│  │  │             │  │   (php-fpm) │  │   (engine)  │  │               │  ││
-│  │  │  + Frontend │  │             │  │             │  │               │  ││
-│  │  │    React    │  │  API REST   │  │  Simulation │  │  Persistence  │  ││
-│  │  │    (build)  │  │  Auth       │  │  Validation │  │               │  ││
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────────┘  ││
-│  │                                                                         ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
+│           INFOMANIAK VPS LITE — 4 GB RAM, Debian 13, Geneva (+2GB swap)     │
+│           /home/debian/lachatadede/                                         │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                    DOCKER NETWORK (lachatadede_net)                   │  │
+│  │                                                                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │  │
+│  │  │    WEB      │  │     API     │  │   ENGINE    │  │    MYSQL    │  │  │
+│  │  │  ghcr.io/…/ │  │  ghcr.io/…/ │  │  ghcr.io/…/ │  │  mysql:8.0  │  │  │
+│  │  │  web        │  │  api        │  │  engine     │  │             │  │  │
+│  │  │  nginx      │  │  php-fpm    │  │  node :3001 │  │  :3306      │  │  │
+│  │  │  :80/:443   │  │  :9000      │  │  /simulate  │  │  mysql_data │  │  │
+│  │  │  SPA+TLS    │  │  Laravel    │  │  validation │  │  volume     │  │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  Host: certbot (TLS issuance/renewal), ufw + fail2ban, 2GB swapfile,        │
+│  unattended security upgrades, backups/ (mysqldump, keep-7)                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+- **Images** (built in CI, pulled on the box — the VPS never builds): `ghcr.io/drayanqi/la-chatte-a-dede-2/{web,api,engine}`, each tagged `latest` + `sha-<commit-sha>`; MySQL is stock `mysql:8.0`.
+- **MySQL tuning** for the 4 GB box: `--innodb-buffer-pool-size=512M --max-connections=100` — headroom is left for php-fpm and the engine (isolated-vm spikes). Do not raise without re-checking engine memory.
+- **Host mounts**: `storage/` (bind-mounted into BOTH api and engine at `/var/www/html/storage` — the engine writes match frames to the literal `output_path` Laravel sends), `mysql_data` (named volume), `certbot/www` + `/etc/letsencrypt` (read-only TLS material in the web container), `backups/` (dump files, host-only).
+- **No provider snapshots**: Infomaniak VPS Lite has none — the nightly dumps (below) are the data undo, the Ansible playbook is the OS undo, and previous image tags are the app undo.
 
 ## Prerequisites
 
 1. **Ansible** (with the `community.general` collection) on your local machine — provisioning runs from the repo; the VPS itself is never set up by hand. Once: `ansible-galaxy collection install -r deploy/ansible/requirements.yml`
-2. **Deploy SSH key pair**: `~/.ssh/id_rsa_vps` (private, stays on your machine) and its public key added at the Infomaniak console
+2. **Deploy SSH key pair**: `~/.ssh/id_rsa_vps` (private, stays on your machine); its public key added at the Infomaniak console (below)
 3. **Domain**: `venanciohugo.fr` and `lachatadede.venanciohugo.fr` pointed at the VPS IP (A records)
-4. **GitHub Secrets**: Configured in your repository
+4. **GitHub Secrets**: the seven in [ci-secrets-checklist.md](ci-secrets-checklist.md)
 
-## GitHub Secrets Setup
+## CI Secrets
 
-Navigate to your repository: **Settings > Secrets and variables > Actions**
+The full, current list lives in [ci-secrets-checklist.md](ci-secrets-checklist.md): `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `APP_KEY`, `GHCR_PAT`. The CI image push uses the workflow's own `GITHUB_TOKEN` (`packages: write`) — not a repository secret.
 
-Create these secrets:
+## Provisioning (one-time)
 
-| Secret | Description | How to Get It                        |
-|--------|-------------|--------------------------------------|
-| `VPS_HOST` | VPS IP address | Get from your VPS provider dashboard |
-| `VPS_USER` | SSH username | `debian`                             |
-| `VPS_SSH_KEY` | Private SSH key | See "Generate the Deploy SSH Key" below |
-| `DB_PASSWORD` | MySQL user password | `openssl rand -base64 32`            |
-| `DB_ROOT_PASSWORD` | MySQL root password | `openssl rand -base64 32`            |
-| `APP_KEY` | Laravel application key | `php artisan key:generate --show`    |
-| `GHCR_PAT` | GitHub PAT (read:packages) for the VPS to pull from ghcr.io | GitHub **Settings > Developer settings > Personal access tokens (classic)**, owned by `drayanqi` |
+1. **Order the VPS** (manual, console): Infomaniak VPS Lite, 4 GB RAM, Debian 13, Geneva. Note the IPv4.
+2. **Attach the deploy SSH key** (manual, console): Infomaniak manager → **VPS > your VPS > SSH keys** → add `~/.ssh/id_rsa_vps.pub`. Verify key auth **before** provisioning — SSH hardening depends on it:
 
-### Generate the Deploy SSH Key
+   ```bash
+   ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP> whoami   # expect: debian
+   ```
 
-On your local machine:
+3. **DNS A records** (manual, console): `@` and `lachatadede` → VPS IP. Check with `dig +short` on both names. Keep any auto-created AAAA record.
+4. **Provision** (automated, idempotent — safe to re-run):
 
-```bash
-# Generate a new SSH key for deployment (only once)
-ssh-keygen -t ed25519 -C "vps-deploy" -f ~/.ssh/id_rsa_vps
+   ```bash
+   ssh-keyscan <VPS_IP> >> ~/.ssh/known_hosts   # first run only
+   ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
+   ```
 
-# Display the public key — this is what gets added at the Infomaniak console
-cat ~/.ssh/id_rsa_vps.pub
+   The playbook installs Docker + compose plugin, creates the 2GB swapfile, configures ufw (22/80/443 only, plus a DOCKER-USER guard so container ports can't bypass the firewall) + fail2ban (sshd jail) + unattended security upgrades, hardens SSH to key-only, creates `/home/debian/lachatadede/` (`mysql_data/`, `storage/`, `certbot/www/`, `backups/`) and schedules the nightly backup (below). A healthy box re-runs with `changed=0 failed=0`; data survives re-runs — it is NOT an incident-recovery wipe. Full recovery = recreate the VPS from the console and start over.
 
-# The private key (~/.ssh/id_rsa_vps) is used by Ansible and goes to GitHub Secrets as VPS_SSH_KEY
-```
+   > **New IP?** Update **both** `ansible_host` in `deploy/ansible/inventory.yml` and the `VPS_HOST` GitHub Secret — CI deploys read the secret, not the inventory.
 
-Add the **public key** at the Infomaniak manager (**VPS > your VPS > SSH keys**) — not into `authorized_keys` by hand.
+5. **Verify the box**:
 
-## Initial VPS Setup (Infomaniak)
+   ```bash
+   ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
+   docker run --rm hello-world                # docker group active on a fresh login
+   sudo swapon --show                         # /swapfile, 2G
+   sudo ufw status                            # exactly 22, 80, 443
+   sudo fail2ban-client status sshd           # sshd jail active
+   sudo sshd -T | grep passwordauthentication # expect: passwordauthentication no
+   crontab -l -u debian                       # nightly database backup entry
+   ```
 
-Infomaniak VPS Lite has **no provider snapshots** — the box must be rebuildable from the repo. All OS provisioning is automated by Ansible; only the console and DNS actions below are manual.
+   > **Infomaniak gotcha:** if TCP 22 is reachable but 80/443 **time out** while the box's `ufw status` allows them, a managed **Firewall** is attached to the VPS in the Infomaniak manager. Remove it or allow TCP 80/443 (keep 22). Invisible from inside the box.
 
-### Step 1 — Order the VPS (manual, console)
+## TLS (Let's Encrypt, host certbot + webroot)
 
-Order a **4 GB RAM Infomaniak VPS (Debian 13, Geneva)** and note the new IPv4.
+Certbot runs on the HOST (the apt package ships the renewal systemd timer, twice daily); nginx serves the ACME challenges through the `certbot/www` bind mount. Renewals reload nginx automatically via the deploy hook the playbook installs (`/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh`).
 
-### Step 2 — Attach the deploy SSH key (manual, console)
+1. **Bootstrap**: the nginx config serves TLS on 443, which fails to start without certificate files. Before the first cert exists, drop a throwaway pair in place (or start with a self-signed cert), bring the stack up, then issue:
 
-In the Infomaniak manager (**VPS > your VPS > SSH keys**), add the **public** deploy key (`~/.ssh/id_rsa_vps.pub`, see above).
+   ```bash
+   ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
+   cd /home/debian/lachatadede/deploy
+   # one-time placeholder so nginx can start (overwrite-safe):
+   sudo mkdir -p /etc/letsencrypt/live/venanciohugo.fr
+   sudo openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+     -keyout /etc/letsencrypt/live/venanciohugo.fr/privkey.pem \
+     -out /etc/letsencrypt/live/venanciohugo.fr/fullchain.pem \
+     -subj "/CN=venanciohugo.fr"
+   docker compose up -d
+   ```
 
-Verify key auth works BEFORE provisioning — the playbook's SSH hardening depends on it:
+2. **Issue the real certificate** (webroot — challenges served by the running nginx):
 
-```bash
-ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP> whoami   # expect: debian
-```
+   ```bash
+   sudo certbot certonly --webroot -w /home/debian/lachatadede/certbot/www \
+     -d venanciohugo.fr -d lachatadede.venanciohugo.fr \
+     --email <your-email> --agree-tos --no-eff-email
+   sudo docker compose -f /home/debian/lachatadede/deploy/docker-compose.yml exec -T nginx nginx -s reload
+   ```
 
-### Step 3 — DNS A records (manual, console)
+3. **Verify renewals** (the timer is installed with the package):
 
-In **Domaines > venanciohugo.fr > Zone DNS**, add two `A` records pointing at the VPS IP:
+   ```bash
+   sudo certbot renew --dry-run
+   systemctl list-timers | grep certbot   # twice daily
+   ```
 
-| Type | Host | Value |
-|------|------|-------|
-| A | `@` (apex) | `<VPS_IP>` |
-| A | `lachatadede` | `<VPS_IP>` |
-
-Check: `dig +short venanciohugo.fr` **and** `dig +short lachatadede.venanciohugo.fr` both return the IP. Infomaniak may auto-create an **AAAA** (IPv6) record alongside — keep it; the box gets the IPv6 configured and nginx will serve it from story 6.3.
-
-### Step 4 — Provision with Ansible (automated)
-
-```bash
-# make sure deploy/ansible/inventory.yml holds the new IP under ansible_host
-ssh-keyscan <VPS_IP> >> ~/.ssh/known_hosts   # first run only: avoids the host-key prompt
-ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml
-```
-
-The playbook installs Docker + compose plugin, creates a 2GB swapfile, configures ufw (22/80/443 only, plus a DOCKER-USER guard so container ports can't bypass the firewall) + fail2ban (sshd jail) + unattended security upgrades, hardens SSH to key-only (password and root login disabled), and creates `/home/debian/lachatadede/` with `mysql_data/` and `storage/simulations/` (the directory stays empty — nothing is cloned or started; the app arrives with story 6.3).
-
-It is idempotent, and re-running rebuilds the **OS layer only** — it doubles as a health check (a healthy box re-runs with `changed=0 failed=0`). Data under `/home/debian/lachatadede/` (`mysql_data/`, `storage/`) and compose volumes **survive re-runs**: a re-run is not an incident-recovery wipe. For full recovery, recreate the VPS from the Infomaniak console and start over.
-
-> **New IP?** Update **both** `ansible_host` in `deploy/ansible/inventory.yml` **and** the `VPS_HOST` GitHub Secret (**Settings > Secrets and variables > Actions**) — CI deploys read the secret, not the inventory.
-
-### Step 5 — Verify the box
-
-```bash
-ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
-docker run --rm hello-world                # docker group active on a fresh login
-sudo swapon --show                         # /swapfile, 2G
-sudo ufw status                            # exactly 22, 80, 443
-sudo fail2ban-client status sshd           # sshd jail active
-sudo sshd -T | grep passwordauthentication # expect: passwordauthentication no
-```
-
-Before the app exists, nothing listens on 80/443 — this is correct:
-
-```bash
-curl -I http://venanciohugo.fr
-# expect: Connection refused (fast) or an HTTP error — NEVER a timeout.
-# A timeout means DNS or the edge firewall is wrong.
-```
-
-> **Infomaniak gotcha:** if TCP 22 is reachable from the internet but 80/443 **time out** while the box's own `ufw status` allows them, a managed **Firewall** is attached to the VPS in the Infomaniak manager. Either remove it or add allow rules for TCP 80 and 443 (keep 22). This is invisible from inside the box.
-
-TLS arrives with story 6.4.
+Port 80 answers ONLY ACME challenges and `/api/health` (see below) — everything else 301s to HTTPS.
 
 ## Automatic Deployments
 
-Once GitHub Secrets are configured, deployments happen automatically on every push to `main` (gated on the full E2E suite being green):
+Every push to `main` (gated on the full test suite being green):
 
-1. Push to `main` branch
-2. Tests run (lint, unit, backend, E2E × 4 shards)
-3. If tests pass, the deploy job builds three images and pushes them to GHCR (`api`, `web`, `engine` — each tagged `latest` and `sha-<full-commit-sha>`)
-4. The compose file + env template are shipped to the VPS (the only artifact that travels — the VPS never builds and holds no repo checkout)
-5. The VPS logs into ghcr.io, `docker compose pull`, then `up -d` **all four services** (nginx, laravel, node, mysql)
-6. A pre-migrate `mysqldump` lands in `/home/debian/lachatadede/backups/`
-7. Laravel migrations run, caches are warmed, and a health check verifies the deployment
+1. CI runs lint, unit, backend, and the E2E suite (4 shards)
+2. Stage 6 builds the three images and pushes them to GHCR (`latest` + `sha-<full-sha>`)
+3. `deploy/docker-compose.yml`, `deploy/backup.sh` and `deploy/.env.example` are scp'd to `/home/debian/lachatadede/deploy/` — the only artifacts that travel; the VPS holds no repo checkout
+4. The VPS logs into ghcr.io (`GHCR_PAT`), `docker compose pull`, `up -d` **all four services**, waits for the MySQL healthcheck
+5. **Pre-migrate backup**: `./backup.sh` dumps all databases into `backups/` (same script the cron runs — one mechanism, one retention rule)
+6. `php artisan migrate --force` (3 attempts), then config/route/view caches
+7. **Health gate**: `curl -f http://localhost/api/health` — hits the Laravel route which executes `select 1` against MySQL. This is why the gate is honest: nginx's old static `/health` stayed 200 even with a dead database; `/api/health` 500s and fails the deploy. Over plain HTTP inside the box the nginx port-80 config has an exact-match exception for `/api/health` (no 301 — `curl -f` treats a 301 as success, which would make the gate check nothing).
 
-> **One-time before the first story-6.3 deploy:** re-run the Ansible playbook (idempotent) so `/home/debian/lachatadede/storage` gets the 0777 mode both the laravel (uid 33) and node (uid 1000) containers need: `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml`
+Deploy logs show the `backup.sh` output and the health-check verdict.
 
-## Rollback (Manual)
+## Backups & Restore
 
-A bad release rolls back with one command — redeploy the previous `sha-*` image tags (no rebuild, no git, no `down()`; per the forward-only migration law, schema recovery is "previous image + forward fix", never a downgrade):
+### Layout and retention
+
+- One directory: `/home/debian/lachatadede/backups/`
+- Two producers, one script: the **nightly cron** (03:30, user `debian`) and the **pre-migrate step** of every deploy both call `deploy/backup.sh` — logs from cron land in `backups/cron.log`
+- One retention rule: keep the **7 newest `*.sql.gz`** in the directory regardless of prefix. Frequent deploy days may prune older nightly dumps — acceptable at this scale; the 7 kept files still span multiple days
+- Dumps are complete (`--all-databases`, `--single-transaction` — consistent InnoDB snapshot without locking; the app stays up) and land under a `.part` name first, renamed only after the pipeline succeeded and the file is non-empty — a failed dump can never occupy a retention slot
+- **On-box only** (explicit scope): there is no off-box sync yet — the box has no provider snapshots, which is what makes these dumps critical. Copying `backups/` off the VPS (rclone to a bucket, or a plain scp cron) is the top future hardening item.
+
+Run it by hand any time:
 
 ```bash
-ssh vps_deploy
+ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
+cd /home/debian/lachatadede/deploy && ./backup.sh
+ls -lht ../backups | head     # newest dump on top
+```
+
+### Restore drill (copy-pasteable)
+
+Restore the newest dump into a scratch database and verify, then drop it. Run this after setting up backups — and after any suspicious change — so the procedure stays proven:
+
+```bash
+ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
 cd /home/debian/lachatadede/deploy
 
-# <sha> = the full commit sha of the last good run, from the GitHub Actions
-# run page or the package's tag list on ghcr.io (tags look like sha-<40 chars>)
-IMAGE_TAG=sha-<previous> docker compose pull
-IMAGE_TAG=sha-<previous> docker compose up -d
+# 1. Create the scratch database
+docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  -e "CREATE DATABASE restore_drill"
+
+# 2. Restore the newest dump into it
+gunzip < ../backups/$(ls -1t ../backups/*.sql.gz | head -1 | xargs basename) \
+  | docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" restore_drill
+
+# 3. Sanity-verify: table count and row counts look like the real schema
+docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" restore_drill \
+  -e "SHOW TABLES"
+docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" restore_drill \
+  -e "SELECT COUNT(*) FROM users; SELECT COUNT(*) FROM matches;"
+
+# 4. Drop the scratch database
+docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  -e "DROP DATABASE restore_drill"
+```
+
+Expected: the table list matches the live schema and the row counts are in the right ballpark (never 0 on an active box). For a real incident restore, replace `restore_drill` with the live database name **after** stopping the api/engine containers (`docker compose stop laravel node`) so nothing writes mid-restore; bring them back up afterwards.
+
+## Rollback
+
+A bad release rolls back with one command — redeploy the previous `sha-*` image tags (no rebuild, no git; per the forward-only migration law there is no `down()`: schema recovery is "previous image + forward fix", and if a migration broke data, restore last night's dump per the drill above):
+
+```bash
+ssh -i ~/.ssh/id_rsa_vps debian@<VPS_IP>
+cd /home/debian/lachatadede/deploy
+
+# <sha> = full commit sha of the last good run (GitHub Actions run page,
+# or the package's tag list on ghcr.io — tags look like sha-<40 chars>)
+IMAGE_TAG=sha-<previous> docker compose pull && IMAGE_TAG=sha-<previous> docker compose up -d
 ```
 
 `IMAGE_TAG` pins all three app images to that build; `docker compose pull` makes the rollback explicit. `latest` always tracks the newest green build of `main`.
@@ -164,68 +193,54 @@ IMAGE_TAG=sha-<previous> docker compose up -d
 ## Useful Commands
 
 ```bash
-# View logs
-docker compose -f deploy/docker-compose.yml logs -f
-docker compose -f deploy/docker-compose.yml logs -f laravel
+cd /home/debian/lachatadede/deploy
 
-# Restart a service
-docker compose -f deploy/docker-compose.yml restart laravel
-
-# Enter a container
-docker compose -f deploy/docker-compose.yml exec laravel bash
-docker compose -f deploy/docker-compose.yml exec mysql mysql -u root -p
-
-# Check service status
-docker compose -f deploy/docker-compose.yml ps
-
-# Stop all services
-docker compose -f deploy/docker-compose.yml down
-
-# Deploy/redeploy the current tag
-docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d
+docker compose logs -f                # everything
+docker compose logs -f laravel        # API only
+docker compose ps                     # service status
+docker compose exec laravel bash      # into the API container
+docker compose exec mysql mysql -u root -p
+docker compose restart laravel        # restart one service
+docker compose down                   # stop everything (data volumes survive)
+./backup.sh                           # manual backup
+curl -f http://localhost/api/health   # honest health check (PHP -> MySQL)
 ```
 
 ## Troubleshooting
 
-### Deployment fails with "Permission denied"
+### Deploy fails at the health check
 
-- Verify SSH key is correctly added to GitHub Secrets
-- Ensure public key is in VPS `~/.ssh/authorized_keys`
-- Check file permissions: `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
+- `docker compose logs laravel mysql` — the route 500s when MySQL is unreachable; fix the database first, the gate is doing its job
+- Confirm from the box that plain HTTP reaches the API without redirecting: `curl -sI http://localhost/api/health | head -1` must be `HTTP/1.1 200`
 
 ### 502 Bad Gateway
 
-- Laravel container might not be running: `docker compose ps`
-- Check Laravel logs: `docker compose logs laravel`
-- Verify PHP-FPM is listening on port 9000
+- `docker compose ps` — is the laravel container up? `docker compose logs laravel`; php-fpm listens on 9000
 
 ### Database connection refused
 
-- MySQL might still be starting up (can take 30-60s first time)
-- Check MySQL logs: `docker compose logs mysql`
-- Verify credentials match between Laravel and MySQL containers
+- MySQL can take 30–60s on first start; `docker compose logs mysql`
+- Verify credentials match between the laravel and mysql containers (`.env`)
 
-### Frontend not loading
+### Deploy fails with "Permission denied"
 
-- Check if build files exist in `lachatadede-api/public/build/`
-- Verify nginx config is serving from correct path
-- Check nginx logs: `docker compose logs nginx`
+- SSH key in GitHub Secrets (`VPS_SSH_KEY`) and at the Infomaniak console
+- Box-side: `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
+- Remember fail2ban: 5 failed attempts in 10 minutes = 1h ban
 
 ### Tests pass but deploy fails
 
-- Check GitHub Actions logs for specific error
-- Verify all GitHub Secrets are set correctly
-- Try manual deployment to isolate the issue
+- GitHub Actions logs name the step; the preflight `nc` step distinguishes a wrong `VPS_HOST` secret (unmasked address) from a network/firewall problem (masked `***`)
 
 ## Security Notes
 
 Hardening status, kept current with the provisioning playbook:
 
-- [x] Firewall (ufw): deny incoming by default, allow only 22/80/443 (story 6.2)
+- [x] Firewall (ufw): deny incoming by default, allow only 22/80/443, DOCKER-USER guard (story 6.2)
 - [x] fail2ban protecting sshd (story 6.2)
 - [x] SSH key-only auth; password + root login disabled (story 6.2)
-- [ ] SSL/HTTPS with Let's Encrypt (story 6.4)
-- [ ] Automated database backups (story 6.5)
+- [x] TLS with Let's Encrypt: webroot issuance, auto-renewal timer + nginx reload hook (story 6.4)
+- [x] Automated database backups: nightly 03:30 cron + pre-migrate, keep-7 retention (story 6.5)
 
 ## File Structure
 
@@ -239,7 +254,8 @@ deploy/
 │   └── default.conf        # Nginx server configuration (baked into the web image)
 ├── ansible/
 │   ├── inventory.yml       # VPS host configuration
-│   └── playbook.yml        # Initial setup playbook
+│   └── playbook.yml        # OS provisioning (idempotent) + backup cron
+├── backup.sh               # All-database dump + keep-7 retention (cron + pre-migrate)
 ├── docker-compose.yml      # Production compose file (pulls GHCR images)
 └── .env.example            # Environment template
 

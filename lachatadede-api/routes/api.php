@@ -6,7 +6,19 @@ use App\Http\Controllers\MatchController;
 use App\Http\Controllers\MatchmakingController;
 use App\Http\Controllers\ScriptController;
 use App\Http\Controllers\TacticController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+
+// Liveness + database reachability (story 6.5): public, unthrottled, and it
+// MUST touch MySQL — an unreachable DB throws and surfaces as an HTTP 500,
+// which is the contract the deploy gate's `curl -f /api/health` relies on.
+// This is not a metrics endpoint: no counters, no auth, no rate limit (a
+// health probe tripping a limiter would cause false deploy failures).
+Route::get('/health', function () {
+    DB::select('select 1');
+
+    return response()->json(['status' => 'ok']);
+});
 
 // Public routes (rate limited against brute force and enumeration)
 Route::middleware('throttle:auth')->group(function () {

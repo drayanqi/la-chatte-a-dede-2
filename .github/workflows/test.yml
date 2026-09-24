@@ -427,13 +427,13 @@ jobs:
             exit 1
           }
 
-      - name: Ship compose file and env template to VPS
+      - name: Ship compose file, backup script and env template to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "deploy/docker-compose.yml,deploy/.env.example"
+          source: "deploy/docker-compose.yml,deploy/.env.example,deploy/backup.sh"
           target: "/home/debian/lachatadede/deploy/"
           strip_components: 1
 
@@ -497,10 +497,11 @@ jobs:
               exit 1
             }
 
-            echo "=== Pre-migrate database dump ==="
-            # Story 6.5 lifts this verbatim into deploy/backup.sh (with retention)
-            mkdir -p /home/debian/lachatadede/backups
-            docker compose exec -T mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD"' | gzip > "/home/debian/lachatadede/backups/pre-migrate-$(date +%Y%m%d-%H%M%S).sql.gz"
+            echo "=== Pre-migrate database backup ==="
+            # Story 6.5: the pre-migrate dump is deploy/backup.sh itself —
+            # same mechanism the nightly cron runs, with the shared keep-7
+            # retention rule (all *.sql.gz in backups/, regardless of prefix).
+            chmod +x backup.sh && ./backup.sh
 
             echo "=== Running Laravel migrations ==="
             for i in 1 2 3; do
@@ -523,7 +524,9 @@ jobs:
 
             echo "=== Running health check ==="
             sleep 5
-            curl -f -s --max-time 10 http://localhost/health || {
+            # /api/health (story 6.5) exercises PHP -> MySQL; nginx's static
+            # /health would stay 200 even with a dead database.
+            curl -f -s --max-time 10 http://localhost/api/health || {
               echo "Health check failed!"
               docker compose logs
               exit 1

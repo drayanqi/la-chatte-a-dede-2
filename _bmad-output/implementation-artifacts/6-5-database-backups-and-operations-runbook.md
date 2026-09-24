@@ -4,7 +4,7 @@ baseline_commit: a4bf3f89a8dac6bb9aee6239155645138f1f2cd3
 
 # Story 6.5: Database Backups & Operations Runbook
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,37 +30,37 @@ So that forward-only migrations have a real undo and the box is operable without
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `deploy/backup.sh` (AC: 1)
-  - [ ] 1.1 Script (run as debian on the box): `cd /home/debian/lachatadede/deploy`, `mkdir -p ../backups`, dump: `docker compose exec -T mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction' | gzip > ../backups/all-$(date +%Y%m%d-%H%M%S).sql.gz`, prune: keep the 7 newest `*.sql.gz` in the dir regardless of prefix (`ls -1t ../backups/*.sql.gz | tail -n +8 | xargs -r rm -f`) — one retention rule for nightly + pre-migrate dumps, log failures to stderr with a nonzero exit
-  - [ ] 1.2 `--single-transaction` for a consistent InnoDB dump without locking; verify the dump is non-empty (fail if `! -s`) — an empty file that prunes real backups is worse than a failed backup
-- [ ] Task 2: Replace the inline pre-migrate dump in the deploy script (AC: 1)
-  - [ ] 2.1 `.github/workflows/test.yml` Stage 6: the scp step ships `deploy/backup.sh` alongside compose + `.env.example`; in the SSH script, the inline `mysqldump | gzip` block from 6.3 becomes `chmod +x backup.sh && ./backup.sh` (before `php artisan migrate --force`, same position)
-- [ ] Task 3: Ansible nightly cron (AC: 2)
-  - [ ] 3.1 `deploy/ansible/playbook.yml`: `cron` module task — `name: nightly database backup`, `minute: 30`, `hour: 3`, `user: debian`, `job: /home/debian/lachatadede/deploy/backup.sh >> /home/debian/lachatadede/backups/cron.log 2>&1`
-  - [ ] 3.2 The playbook also ensures `backups/` exists (mode 0755, owner debian)
-  - [ ] 3.3 Run the playbook (idempotent re-run) and confirm `crontab -l -u debian` shows the entry; run `deploy/backup.sh` once by hand and watch the dump land
-- [ ] Task 4: Add `GET /api/health` (AC: 5)
-  - [ ] 4.1 `lachatadede-api/routes/api.php`: public route OUTSIDE the `auth:sanctum` group — `Route::get('/health', …)` returning `{"status":"ok"}`; it MUST touch MySQL (`DB::select('select 1')`) so an unreachable DB throws → HTTP 500 (the deploy curl then fails)
-  - [ ] 4.2 Feature test `tests/Feature/HealthCheckTest.php`: 200 + JSON structure on the happy path (sqlite in tests — the DB dependency is structural: the route calls `DB::select`, there is no mock)
-- [ ] Task 5: Health-check plumbing end-to-end (AC: 5)
-  - [ ] 5.1 `deploy/nginx/default.conf` 443 server: `/api/` fastcgi block already covers `/api/health` — nothing to add there
-  - [ ] 5.2 `deploy/nginx/default.conf` port-80 server: add `location = /api/health { fastcgi_pass laravel:9000; …same params as the 443 /api/ block… }` NEXT TO the ACME location (exact match — no redirect, everything else still 301s)
-  - [ ] 5.3 `.github/workflows/test.yml` deploy script: `curl -f -s --max-time 10 http://localhost/health` → `curl -f -s --max-time 10 http://localhost/api/health`
-  - [ ] 5.4 Negative check: `docker compose stop mysql` → health check returns 500 → deploy would fail; start mysql again (do this drill on the box, then clean up)
-- [ ] Task 6: Restore drill (AC: 3)
-  - [ ] 6.1 On the box (one-time, documented commands): `docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE restore_drill"`; `gunzip < backups/all-<newest>.sql.gz | docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" restore_drill`; sanity-verify: table count + a `SELECT COUNT(*)` on `users`/`matches` matches expectations; `DROP DATABASE restore_drill`
-  - [ ] 6.2 Write the drill as a copy-pasteable block in DEPLOYMENT.md (Task 7) — "documented" means the next operator runs it from the doc, not from archaeology
-- [ ] Task 7: Runbook rewrite — `docs/DEPLOYMENT.md` (AC: 4)
-  - [ ] 7.1 Architecture section: the REAL box (Infomaniak 4 GB RAM VPS, Debian 13, Geneva + 2GB swap) and the four services with images (`ghcr.io/drayanqi/la-chatte-a-dede-2/{web,api,engine}`, `mysql:8.0`), tuned MySQL, storage/backups mounts
-  - [ ] 7.2 Pipeline section: push to main → lint/unit/backend/E2E → Stage 6 builds 3 images → GHCR (`latest` + `sha-<sha>`) → scp compose/backup.sh → VPS: ghcr login → pull → up 4 services → pre-migrate backup (backup.sh) → migrate --force → caches → `/api/health` check
-  - [ ] 7.3 Provisioning section (6.2 content, final): Infomaniak order flow, SSH key at console, DNS A record, `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml`
-  - [ ] 7.4 HTTPS section (6.4 content, final): certbot webroot, renewal timer + hook, `certbot renew --dry-run`
-  - [ ] 7.5 Operations section (NEW): rollback one-command (`IMAGE_TAG=sha-<old> docker compose pull && docker compose up -d` + forward fix — reference the 6.1 migration law), backup layout + retention (nightly `all-*` + pre-migrate dumps share `/home/debian/lachatadede/backups/`, single keep-7 rule across all `*.sql.gz`), restore drill block, useful commands (logs, ps, exec), MySQL 4GB tuning rationale
-  - [ ] 7.6 Purge every stale claim: 4GB specs, git-clone deploy, Docker Hub, scp of dist, "node is placeholder/never started", HTTP-only health
-- [ ] Task 8: Secrets doc — `docs/ci-secrets-checklist.md` (AC: 4)
-  - [ ] 8.1 Replace the placeholder table with the real list: `VPS_HOST`, `VPS_USER` (debian), `VPS_SSH_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `APP_KEY`, `GHCR_PAT` (read:packages, VPS pull) — plus the workflow-internal `GITHUB_TOKEN` (packages:write, CI push, not a user secret)
-  - [ ] 8.2 Note DOCKERHUB_USERNAME/TOKEN as REMOVED (delete them from GitHub repo settings during this story)
-  - [ ] 8.3 Keep the existing how-to (gh CLI, security practices) — it's good
+- [x] Task 1: Create `deploy/backup.sh` (AC: 1)
+  - [x] 1.1 Script (run as debian on the box): `cd /home/debian/lachatadede/deploy`, `mkdir -p ../backups`, dump: `docker compose exec -T mysql sh -c 'exec mysqldump --all-databases -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction' | gzip > ../backups/all-$(date +%Y%m%d-%H%M%S).sql.gz`, prune: keep the 7 newest `*.sql.gz` in the dir regardless of prefix (`ls -1t ../backups/*.sql.gz | tail -n +8 | xargs -r rm -f`) — one retention rule for nightly + pre-migrate dumps, log failures to stderr with a nonzero exit
+  - [x] 1.2 `--single-transaction` for a consistent InnoDB dump without locking; verify the dump is non-empty (fail if `! -s`) — an empty file that prunes real backups is worse than a failed backup
+- [x] Task 2: Replace the inline pre-migrate dump in the deploy script (AC: 1)
+  - [x] 2.1 `.github/workflows/test.yml` Stage 6: the scp step ships `deploy/backup.sh` alongside compose + `.env.example`; in the SSH script, the inline `mysqldump | gzip` block from 6.3 becomes `chmod +x backup.sh && ./backup.sh` (before `php artisan migrate --force`, same position)
+- [x] Task 3: Ansible nightly cron (AC: 2)
+  - [x] 3.1 `deploy/ansible/playbook.yml`: `cron` module task — `name: nightly database backup`, `minute: 30`, `hour: 3`, `user: debian`, `job: /home/debian/lachatadede/deploy/backup.sh >> /home/debian/lachatadede/backups/cron.log 2>&1`
+  - [x] 3.2 The playbook also ensures `backups/` exists (mode 0755, owner debian)
+  - [ ] 3.3 Run the playbook (idempotent re-run) and confirm `crontab -l -u debian` shows the entry; run `deploy/backup.sh` once by hand and watch the dump land *(needs SSH — operator step, see Completion Notes)*
+- [x] Task 4: Add `GET /api/health` (AC: 5)
+  - [x] 4.1 `lachatadede-api/routes/api.php`: public route OUTSIDE the `auth:sanctum` group — `Route::get('/health', …)` returning `{"status":"ok"}`; it MUST touch MySQL (`DB::select('select 1')`) so an unreachable DB throws → HTTP 500 (the deploy curl then fails)
+  - [x] 4.2 Feature test `tests/Feature/HealthCheckTest.php`: 200 + JSON structure on the happy path (sqlite in tests — the DB dependency is structural: the route calls `DB::select`, there is no mock)
+- [x] Task 5: Health-check plumbing end-to-end (AC: 5)
+  - [x] 5.1 `deploy/nginx/default.conf` 443 server: `/api/` fastcgi block already covers `/api/health` — nothing to add there
+  - [x] 5.2 `deploy/nginx/default.conf` port-80 server: add `location = /api/health { fastcgi_pass laravel:9000; …same params as the 443 /api/ block… }` NEXT TO the ACME location (exact match — no redirect, everything else still 301s)
+  - [x] 5.3 `.github/workflows/test.yml` deploy script: `curl -f -s --max-time 10 http://localhost/health` → `curl -f -s --max-time 10 http://localhost/api/health`
+  - [ ] 5.4 Negative check: `docker compose stop mysql` → health check returns 500 → deploy would fail; start mysql again (do this drill on the box, then clean up) *(needs SSH — operator step, see Completion Notes)*
+- [x] Task 6: Restore drill (AC: 3)
+  - [ ] 6.1 On the box (one-time, documented commands): `docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE restore_drill"`; `gunzip < backups/all-<newest>.sql.gz | docker compose exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" restore_drill`; sanity-verify: table count + a `SELECT COUNT(*)` on `users`/`matches` matches expectations; `DROP DATABASE restore_drill` *(needs SSH — operator step, see Completion Notes)*
+  - [x] 6.2 Write the drill as a copy-pasteable block in DEPLOYMENT.md (Task 7) — "documented" means the next operator runs it from the doc, not from archaeology
+- [x] Task 7: Runbook rewrite — `docs/DEPLOYMENT.md` (AC: 4)
+  - [x] 7.1 Architecture section: the REAL box (Infomaniak 4 GB RAM VPS, Debian 13, Geneva + 2GB swap) and the four services with images (`ghcr.io/drayanqi/la-chatte-a-dede-2/{web,api,engine}`, `mysql:8.0`), tuned MySQL, storage/backups mounts
+  - [x] 7.2 Pipeline section: push to main → lint/unit/backend/E2E → Stage 6 builds 3 images → GHCR (`latest` + `sha-<sha>`) → scp compose/backup.sh → VPS: ghcr login → pull → up 4 services → pre-migrate backup (backup.sh) → migrate --force → caches → `/api/health` check
+  - [x] 7.3 Provisioning section (6.2 content, final): Infomaniak order flow, SSH key at console, DNS A record, `ansible-playbook -i deploy/ansible/inventory.yml deploy/ansible/playbook.yml`
+  - [x] 7.4 HTTPS section (6.4 content, final): certbot webroot, renewal timer + hook, `certbot renew --dry-run`
+  - [x] 7.5 Operations section (NEW): rollback one-command (`IMAGE_TAG=sha-<old> docker compose pull && docker compose up -d` + forward fix — reference the 6.1 migration law), backup layout + retention (nightly `all-*` + pre-migrate dumps share `/home/debian/lachatadede/backups/`, single keep-7 rule across all `*.sql.gz`), restore drill block, useful commands (logs, ps, exec), MySQL 4GB tuning rationale
+  - [x] 7.6 Purge every stale claim: 4GB specs, git-clone deploy, Docker Hub, scp of dist, "node is placeholder/never started", HTTP-only health
+- [x] Task 8: Secrets doc — `docs/ci-secrets-checklist.md` (AC: 4)
+  - [x] 8.1 Replace the placeholder table with the real list: `VPS_HOST`, `VPS_USER` (debian), `VPS_SSH_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `APP_KEY`, `GHCR_PAT` (read:packages, VPS pull) — plus the workflow-internal `GITHUB_TOKEN` (packages:write, CI push, not a user secret)
+  - [x] 8.2 Note DOCKERHUB_USERNAME/TOKEN as REMOVED (delete them from GitHub repo settings during this story)
+  - [x] 8.3 Keep the existing how-to (gh CLI, security practices) — it's good
 
 ## Verification
 
@@ -113,8 +113,34 @@ So that forward-only migrations have a real undo and the box is operable without
 
 ### Agent Model Used
 
+euria-code (opencode) via gds-dev-story workflow
+
 ### Debug Log References
+
+- RED→GREEN (Task 4.2): `php artisan test --filter=HealthCheckTest` — 2 tests failed with 404 before the route existed; after adding the route, 2 passed
+- `sh -n deploy/backup.sh` — syntax OK; retention simulated locally with 9 dummy `*.sql.gz` files → 7 newest kept, 2 oldest removed
+- Full suite: `php artisan test` → **128 passed (678 assertions)**, includes HealthCheckTest
+- `grep -rni dockerhub .github/ deploy/ docs/` → single hit: the intentional "removed with story 6.5" note in ci-secrets-checklist.md (documentation of the removal, not usage)
 
 ### Completion Notes List
 
+- **backup.sh hardening beyond the literal task text**: dump lands as `all-<ts>.sql.gz.part` and is `mv`-ed to its final name only after `pipefail` + non-empty check pass — a failed dump can never occupy a retention slot (an empty/partial file that pruned real backups was the exact failure mode 1.2 warns about). `trap` cleans the `.part` file on any exit. Password stays inside the container (`sh -c 'exec mysqldump … -p"$MYSQL_ROOT_PASSWORD"'`) — never in host process listings or cron logs, per Dev Notes.
+- **Nginx port-80 exception (5.2)** uses `location = /api/health` (exact match) with the same fastcgi trio as the 443 block (`SCRIPT_FILENAME /var/www/html/public/index.php`, `REQUEST_URI`, `include fastcgi_params`). The comment block documents the WHY (curl -f treats 301 as success → the gate would check nothing) so the next operator doesn't "simplify" it away.
+- **Playbook (Task 3)**: backups dir + cron task added right after the certbot section with a comment block explaining why the dumps exist (no provider snapshots → dumps ARE the undo). Cron runs as `debian` (docker group member from 6.2).
+- **Box-side subtasks left unchecked (3.3, 5.4, 6.1)**: they require SSH access to the VPS, which this environment does not have. All three are fully documented as copy-pasteable blocks in DEPLOYMENT.md (§ Provisioning verification, § Backups & Restore → restore drill, § Useful Commands) — Pelo must run them once on the box: re-run the playbook (idempotent), stop mysql and watch `/api/health` 500, run the restore drill into `restore_drill`.
+- **DEPLOYMENT.md is a full rewrite** (Task 7): real architecture (Infomaniak 4GB Debian 13 Geneva + 2GB swap, four services, GHCR images, tuned MySQL, mounts), pipeline (push→tests→Stage 6→GHCR→scp→pull→backup.sh→migrate→health gate), provisioning (6.2 final incl. the Infomaniak managed-firewall and docker-group gotchas), TLS (6.4 final: host certbot webroot + renewal hook + dry-run, self-signed bootstrap so nginx can start before the first cert), operations (rollback one-command + forward-only law, backup layout/retention, restore drill, useful commands, troubleshooting). Stale claims purged (7.6): no git-clone deploy, no Docker Hub, no dist scp, no "node placeholder", no static /health.
+- **ci-secrets-checklist.md rewritten** (Task 8): the seven secrets table with exact value shapes and consumer mapping (verified against the workflow's actual `secrets.*` usage), one-time value generation commands, setup order, the VPS_HOST masking trick (masked `***` = secret correct), rotation policy (APP_KEY: do NOT rotate), DOCKERHUB_* removal note. The old "how-to add secrets" and "no secrets required" placeholder content is gone.
+- **8.2 GitHub UI action still pending for Pelo**: delete `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` from repo settings if still present.
+- **Untouched by design**: `deploy/docker-compose.yml` and `deploy/.env.example` carry Pelo's uncommitted 6.4 WIP — this story needed no compose change (AC5 was nginx + route only), so both stay as-is; `deploy/backup.sh` is new and safe to commit alongside.
+
 ### File List
+
+- `deploy/backup.sh` — NEW: all-DB dump → `.part` → verify → rename → prune keep-7; trap cleanup; executable
+- `deploy/ansible/playbook.yml` — backups dir (0755 debian) + nightly 03:30 cron → `backups/cron.log`
+- `deploy/nginx/default.conf` — port-80 `location = /api/health` fastcgi exception (no redirect)
+- `.github/workflows/test.yml` — scp ships `backup.sh`; pre-migrate calls `./backup.sh`; health check `http://localhost/api/health`
+- `lachatadede-api/routes/api.php` — public unthrottled `GET /health` route, `DB::select('select 1')`, `{"status":"ok"}`
+- `lachatadede-api/tests/Feature/HealthCheckTest.php` — NEW: happy-path contract (200 + JSON) + 12× public/unthrottled loop
+- `docs/DEPLOYMENT.md` — full rewrite: the operator's runbook (AC 4)
+- `docs/ci-secrets-checklist.md` — full rewrite: seven real secrets (AC 4)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — 6-5 → in-progress (done during sprint discovery)
