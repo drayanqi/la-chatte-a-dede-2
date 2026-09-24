@@ -16,6 +16,7 @@ import {
   CREST_CHOICES,
   AWAY_COLLISION_DISTANCE,
   resolveAwayTeamHex,
+  resolveMatchKits,
   teamHexDistance,
 } from '@/lib/teamColors';
 import { PLAYER_HOME_COLOR, PLAYER_AWAY_COLOR } from '@/components/canvas/engine/Player';
@@ -110,6 +111,28 @@ describe('resolveAwayTeamHex (story 7.6 — 10 players, two readable sides)', ()
     expect(resolveAwayTeamHex('#e4573f', '#ff6b1a')).toBe(PLAYER_AWAY_HEX);
   });
 
+  it('steps into the away team own secondary when the primaries collide', () => {
+    // Both picked the green swatch, the away kit has a real secondary:
+    // away changes into it instead of the default blue
+    expect(resolveAwayTeamHex('#31c48d', '#31c48d', '#ffc244')).toBe('#ffc244');
+  });
+
+  it('falls through to the defaults when the secondary collides with home too', () => {
+    // Home IS the away default blue; the away secondary is the blue default:
+    // the ladder skips it and ends on the home default orange
+    expect(resolveAwayTeamHex('#4aa8e8', '#4aa8e8', PLAYER_AWAY_HEX)).toBe(PLAYER_HOME_HEX);
+  });
+
+  it('keeps a distinct primary untouched even when a secondary exists', () => {
+    expect(resolveAwayTeamHex('#ff6b1a', '#31c48d', '#ffc244')).toBe('#31c48d');
+  });
+
+  it('treats a null/undefined secondary as absent (pre-secondary behavior)', () => {
+    expect(resolveAwayTeamHex('#31c48d', '#31c48d', null)).toBe(PLAYER_AWAY_HEX);
+    expect(resolveAwayTeamHex('#31c48d', '#31c48d', undefined)).toBe(PLAYER_AWAY_HEX);
+    expect(resolveAwayTeamHex(PLAYER_HOME_HEX, PLAYER_HOME_HEX, null)).toBe(PLAYER_AWAY_HEX);
+  });
+
   it('measures distance symmetrically and from the hex channels', () => {
     expect(teamHexDistance('#000000', '#000000')).toBe(0);
     expect(teamHexDistance('#ff0000', '#000000')).toBe(255);
@@ -117,5 +140,30 @@ describe('resolveAwayTeamHex (story 7.6 — 10 players, two readable sides)', ()
     expect(teamHexDistance('#ff0000', '#0000ff')).toBe(
       teamHexDistance('#0000ff', '#ff0000')
     );
+  });
+});
+
+describe('resolveMatchKits (one source of truth for the match-view kit law)', () => {
+  it('keeps the default palette when both sides are null', () => {
+    expect(resolveMatchKits(null, null)).toEqual({
+      homeHex: PLAYER_HOME_HEX,
+      awayHex: PLAYER_AWAY_HEX,
+    });
+  });
+
+  it('resolves a practice-shaped match: home wears its kit, the bot the default ladder', () => {
+    // Challenger tactic colors, opponent side has no customization ({})
+    const kits = resolveMatchKits({ colorPrimary: '#31c48d' }, {});
+    expect(kits.homeHex).toBe('#31c48d');
+    expect(kits.awayHex).toBe(PLAYER_AWAY_HEX);
+  });
+
+  it('resolves a ranked same-primary match: away changes into its OWN secondary', () => {
+    const kits = resolveMatchKits(
+      { colorPrimary: '#31c48d', colorSecondary: '#ffc244' },
+      { colorPrimary: '#31c48d', colorSecondary: '#ffc244' }
+    );
+    expect(kits.homeHex).toBe('#31c48d');
+    expect(kits.awayHex).toBe('#ffc244');
   });
 });

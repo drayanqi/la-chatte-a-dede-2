@@ -10,7 +10,7 @@
  * @priority P0
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ReplayDrawer } from '@/components/match/ReplayDrawer';
 import { extractGoalEvents } from '@/lib/score';
 import { extractLogs } from '@/lib/replayLogs';
@@ -32,7 +32,9 @@ const makeMatch = (overrides: Partial<MatchResult> = {}): MatchResult =>
     challengerCrest: '🦊',
     opponentCrest: '🤖',
     challengerColorPrimary: '#e4573f',
+    challengerColorSecondary: null,
     opponentColorPrimary: '#3d8fd1',
+    opponentColorSecondary: null,
     durationFrames: 10800,
     createdAt: '2026-09-21T00:00:00.000Z',
     ...overrides,
@@ -266,5 +268,28 @@ describe('ReplayDrawer', () => {
     expect(screen.getByText('Opponent')).toBeInTheDocument();
     // Meta without a match: mode placeholder only
     expect(screen.getByTestId('drawer-meta')).toHaveTextContent('—');
+  });
+
+  it('paints the resolved kits when both sides share a primary (away wears its OWN secondary)', () => {
+    renderDrawer({
+      match: makeMatch({
+        challengerColorPrimary: '#e4573f',
+        opponentColorPrimary: '#e4573f',
+        opponentColorSecondary: '#ffc244',
+      }),
+    });
+
+    // Drawer accents follow the kit law: challenger keeps its primary, the
+    // same-primary opponent changes into its secondary
+    const drawer = screen.getByTestId('replay-drawer');
+    expect(drawer.style.getPropertyValue('--home-accent')).toBe('#e4573f');
+    expect(drawer.style.getPropertyValue('--away-accent')).toBe('#ffc244');
+
+    // Goal badges wear the resolved kits, not a static palette
+    // (jsdom normalizes the background shorthand to rgb(...))
+    const challengerBadge = within(screen.getByTestId('goal-event-0')).getByText('BUT');
+    expect(challengerBadge.style.background).toBe('rgb(228, 87, 63)');
+    const opponentBadge = within(screen.getByTestId('goal-event-1')).getByText('BUT');
+    expect(opponentBadge.style.background).toBe('rgb(255, 194, 68)');
   });
 });

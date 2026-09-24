@@ -808,4 +808,97 @@ class TacticTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['color_secondary']);
     }
+
+    public function test_create_tactic_rejects_equal_primary_and_secondary(): void
+    {
+        $user = User::factory()->create();
+
+        $payload = $this->formationPayload($user);
+        $payload['color_primary'] = '#31c48d';
+        $payload['color_secondary'] = '#31c48d';
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Primary and secondary colors must be different');
+
+        $this->assertDatabaseMissing('tactics', ['name' => '1-2-2 Formation']);
+    }
+
+    public function test_update_tactic_rejects_primary_equal_to_current_secondary(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Clash']);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['color_primary' => '#1a8cff'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Primary and secondary colors must be different');
+
+        // Nothing is persisted: the stored primary survives
+        $this->assertDatabaseHas('tactics', [
+            'id' => $tactic->id,
+            'color_primary' => '#ff6b1a',
+        ]);
+    }
+
+    public function test_update_tactic_rejects_partial_secondary_equal_to_current_primary(): void
+    {
+        $user = User::factory()->create();
+        $tactic = $user->tactics()->create(['name' => 'Clash']);
+
+        // Only color_secondary is sent: the effective pair combines it with
+        // the stored primary — still an equality, still rejected.
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['color_secondary' => '#ff6b1a'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Primary and secondary colors must be different');
+
+        $this->assertDatabaseHas('tactics', [
+            'id' => $tactic->id,
+            'color_secondary' => '#1a8cff',
+        ]);
+    }
+
+    public function test_create_tactic_rejects_case_variant_of_equal_pair(): void
+    {
+        $user = User::factory()->create();
+
+        $payload = $this->formationPayload($user);
+        $payload['color_primary'] = '#31C48D';
+        $payload['color_secondary'] = '#31c48d';
+
+        // The visual collision law parses hex case-insensitively: an
+        // uppercase variant of the same color is still an equal pair.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tactics', $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Primary and secondary colors must be different');
+    }
+
+    public function test_update_tactic_without_color_keys_allows_legacy_equal_pair(): void
+    {
+        $user = User::factory()->create();
+        // A row written before the distinctness rule existed
+        $tactic = $user->tactics()->create([
+            'name' => 'Legacy',
+            'color_primary' => '#31c48d',
+            'color_secondary' => '#31c48d',
+        ]);
+
+        // A rename never chose a color: it must not be vetoed by one —
+        // the Équipement modal is what heals the pair (it sends both).
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['name' => 'Legacy Renamed'])
+            ->assertStatus(200)
+            ->assertJsonPath('name', 'Legacy Renamed');
+
+        $this->assertDatabaseHas('tactics', ['id' => $tactic->id, 'name' => 'Legacy Renamed']);
+
+        // Sending one color back into the clash is still rejected
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/tactics/{$tactic->id}", ['color_primary' => '#31C48D'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Primary and secondary colors must be different');
+    }
 }

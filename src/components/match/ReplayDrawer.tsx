@@ -22,10 +22,10 @@ import { useMemo, useState } from 'react';
 import { formatTime } from '@/lib/timeFormat';
 import { filterLogsByPlayer, logsAroundTick, type ReplayLogEntry } from '@/lib/replayLogs';
 import { matchPlayerKey, matchPlayerFromKey } from '@/lib/teamMapping';
-import { PLAYER_AWAY_HEX, PLAYER_HOME_HEX } from '@/lib/teamColors';
-import { EVENT_TEAM_COLORS, type MatchEventEntry } from '@/lib/matchEvents';
+import { resolveMatchKits } from '@/lib/teamColors';
+import { type MatchEventEntry } from '@/lib/matchEvents';
 import type { GoalEventEntry, Score } from '@/lib/score';
-import type { MatchResult, MatchShotEvent, MatchStats } from '@/types';
+import type { MatchResult, MatchShotEvent, MatchStats, MatchTeam } from '@/types';
 
 export type ReplayDrawerTab = 'stats' | 'logs';
 
@@ -89,8 +89,22 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
 
   const challengerName = match?.challengerTacticName ?? match?.challengerName ?? 'Challenger';
   const opponentName = match?.opponentTacticName ?? match?.opponentName ?? 'Opponent';
-  const challengerHex = match?.challengerColorPrimary ?? PLAYER_HOME_HEX;
-  const opponentHex = match?.opponentColorPrimary ?? PLAYER_AWAY_HEX;
+  // Resolved kit law (stories 7.4 + 7.6): challenger wears home, opponent
+  // away — a same-primary opponent changes into its OWN secondary, a
+  // practice opponent keeps the default palette
+  const { homeHex, awayHex } = resolveMatchKits(
+    {
+      colorPrimary: match?.challengerColorPrimary,
+      colorSecondary: match?.challengerColorSecondary,
+    },
+    {
+      colorPrimary: match?.opponentColorPrimary,
+      colorSecondary: match?.opponentColorSecondary,
+    }
+  );
+  // Event paint (badges, chips, discs, stat values) rides on the resolved
+  // kits — no static palette anywhere in the drawer
+  const teamColor: Record<MatchTeam, string> = { challenger: homeHex, opponent: awayHex };
   const dateLabel = useMemo(() => {
     const createdAt = match?.createdAt;
     if (!createdAt) return null;
@@ -152,8 +166,8 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
           ...styles.drawer,
           // Story 7.4 law: team colors paint the team — the drawer's accents
           // follow the match's customization, with token defaults as fallback
-          '--home-accent': challengerHex,
-          '--away-accent': opponentHex,
+          '--home-accent': homeHex,
+          '--away-accent': awayHex,
         } as React.CSSProperties
       }
       data-testid="replay-drawer"
@@ -187,7 +201,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
           <div style={styles.vsHead}>
             <div style={styles.vsTeam}>
               <span
-                style={{ ...styles.crest, background: withAlpha(challengerHex) }}
+                style={{ ...styles.crest, background: withAlpha(homeHex) }}
                 aria-hidden="true"
               >
                 {match?.challengerCrest ?? ''}
@@ -203,7 +217,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
               </span>
             </div>
             <div style={styles.vsTeam}>
-              <span style={{ ...styles.crest, background: withAlpha(opponentHex) }} aria-hidden="true">
+              <span style={{ ...styles.crest, background: withAlpha(awayHex) }} aria-hidden="true">
                 {match?.opponentCrest ?? ''}
               </span>
               <span style={styles.vsName}>{opponentName}</span>
@@ -237,7 +251,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                 return (
                   <div key={row.label} style={styles.statrow} data-testid={`stat-row-${row.label}`}>
                     <span style={styles.statLabel}>{row.label}</span>
-                    <span style={{ ...styles.statValue, color: EVENT_TEAM_COLORS.challenger }}>
+                    <span style={{ ...styles.statValue, color: teamColor.challenger }}>
                       {row.l}
                     </span>
                     <div style={styles.statMid}>
@@ -247,7 +261,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                       </div>
                       {row.sub && <span style={styles.hintline}>{row.sub}</span>}
                     </div>
-                    <span style={{ ...styles.statValue, color: EVENT_TEAM_COLORS.opponent }}>
+                    <span style={{ ...styles.statValue, color: teamColor.opponent }}>
                       {row.r}
                     </span>
                   </div>
@@ -265,7 +279,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                       data-testid={`distance-row-${player.team}-${player.slot}`}
                     >
                       <span
-                        style={{ ...styles.playerDisc, background: EVENT_TEAM_COLORS[player.team] }}
+                        style={{ ...styles.playerDisc, background: teamColor[player.team] }}
                       >
                         {player.slot}
                       </span>
@@ -279,7 +293,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                         <i
                           style={{
                             width: `${maxDistance > 0 ? (player.distance / maxDistance) * 100 : 0}%`,
-                            background: EVENT_TEAM_COLORS[player.team],
+                            background: teamColor[player.team],
                           }}
                         />
                       </span>
@@ -325,7 +339,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                   >
                     <span style={styles.goalMin}>{formatTime(goal.tick)}</span>
                     <span
-                      style={{ ...styles.badge, background: EVENT_TEAM_COLORS[goal.team] }}
+                      style={{ ...styles.badge, background: teamColor[goal.team] }}
                     >
                       BUT
                     </span>
@@ -351,7 +365,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
               onClick={() => onSeekFrame(goal.tick)}
             >
               <span style={styles.logMin}>{formatTime(goal.tick)}</span>
-              <span style={{ ...styles.badge, background: EVENT_TEAM_COLORS[goal.team] }}>
+              <span style={{ ...styles.badge, background: teamColor[goal.team] }}>
                 BUT
               </span>
               <span style={styles.logText}>
@@ -371,7 +385,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
             >
               <span style={styles.logMin}>{formatTime(shot.tick)}</span>
               {shot.event.onTarget ? (
-                <span style={{ ...styles.badge, background: EVENT_TEAM_COLORS[shot.event.team] }}>
+                <span style={{ ...styles.badge, background: teamColor[shot.event.team] }}>
                   TIR
                 </span>
               ) : (
@@ -424,7 +438,7 @@ export const ReplayDrawer: React.FC<ReplayDrawerProps> = ({
                     type="button"
                     style={{
                       ...styles.playerChip,
-                      background: EVENT_TEAM_COLORS[entry.team],
+                      background: teamColor[entry.team],
                     }}
                     data-testid={`log-chip-${entry.index}`}
                     title={`Filtrer sur #${entry.slot} (${entry.team})`}

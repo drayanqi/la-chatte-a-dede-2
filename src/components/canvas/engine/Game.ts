@@ -328,8 +328,10 @@ export class Game {
     this.flashOverlay.rect(0, 0, screen.width, screen.height);
     this.flashOverlay.fill({ color: 0xffffff, alpha: 1 });
 
-    // Confetti burst: team color of the scorer + gold (UX Celebration Colors)
-    const teamColor = teamId === 'home' ? PLAYER_HOME_COLOR : PLAYER_AWAY_COLOR;
+    // Confetti burst: team color of the scorer + gold (UX Celebration Colors).
+    // The resolved kit wins over the static constants: a same-primary away
+    // side celebrates in the kit it actually wears on the pitch.
+    const teamColor = teamId === 'home' ? this.teamColors.home : this.teamColors.away;
     const centerX = screen.width / 2;
     const centerY = screen.height / 3;
 

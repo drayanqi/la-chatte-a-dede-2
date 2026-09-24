@@ -10,7 +10,7 @@
  * crash (same tolerance as extractLogs).
  */
 
-import type { MatchFrame, MatchFrameEvent, MatchTeam } from '@/types';
+import type { MatchFrame, MatchFrameEvent } from '@/types';
 
 /** One flattened event: its payload + the array position it happened on */
 export interface MatchEventEntry<T extends MatchFrameEvent = MatchFrameEvent> {
@@ -37,9 +37,3 @@ export function extractFrameEvents<T extends MatchFrameEvent['type']>(
 
   return entries;
 }
-
-/** Team accent used by the drawer's event badges (same as the log chips) */
-export const EVENT_TEAM_COLORS: Record<MatchTeam, string> = {
-  challenger: '#ff6b1a',
-  opponent: '#1a8cff',
-};

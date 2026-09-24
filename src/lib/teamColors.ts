@@ -54,15 +54,53 @@ export const teamHexDistance = (a: string, b: string): number => {
 
 /**
  * The away side must read as the OTHER team. Returns the requested away hex
- * unless it collides with home; the distinct engine default (away blue,
- * then home orange) takes over. Degenerate inputs (identical defaults with
- * an unreachable palette) return the request unchanged.
+ * unless it collides with home; the away kit then changes into its OWN
+ * secondary (the strip kept for clashes), and the distinct engine default
+ * (away blue, then home orange) takes over last. Null/undefined candidates
+ * are skipped. Degenerate inputs (identical defaults with an unreachable
+ * palette) return the request unchanged.
  */
-export const resolveAwayTeamHex = (homeHex: string, awayHex: string): string => {
-  for (const candidate of [awayHex, PLAYER_AWAY_HEX, PLAYER_HOME_HEX]) {
+export const resolveAwayTeamHex = (
+  homeHex: string,
+  awayHex: string,
+  awaySecondaryHex?: string | null
+): string => {
+  const candidates: (string | null | undefined)[] = [
+    awayHex,
+    awaySecondaryHex,
+    PLAYER_AWAY_HEX,
+    PLAYER_HOME_HEX,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
     if (teamHexDistance(homeHex, candidate) >= AWAY_COLLISION_DISTANCE) {
       return candidate;
     }
   }
   return awayHex;
+};
+
+/** One side's kit as carried by the API (tactic or match customization) */
+export interface SideKit {
+  colorPrimary?: string | null;
+  colorSecondary?: string | null;
+}
+
+/**
+ * One source of truth for the match-view kit law (stories 7.4 + 7.6):
+ * home always wears its primary, away resolves through resolveAwayTeamHex —
+ * its primary unless it reads as home's color, then its OWN secondary, then
+ * the engine defaults. Null sides keep today's defaults (practice matches).
+ */
+export const resolveMatchKits = (
+  home?: SideKit | null,
+  away?: SideKit | null
+): { homeHex: string; awayHex: string } => {
+  const homeHex = home?.colorPrimary ?? PLAYER_HOME_HEX;
+  const awayHex = resolveAwayTeamHex(
+    homeHex,
+    away?.colorPrimary ?? PLAYER_AWAY_HEX,
+    away?.colorSecondary ?? null
+  );
+  return { homeHex, awayHex };
 };

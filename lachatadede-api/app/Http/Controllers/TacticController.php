@@ -46,6 +46,17 @@ class TacticController extends Controller
     {
         $validated = $request->validate($this->rules());
 
+        // The secondary is the away kit — the strip worn when the primary
+        // clashes with the opponent. It only means anything when it differs
+        // from the primary, so the EFFECTIVE pair (incoming value or column
+        // default) must be distinct. Case-insensitive: the visual collision
+        // law parses hex case-insensitively, so #FF6B1A collides with #ff6b1a.
+        $effectivePrimary = strtolower($validated['color_primary'] ?? '#ff6b1a');
+        $effectiveSecondary = strtolower($validated['color_secondary'] ?? '#1a8cff');
+        if ($effectivePrimary === $effectiveSecondary) {
+            return response()->json(['message' => 'Primary and secondary colors must be different'], 422);
+        }
+
         // Same rule as update: a tactic can only be born ready with a
         // complete lineup in the same payload.
         if (($validated['is_ready'] ?? false) === true
@@ -122,6 +133,20 @@ class TacticController extends Controller
         // An explicitly sent null players key (middleware delivers '' as null)
         // keeps the current lineup; an empty array is a valid full clear.
         $replacePlayers = $request->has('players') && $validated['players'] !== null;
+
+        // Same away-kit rule as store, on the EFFECTIVE pair — but only when
+        // this request actually touches a color: a sent value combines with
+        // the stored one for the key that was not sent, so partial updates
+        // are covered. A rename or ready-toggle on a legacy equal-pair row
+        // never chose a color and must not be vetoed by one (the Équipement
+        // modal heals those rows by sending both colors).
+        if ($request->has('color_primary') || $request->has('color_secondary')) {
+            $effectivePrimary = strtolower($changes['color_primary'] ?? $tactic->color_primary);
+            $effectiveSecondary = strtolower($changes['color_secondary'] ?? $tactic->color_secondary);
+            if ($effectivePrimary === $effectiveSecondary) {
+                return response()->json(['message' => 'Primary and secondary colors must be different'], 422);
+            }
+        }
 
         // Marking a tactic ready is only meaningful with a complete lineup:
         // the gate re-validates against the lineup that would result from

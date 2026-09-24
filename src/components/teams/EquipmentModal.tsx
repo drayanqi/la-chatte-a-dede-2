@@ -14,6 +14,23 @@ import type { TacticConfig, TacticCustomizationPatch } from '@/types';
 /** What the modal hands back on save (name rides along the customization) */
 export type EquipmentSavePatch = TacticCustomizationPatch & { name?: string };
 
+/**
+ * The secondary is the away kit: the strip a team wears when its primary
+ * would clash with the opponent's color — so it only means anything when it
+ * differs from the primary. Legacy tactics stored with an equal pair are
+ * reseeded to the first palette swatch that differs from the primary.
+ * Seeding lowercases the stored hexes: the swatch grid, the cross-row law
+ * and the collision law are all case-insensitive (#FF6B1A === #ff6b1a).
+ */
+const seedPrimaryColor = (colorPrimary: string): string => colorPrimary.toLowerCase();
+
+const seedSecondaryColor = (colorPrimary: string, colorSecondary: string): string => {
+  const primary = colorPrimary.toLowerCase();
+  const secondary = colorSecondary.toLowerCase();
+  if (secondary !== primary) return secondary;
+  return TEAM_COLOR_SWATCHES.find((hex) => hex !== primary) ?? secondary;
+};
+
 interface EquipmentModalProps {
   tactic: TacticConfig;
   isSaving: boolean;
@@ -28,15 +45,18 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState(tactic.name);
-  const [colorPrimary, setColorPrimary] = useState(tactic.colorPrimary);
-  const [colorSecondary, setColorSecondary] = useState(tactic.colorSecondary);
+  const [colorPrimary, setColorPrimary] = useState(() => seedPrimaryColor(tactic.colorPrimary));
+  const [colorSecondary, setColorSecondary] = useState(() =>
+    seedSecondaryColor(tactic.colorPrimary, tactic.colorSecondary)
+  );
   const [crest, setCrest] = useState<string | null>(tactic.crest);
 
-  // Re-open for another team: reseed from that tactic
+  // Re-open for another team: reseed from that tactic (the equal-pair
+  // normalization applies again — legacy data can hold one)
   useEffect(() => {
     setName(tactic.name);
-    setColorPrimary(tactic.colorPrimary);
-    setColorSecondary(tactic.colorSecondary);
+    setColorPrimary(seedPrimaryColor(tactic.colorPrimary));
+    setColorSecondary(seedSecondaryColor(tactic.colorPrimary, tactic.colorSecondary));
     setCrest(tactic.crest);
   }, [tactic]);
 
@@ -86,42 +106,55 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
 
         <div style={styles.label}>Couleur principale</div>
         <div style={styles.swatchRow}>
-          {TEAM_COLOR_SWATCHES.map((hex) => (
-            <button
-              key={hex}
-              data-testid="equipment-color-swatch"
-              data-color={hex}
-              data-role="primary"
-              aria-pressed={colorPrimary === hex}
-              style={{
-                ...styles.swatch,
-                background: hex,
-                ...(colorPrimary === hex ? styles.swatchSelected : {}),
-              }}
-              onClick={() => setColorPrimary(hex)}
-              title={hex}
-            />
-          ))}
+          {TEAM_COLOR_SWATCHES.map((hex) => {
+            // Cross-row law: the swatch taken by the secondary row cannot
+            // be picked here (an equal pair would kill the away kit)
+            const isTaken = hex === colorSecondary;
+            return (
+              <button
+                key={hex}
+                data-testid="equipment-color-swatch"
+                data-color={hex}
+                data-role="primary"
+                aria-pressed={colorPrimary === hex}
+                disabled={isTaken}
+                style={{
+                  ...styles.swatch,
+                  background: hex,
+                  ...(isTaken ? styles.swatchDisabled : {}),
+                  ...(colorPrimary === hex ? styles.swatchSelected : {}),
+                }}
+                onClick={() => setColorPrimary(hex)}
+                title={hex}
+              />
+            );
+          })}
         </div>
 
         <div style={styles.label}>Couleur secondaire</div>
         <div style={styles.swatchRow}>
-          {TEAM_COLOR_SWATCHES.map((hex) => (
-            <button
-              key={hex}
-              data-testid="equipment-color-swatch"
-              data-color={hex}
-              data-role="secondary"
-              aria-pressed={colorSecondary === hex}
-              style={{
-                ...styles.swatch,
-                background: hex,
-                ...(colorSecondary === hex ? styles.swatchSelected : {}),
-              }}
-              onClick={() => setColorSecondary(hex)}
-              title={hex}
-            />
-          ))}
+          {TEAM_COLOR_SWATCHES.map((hex) => {
+            // Same law, mirrored: the primary's swatch is untouchable here
+            const isTaken = hex === colorPrimary;
+            return (
+              <button
+                key={hex}
+                data-testid="equipment-color-swatch"
+                data-color={hex}
+                data-role="secondary"
+                aria-pressed={colorSecondary === hex}
+                disabled={isTaken}
+                style={{
+                  ...styles.swatch,
+                  background: hex,
+                  ...(isTaken ? styles.swatchDisabled : {}),
+                  ...(colorSecondary === hex ? styles.swatchSelected : {}),
+                }}
+                onClick={() => setColorSecondary(hex)}
+                title={hex}
+              />
+            );
+          })}
         </div>
 
         <div style={styles.label}>Blason</div>
@@ -240,6 +273,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   swatchSelected: {
     boxShadow: '0 0 0 2.5px var(--ink), inset 0 0 0 1px rgba(255, 255, 255, 0.25)',
+  },
+  swatchDisabled: {
+    opacity: 0.25,
+    cursor: 'not-allowed',
   },
   crestGrid: {
     display: 'flex',

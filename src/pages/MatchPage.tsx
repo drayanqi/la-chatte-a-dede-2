@@ -20,7 +20,7 @@ import { isTypingContext } from '@/lib/keyboard';
 import { TEST_LOAD_FRAMES_EVENT } from '@/lib/testHooks';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useMatchStore } from '@/stores/matchStore';
-import { PLAYER_AWAY_HEX, PLAYER_HOME_HEX, resolveAwayTeamHex } from '@/lib/teamColors';
+import { resolveMatchKits } from '@/lib/teamColors';
 import { matchPlayerKey } from '@/lib/teamMapping';
 import { formatTime } from '@/lib/timeFormat';
 import { computeScore, extractGoalEvents, extractGoalTicks } from '@/lib/score';
@@ -129,16 +129,22 @@ export const MatchPage: React.FC = () => {
   // loadFrames) and mirror it into the score slice. Team colors of the
   // replayed match (story 7.4): challenger paints home, opponent away —
   // a practice opponent keeps the default palette. The away side is
-  // resolved against home (story 7.6 feedback): two teams with the same
-  // color would paint all 10 players identically. Speed resets with the
-  // replay: every match starts at 1x, never the previous match's tempo.
+  // resolved against home (story 7.6 feedback, its own secondary included):
+  // two teams with the same color would paint all 10 players identically.
+  // Speed resets with the replay: every match starts at 1x, never the
+  // previous match's tempo.
   useEffect(() => {
     if (replayFrames.length === 0) return;
     setMatchFrames(replayFrames);
-    const homeHex = replayMatch?.challengerColorPrimary ?? PLAYER_HOME_HEX;
-    const awayHex = resolveAwayTeamHex(
-      homeHex,
-      replayMatch?.opponentColorPrimary ?? PLAYER_AWAY_HEX
+    const { homeHex, awayHex } = resolveMatchKits(
+      {
+        colorPrimary: replayMatch?.challengerColorPrimary,
+        colorSecondary: replayMatch?.challengerColorSecondary,
+      },
+      {
+        colorPrimary: replayMatch?.opponentColorPrimary,
+        colorSecondary: replayMatch?.opponentColorSecondary,
+      }
     );
     canvasRef.current?.setTeamColors(homeHex, awayHex);
     canvasRef.current?.loadFrames(replayFrames);
@@ -440,8 +446,18 @@ export const MatchPage: React.FC = () => {
     replayMatch?.challengerTacticName ?? replayMatch?.challengerName ?? 'Challenger';
   const opponentName =
     replayMatch?.opponentTacticName ?? replayMatch?.opponentName ?? 'Opponent';
-  const homeHex = replayMatch?.challengerColorPrimary ?? PLAYER_HOME_HEX;
-  const awayHex = resolveAwayTeamHex(homeHex, replayMatch?.opponentColorPrimary ?? PLAYER_AWAY_HEX);
+  // Team kits (drawer parity, ReplayDrawer): challenger wears home,
+  // opponent away — a null match keeps the default palette
+  const { homeHex, awayHex } = resolveMatchKits(
+    {
+      colorPrimary: replayMatch?.challengerColorPrimary,
+      colorSecondary: replayMatch?.challengerColorSecondary,
+    },
+    {
+      colorPrimary: replayMatch?.opponentColorPrimary,
+      colorSecondary: replayMatch?.opponentColorSecondary,
+    }
+  );
 
   const handleDrawerSeek = useCallback(
     (frame: number) => {
