@@ -2,7 +2,7 @@
  * Game API Type Definitions for AI Script IntelliSense
  * OWNER: Dev Team
  *
- * Canonical AI API contract (script-ia-api.md v2.0, validated by Pelo).
+ * Canonical AI API contract (script-ia-api.md v2.1, validated by Pelo).
  * The engine calls `update(game)` every tick. This single source is consumed
  * two ways: as ambient declarations for Monaco's TypeScript worker
  * (src/lib/gameApiDts.ts -> monacoSetup.ts), which provides hover docs,
@@ -196,9 +196,10 @@ export interface Field {
 
 /**
  * The game context passed to your AI script on every tick (60 per second).
+ * It is also available as the sandbox global `game` (see below).
  *
  * @example
- * function update(game) {
+ * function update() {
  *   const { me, ball, field } = game;
  *   const goalX = me.team === 'home' ? 100 : 0;
  *
@@ -221,6 +222,16 @@ export interface Game {
   /** The pitch: dimensions, goals and zones */
   readonly field: Field;
 }
+
+/**
+ * Sandbox global holding the CURRENT tick's game state: the shim assigns it
+ * before calling update() and rebinds it on every tick, so helper functions
+ * can read `game` directly, without receiving it as a parameter. Do not use
+ * it at the top level (it is only defined once a tick runs). Declared here
+ * WITHOUT export so the generated editor d.ts makes it a plain global.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed by the generated editor d.ts, not by this module
+declare const game: Game;
 
 /**
  * The main update function signature that AI scripts must implement.

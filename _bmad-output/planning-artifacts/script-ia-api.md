@@ -1,8 +1,8 @@
 # API Script IA - Lachatadede
 
 > **Statut** : VALIDE par Pelo
-> **Date** : 2026-01-19
-> **Version** : 2.0 (API Orientee Objet)
+> **Date** : 2026-09-24
+> **Version** : 2.1 (Global game - zero JSDoc)
 
 > **Guide compagnon** : [docs/scripting.md](../../docs/scripting.md) — chaque action démontrée en GIF par le vrai moteur, la référence lisible de l'objet `game` et des warnings. Cette spec reste la source contractuelle exhaustive.
 
@@ -13,8 +13,13 @@
 Chaque joueur execute un script IA a chaque tick de la simulation.
 Le script recoit un objet **game** et appelle des **methodes** sur `me`.
 
+L'objet `game` est disponible de DEUX façons (v2.1) :
+
+1. **Global** (recommandé) : le sandbox assigne `game` comme variable globale avant chaque tick. Ni parametre, ni JSDoc — et les fonctions utilitaires lisent `game` directement.
+2. **Parametre** (legacy, toujours supporte) : `function update(game)` recoit l'objet en premier argument.
+
 ```javascript
-function update(game) {
+function update() {
   const { me, ball, teammates, opponents, field } = game;
 
   if (me.hasBall) {
@@ -24,6 +29,8 @@ function update(game) {
   }
 }
 ```
+
+**Note** : le global `game` n'existe que pendant un tick — ne pas l'utiliser au niveau racine du script (hors fonctions). Il est reassigne a CHAQUE tick : une fonction utilitaire lue pendant update voit l'etat du tick courant.
 
 ---
 
@@ -41,7 +48,7 @@ function update(game) {
 
 ## Objet Game
 
-L'objet `game` fourni au script a chaque tick :
+L'objet `game` fourni au script a chaque tick (global ou parametre, voir Vue d'Ensemble) :
 
 ```typescript
 interface Game {
@@ -194,7 +201,7 @@ me.shoot(100, 25, 0.8);
 Si le script appelle plusieurs actions :
 
 ```javascript
-function update(game) {
+function update() {
   game.me.moveToward(50, 25);  // ✅ Executee
   game.me.shoot(100, 25, 1.0); // ❌ Ignoree + Warning
 }
@@ -278,7 +285,7 @@ Constantes:
 ### Attaquant Simple
 
 ```javascript
-function update(game) {
+function update() {
   const { me, ball, field } = game;
   const goalX = me.team === 'home' ? 100 : 0;
 
@@ -299,7 +306,7 @@ function update(game) {
 ### Defenseur Zone
 
 ```javascript
-function update(game) {
+function update() {
   const { me, ball, teammates } = game;
   const myZone = { x: 20, y: 15 + me.slot * 7 };
 
@@ -333,7 +340,7 @@ function update(game) {
 ### Gardien
 
 ```javascript
-function update(game) {
+function update() {
   const { me, ball, teammates } = game;
   const goalX = me.team === 'home' ? 5 : 95;
 

@@ -64,7 +64,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       'Si tu possèdes le ballon, moveToward le RELÂCHE là où tu te trouves. Courir ≠ porter.',
     code: [
       {
-        body: `function update(game) {
+        body: `function update() {
+  const { me } = game;
   me.moveToward(70, 25); // court à droite — le ballon n'est pas concerné
 }`,
       },
@@ -92,7 +93,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
 ];
 let next = 0;
 
-function update(game) {
+function update() {
+  const { me } = game;
   const target = waypoints[next];
   if (next < waypoints.length - 1) {
     const dx = target.x - game.me.position.x;
@@ -119,7 +121,8 @@ function update(game) {
       'Sans le ballon, la frappe est ignorée (SHOOT_NO_BALL) et ne consomme PAS ton action du tick.',
     code: [
       {
-        body: `function update(game) {
+        body: `function update() {
+  const { me } = game;
   if (game.me.hasBall && game.me.position.x < 65) {
     me.dribble(65, 25);       // on approche au pied
   } else if (game.me.hasBall) {
@@ -145,7 +148,8 @@ function update(game) {
       {
         body: `let ticks = 0;
 
-function update(game) {
+function update() {
+  const { me } = game;
   if (ticks++ < 40) {
     me.moveToward(game.ball.position.x, game.ball.position.y); // poursuite
   } else {
@@ -168,7 +172,8 @@ function update(game) {
     code: [
       {
         label: 'Le coureur (challenger)',
-        body: `function update(game) {
+        body: `function update() {
+  const { me } = game;
   if (game.ball.owner === null && !game.me.hasBall) {
     me.moveToward(game.ball.position.x, game.ball.position.y);
   } else {
@@ -178,7 +183,8 @@ function update(game) {
       },
       {
         label: 'Le dribbleur (opponent)',
-        body: `function update(game) {
+        body: `function update() {
+  const { me } = game;
   if (game.me.hasBall) {
     me.dribble(70, 25); // on l'emmène
   } else {
@@ -193,7 +199,7 @@ function update(game) {
     label: 'Lire le jeu',
     title: 'Lire le jeu — objet game',
     paragraphs: [
-      "À chaque tick, ton script reçoit l'objet game : ton joueur, le ballon, les autres et le terrain. Tout est en lecture seule — seuls les appels d'action sur me agissent.",
+      "À chaque tick, le sandbox réassigne l'objet game (variable globale) : ton joueur, le ballon, les autres et le terrain. Tout est en lecture seule — seuls les appels d'action sur me agissent. Tes fonctions utilitaires lisent game directement, sans paramètre.",
     ],
     facts: [
       { term: 'me.position', description: '{ x, y } — x 0–100, y 0–50' },

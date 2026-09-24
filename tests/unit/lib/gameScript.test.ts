@@ -3,7 +3,9 @@
  *
  * The stored `@param {Game} game` JSDoc line is what types the `game`
  * parameter for the editor's TypeScript worker; ensureGameApiJSDoc adds it
- * to any script that lost it (legacy scripts, hand-stripped code).
+ * to any legacy param-style script that lost it (hand-stripped code).
+ * Param-less global-style scripts (`function update() { game... }`) are
+ * typed by the sandbox global declaration instead and must stay untouched.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -68,5 +70,15 @@ describe('ensureGameApiJSDoc', () => {
   it('documents the known gap: const-declared update is left unchanged', () => {
     const code = 'const update = (game) => { void game; };';
     expect(ensureGameApiJSDoc(code)).toBe(code);
+  });
+
+  it('leaves param-less global-style scripts untouched', () => {
+    const code = '// My bot\nfunction update() {\n  game.me.stop();\n}\n';
+    expect(ensureGameApiJSDoc(code)).toBe(code);
+  });
+
+  it('still injects when the update function has a game parameter among others', () => {
+    const result = ensureGameApiJSDoc('function update(game, extra) { void extra; }');
+    expect(result).toBe(`${GAME_API_JSDOC_LINE}\nfunction update(game, extra) { void extra; }`);
   });
 });

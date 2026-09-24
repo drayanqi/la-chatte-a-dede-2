@@ -3,20 +3,22 @@
  *
  * The script editor's completions, hover docs and signature help come from
  * Monaco's TypeScript worker, fed the game API as ambient declarations
- * (gameApiDts.ts, generated from gameApiTypes.ts) and the stored
- * `@param {Game} game` JSDoc line (gameScript.ts).
+ * (gameApiDts.ts, generated from gameApiTypes.ts). Typed `game` comes from
+ * either the sandbox global declaration (param-less scripts) or the stored
+ * `@param {Game} game` JSDoc line (legacy scripts, gameScript.ts).
  *
  * Covered contract: EVERY typed API path completes — including deep chains
  * (game.ball.position., field.zones.homeBox.), destructuring and local
  * aliases — not just one hot spot.
  *
  * @see gameApiTypes.ts (canonical contract)
- * @see script-ia-api.md v2.0
+ * @see script-ia-api.md v2.1
  */
 import { test, expect } from '../support/fixtures';
 import {
   TYPED_SCAFFOLD,
   CHASE_SCAFFOLD,
+  GLOBAL_SCAFFOLD,
   openWorkspaceScript,
   typeInsideUpdate,
   typeAtEndOfLine,
@@ -24,6 +26,39 @@ import {
 } from '../support/helpers/editor';
 
 test.describe('Editor IntelliSense - typed game API', () => {
+  test('types the sandbox global game with zero JSDoc: game.ball. completes @P0', async ({
+    page,
+    userFactory,
+    scriptFactory,
+  }) => {
+    // The zero-JSDoc typing contract: a param-less script reads the sandbox
+    // global `game`, declared in gameApiTypes.ts and declared globally in
+    // the editor's extra lib. No `@param {Game}` line anywhere in the file.
+    const user = await userFactory.createAuthenticated();
+    const script = await scriptFactory.create({
+      token: user.token!,
+      name: 'GlobalGameTest.js',
+      code: GLOBAL_SCAFFOLD,
+    });
+
+    await openWorkspaceScript(page, user.token, script.id);
+
+    // Shallow: game.ball. offers the Ball members.
+    await typeInsideUpdate(page, 'game.ball.');
+    const labels = await suggestionLabels(page);
+    expect(labels.some((label) => label.startsWith('position'))).toBe(true);
+    expect(labels.some((label) => label.startsWith('velocity'))).toBe(true);
+    expect(labels.some((label) => label.startsWith('owner'))).toBe(true);
+
+    // Deep chain: game.ball.position. offers the coordinates, mirroring the
+    // legacy-style deep-chain test below.
+    await page.keyboard.press('End');
+    await page.keyboard.type('position.');
+    const deepLabels = await suggestionLabels(page);
+    expect(deepLabels.some((label) => label.startsWith('x'))).toBe(true);
+    expect(deepLabels.some((label) => label.startsWith('y'))).toBe(true);
+  });
+
   test('completes deep chain game.ball.position. with x and y @P0', async ({
     page,
     userFactory,

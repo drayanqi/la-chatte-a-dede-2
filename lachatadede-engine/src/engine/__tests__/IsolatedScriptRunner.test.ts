@@ -243,6 +243,32 @@ describe('IsolatedScriptRunner - script-ia-api game context (AC #1)', () => {
     const next = runner.runTick(1, makeContext());
     expect(next.logs).toHaveLength(3);
   });
+
+  it('exposes the game object as a global usable by param-less scripts', () => {
+    const { run } = prepareRunner(`function update() { game.me.stop(); }`);
+    const { actions, logs } = run();
+    expect(actions).toEqual([{ team: 'challenger', slot: 1, action: { type: 'stop' } }]);
+    expect(logs).toHaveLength(0);
+  });
+
+  it('gives helper functions the current tick state through the global game', () => {
+    const { run } = prepareRunner(
+      `function ballX() { return game.ball.position.x; }
+       function update() { console.log(JSON.stringify({ x: ballX(), opponents: game.opponents.length })); }`,
+    );
+    const { logs } = run({ ball: { x: 33, y: 25, vx: 0, vy: 0, owner: null } });
+    expect(JSON.parse(loggedMessage(logs))).toEqual({ x: 33, opponents: 5 });
+  });
+
+  it('rebinds the global game to the fresh snapshot on every tick', () => {
+    const { runner } = prepareRunner(
+      `function update() { console.log(JSON.stringify(game.ball.position.x)); }`,
+    );
+    const first = runner.runTick(0, makeContext({ ball: { x: 10, y: 25, vx: 0, vy: 0, owner: null } }));
+    const second = runner.runTick(1, makeContext({ ball: { x: 77, y: 25, vx: 0, vy: 0, owner: null } }));
+    expect(loggedMessage(first.logs)).toBe('10');
+    expect(loggedMessage(second.logs)).toBe('77');
+  });
 });
 
 describe('IsolatedScriptRunner - action selection and warnings (AC #5)', () => {

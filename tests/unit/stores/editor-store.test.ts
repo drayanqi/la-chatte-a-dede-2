@@ -229,28 +229,53 @@ describe('Editor Store', () => {
   });
 
   describe('Script CRUD - Add', () => {
-    it('should add a new script with the Game API JSDoc line ensured', () => {
+    it('should add a param-less script untouched (sandbox global types it)', () => {
+      // GIVEN: Empty store
+      const store = useEditorStore.getState();
+      expect(store.scripts.size).toBe(0);
+
+      // WHEN: Adding a new script in the global style (no game parameter)
+      const newScript: Script = {
+        id: 'test-script-1',
+        name: 'Test AI',
+        code: 'function update() { game.me.stop(); }',
+        language: 'javascript',
+        lastModified: new Date(),
+      };
+      store.addScript(newScript);
+
+      // THEN: Script is added verbatim — no JSDoc line injected, the
+      // sandbox global declaration provides IntelliSense.
+      const state = useEditorStore.getState();
+      expect(state.scripts.size).toBe(1);
+      const added = state.scripts.get('test-script-1');
+      expect(added?.name).toBe(newScript.name);
+      expect(added?.code).toBe('function update() { game.me.stop(); }');
+      expect(added?.code).not.toContain('/** @param {Game} game');
+    });
+
+    it('should add a legacy param-style script with the JSDoc line ensured', () => {
       // GIVEN: Empty store
       const store = useEditorStore.getState();
       expect(store.scripts.size).toBe(0);
 
       // WHEN: Adding a new script whose code lacks the JSDoc line
       const newScript: Script = {
-        id: 'test-script-1',
-        name: 'Test AI',
-        code: 'function update() { return { move: { x: 0, y: 0 } }; }',
+        id: 'test-script-legacy',
+        name: 'Legacy AI',
+        code: 'function update(game) { game.me.stop(); }',
         language: 'javascript',
         lastModified: new Date(),
       };
       store.addScript(newScript);
 
-      // THEN: Script should be added, with the JSDoc line inserted above update()
+      // THEN: The JSDoc line is inserted above update(game)
       const state = useEditorStore.getState();
-      expect(state.scripts.size).toBe(1);
-      const added = state.scripts.get('test-script-1');
-      expect(added?.name).toBe(newScript.name);
+      const added = state.scripts.get('test-script-legacy');
       expect(added?.code).toContain('/** @param {Game} game');
-      expect(added?.code).toContain('function update() { return { move: { x: 0, y: 0 } }; }');
+      expect(added?.code.indexOf('/** @param {Game} game')).toBeLessThan(
+        added?.code.indexOf('function update('),
+      );
     });
 
     it('should overwrite script with same id', () => {
@@ -886,6 +911,34 @@ describe('Editor Store', () => {
       const state = useEditorStore.getState();
       expect(state.scripts.size).toBe(1);
       expect(state.scripts.get('new-script-123')?.name).toBe('NewAI.js');
+    });
+
+    it('should POST the param-less default template (no JSDoc line)', async () => {
+      // GIVEN: Authenticated user
+      (window.localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue('test-token');
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'default-template-id',
+          name: 'DefaultTemplate.js',
+          code: 'function update() {}',
+          language: 'javascript',
+          updated_at: '2026-01-26T12:00:00Z',
+        }),
+      });
+
+      // WHEN: Creating a script without explicit code
+      await useEditorStore.getState().createScript('DefaultTemplate.js');
+
+      // THEN: The POSTed default code uses the sandbox global style: typed
+      // via the ambient `game` declaration, no JSDoc line to copy.
+      const [, init] = mockFetch.mock.calls[0] as [string, { body: string }];
+      const postedCode = (JSON.parse(init.body) as { code: string }).code;
+      expect(postedCode).toContain('function update() {');
+      expect(postedCode).not.toContain('@param {Game}');
+      expect(postedCode).toContain('game.me.isClosestToBall()');
     });
 
     it('should open created script in editor automatically', async () => {

@@ -51,6 +51,13 @@ describe('GAME_API_DTS (generated from the real contract)', () => {
     expect(GAME_API_DTS).not.toMatch(/^export /m);
   });
 
+  it('declares the sandbox global game so param-less scripts are typed', () => {
+    // The sandbox shim assigns globalThis.game before every update() call;
+    // this declaration is what types `game` in plain-JS scripts that never
+    // declare it (no parameter, no JSDoc line needed).
+    expect(GAME_API_DTS).toMatch(/^declare const game: Game;$/m);
+  });
+
   it('exposes the nested paths used for deep completions', () => {
     // game.ball.position. / ball.velocity.
     expect(GAME_API_DTS).toMatch(/readonly position: Vector2D/);

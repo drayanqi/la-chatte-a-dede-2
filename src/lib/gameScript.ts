@@ -3,10 +3,14 @@
  * OWNER: Dev Team
  *
  * The script editor's TypeScript worker only knows the game API when the
- * `game` parameter is typed. Scripts therefore carry a JSDoc line above the
- * update function; `ensureGameApiJSDoc` adds it when missing so every
- * script gets IntelliSense (declarations come from gameApiDts.ts, fed from
- * the canonical gameApiTypes.ts contract).
+ * `game` value it sees is typed. Two script styles exist (script-ia-api.md
+ * v2.1):
+ *  - global style (preferred): `function update() { game... }` reads the
+ *    sandbox global declared in gameApiTypes.ts — typed with no JSDoc at all;
+ *  - parameter style (legacy): `function update(game) { ... }` needs the
+ *    stored JSDoc line above update; `ensureGameApiJSDoc` adds it when
+ *    missing so legacy scripts keep IntelliSense (declarations come from
+ *    gameApiDts.ts, fed from the canonical gameApiTypes.ts contract).
  *
  * The line is STORED in the script (not injected at display time): comments
  * are no-ops in the sandbox and engine, and editor line numbers stay true,
@@ -17,11 +21,13 @@ export const GAME_API_JSDOC_LINE =
   '/** @param {Game} game - Game state: me, ball, teammates, opponents, field. */';
 
 /**
- * A top-level `function update(` declaration: only whitespace may precede
- * it on the line, so text that merely CONTAINS "function update(" (e.g.
- * inside a string literal) does not match.
+ * A top-level `function update(game` declaration with a `game` parameter:
+ * only whitespace may precede it on the line, so text that merely CONTAINS
+ * "function update(" (e.g. inside a string literal) does not match.
+ * Param-less scripts are deliberately NOT matched — the sandbox global
+ * types them with no JSDoc, and injecting a line there would be dead weight.
  */
-const UPDATE_FUNCTION_PATTERN = /^[ \t]*function\s+update\s*\(/m;
+const UPDATE_FUNCTION_PATTERN = /^[ \t]*function\s+update\s*\(\s*game\b/m;
 
 export function hasGameApiJSDoc(code: string): boolean {
   return code.includes('/** @param {Game}');
@@ -29,9 +35,11 @@ export function hasGameApiJSDoc(code: string): boolean {
 
 /**
  * Returns the script with the Game API JSDoc line guaranteed above the
- * update function. Idempotent; scripts without a `function update(`
- * declaration are returned unchanged (the engine validator will report
- * them, not us).
+ * `game`-parameter update function. Idempotent. Scripts left unchanged:
+ *  - param-less global-style scripts (valid; typed by the sandbox global),
+ *  - scripts with no `function update(game)` declaration at all — including
+ *    those missing any update function, which the engine validator reports
+ *    (not us).
  */
 export function ensureGameApiJSDoc(code: string): string {
   if (hasGameApiJSDoc(code)) {

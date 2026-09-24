@@ -13,13 +13,14 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Default starter AI script code (canonical script-ia-api.md v2.0 API).
+     * Default starter AI script code (canonical script-ia-api.md v2.1 API).
      */
     private const STARTER_AI_CODE = <<<'JAVASCRIPT'
 /**
  * StarterAI - Your first AI script!
  *
- * Every tick the engine calls your update(game) function with:
+ * Every tick the engine calls your update() function. The game state is
+ * available as the global variable "game":
  *   game.me         - your player (position, hasBall, team, slot, actions...)
  *   game.ball       - the ball (position, velocity, owner)
  *   game.teammates  - your 4 teammates (read-only)
@@ -31,7 +32,7 @@ class AuthController extends Controller
  *
  * Remember: only the FIRST action per tick applies.
  */
-function update(game) {
+function update() {
   const { me, ball } = game;
   const goalX = me.team === 'home' ? 100 : 0;
 

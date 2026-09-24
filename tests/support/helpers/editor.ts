@@ -2,10 +2,11 @@
  * Editor E2E helpers.
  * OWNER: Dev Team
  *
- * Shared scaffolding for script-editor IntelliSense tests. The editor's
- * completions come from Monaco's TypeScript worker, driven by the stored
- * `@param {Game} game` JSDoc line: tests therefore create scripts that
- * already carry the typed scaffold and interact inside `update(game)`.
+ * Shared scaffolding for script-editor IntelliSense tests. Completions come
+ * from Monaco's TypeScript worker, driven by the game API ambient lib plus
+ * either the sandbox global `game` (param-less scripts, gameApiTypes.ts) or
+ * the stored `@param {Game} game` JSDoc line (legacy scripts): tests create
+ * scripts in the style under test and interact inside `update`.
  */
 import type { Page } from '@playwright/test';
 
@@ -27,6 +28,15 @@ function update(game) {
 export const CHASE_SCAFFOLD = `/** @param {Game} game - Game state. */
 function update(game) {
   game.me.moveToward(game.ball.position.x, game.ball.position.y);
+}`;
+
+/**
+ * Param-less scaffold using the sandbox global `game`: no JSDoc line, no
+ * parameter. Completions must come from the ambient `declare const game`
+ * (gameApiTypes.ts) — the zero-JSDoc typing contract.
+ */
+export const GLOBAL_SCAFFOLD = `function update() {
+  game.me.stop();
 }`;
 
 /** Navigate to the workspace and open the given script in the editor. */

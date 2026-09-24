@@ -127,17 +127,17 @@ const generateDuplicateName = (
 
 /**
  * Generate default code template for new AI scripts.
- * The Game API JSDoc line is part of the template: it is what types the
- * `game` parameter for the editor's TypeScript worker (see gameScript.ts).
+ * Uses the sandbox global `game` (declared in gameApiTypes.ts for the
+ * editor's TypeScript worker): typed completions with no JSDoc line, and
+ * helper functions can read `game` directly (see gameScript.ts).
  */
 const generateDefaultCode = (name: string): string => {
   const date = new Date().toISOString().split('T')[0];
   return `// AI Script: ${name}
 // Created: ${date}
 
-/** @param {Game} game - Game state: me, ball, teammates, opponents, field. */
-function update(game) {
-  // Your AI logic here
+function update() {
+  // Your AI logic here — game holds the current tick's state
 
   // Example: Move toward the ball if closest
   if (game.me.isClosestToBall()) {

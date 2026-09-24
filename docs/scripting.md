@@ -1,6 +1,6 @@
 # Scripting Reference — Actions & Game Context
 
-Every player runs one AI script. The engine calls your `update(game)` function **60 times per second** (one *tick*); each call you may perform **at most one action**. This page is the hands-on guide: what each action does on the pitch, what your script can read, and the warnings you can trigger.
+Every player runs one AI script. The engine calls your `update()` function **60 times per second** (one *tick*); each call you may perform **at most one action**. The game state is available as the **global `game`** — no parameter, no JSDoc — and helper functions can read it directly. The legacy `update(game)` parameter style still works. This page is the hands-on guide: what each action does on the pitch, what your script can read, and the warnings you can trigger.
 
 > The full contractual spec lives in [`script-ia-api.md`](../_bmad-output/planning-artifacts/script-ia-api.md) (sandboxing limits, error types, payload shapes). This page shows the behavior.
 
@@ -34,7 +34,8 @@ Moves you toward the target at full speed. **It never touches the ball** — and
 ![moveToward — the runner crosses the pitch, the ball never moves](scripting/img/move-toward.gif)
 
 ```js
-function update(game) {
+function update() {
+  const { me } = game;
   me.moveToward(70, 25); // run to the right — the ball is not involved
 }
 ```
@@ -55,7 +56,8 @@ const waypoints = [
 ];
 let next = 0;
 
-function update(game) {
+function update() {
+  const { me } = game;
   const target = waypoints[next];
   if (next < waypoints.length - 1) {
     const dx = target.x - game.me.position.x;
@@ -73,7 +75,8 @@ Releases the ball toward `(x, y)` at `power × 1.76` units/tick. `power` is clam
 ![shoot — full power into the corner, the frozen keeper is beaten](scripting/img/shoot.gif)
 
 ```js
-function update(game) {
+function update() {
+  const { me } = game;
   if (game.me.hasBall && game.me.position.x < 65) {
     me.dribble(65, 25);       // carry toward the edge of the box
   } else if (game.me.hasBall) {
@@ -95,7 +98,8 @@ Halts you where you stand. The rest of the world keeps moving.
 ```js
 let ticks = 0;
 
-function update(game) {
+function update() {
+  const { me } = game;
   if (ticks++ < 40) {
     me.moveToward(game.ball.position.x, game.ball.position.y); // chase
   } else {
@@ -113,7 +117,8 @@ Two players, the same starting line, one free ball. The mover reaches it first �
 Mover's script (challenger):
 
 ```js
-function update(game) {
+function update() {
+  const { me } = game;
   if (game.ball.owner === null && !game.me.hasBall) {
     me.moveToward(game.ball.position.x, game.ball.position.y); // race to the ball
   } else {
@@ -125,7 +130,8 @@ function update(game) {
 Dribbler's script (opponent):
 
 ```js
-function update(game) {
+function update() {
+  const { me } = game;
   if (game.me.hasBall) {
     me.dribble(70, 25); // carry it away
   } else {
@@ -138,7 +144,7 @@ function update(game) {
 
 ## Reading the game
 
-The `game` object your script receives each tick:
+The `game` object, rebound by the sandbox to the current tick's snapshot before every `update()` call (helpers read it too):
 
 ```ts
 interface Game {

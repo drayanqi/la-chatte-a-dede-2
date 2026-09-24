@@ -169,7 +169,9 @@ export const PREAMBLE_LINE_OFFSET = 1;
  *  1. builds the script-ia-api.md `game` object from the raw tick data
  *  2. wraps `me` with action methods that record actions/warnings
  *  3. captures console.log/warn/error per tick
- *  4. calls update(game), catching runtime errors
+ *  4. exposes the game object as globalThis.game (scripts can read `game`
+ *     anywhere, including helper functions, without a parameter) and calls
+ *     update(game), catching runtime errors
  *  5. returns a JSON string: { actions, logs, error }
  *
  * Action rules (script-ia-api.md):
@@ -274,6 +276,7 @@ export const SCRIPT_SHIM = `
     if (typeof update !== "function") {
       error = "missing update function";
     } else {
+      globalThis.game = game;
       try {
         update(game);
       } catch (err) {

@@ -51,7 +51,9 @@ export function validateScriptCode(
     if (context.evalSync('typeof update') !== 'function') {
       return {
         valid: false,
-        errors: [{ message: 'missing update function: define function update(game) { ... }' }],
+        errors: [
+          { message: 'missing update function: define function update() { ... }' },
+        ],
       };
     }
     return { valid: true, errors: [] };

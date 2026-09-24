@@ -42,10 +42,12 @@ class RegisterTest extends TestCase
             'language' => 'javascript',
         ]);
 
-        // The starter uses the canonical script-ia-api.md v2.0 API and is
-        // engine-valid by construction (Story 3.4).
+        // The starter uses the canonical script-ia-api.md v2.1 API (sandbox
+        // global game, no parameter, no JSDoc) and is engine-valid by
+        // construction (Story 3.4).
         $starter = Script::where('user_id', $user->id)->firstOrFail();
-        $this->assertStringContainsString('function update(game)', $starter->code);
+        $this->assertStringContainsString('function update()', $starter->code);
+        $this->assertStringNotContainsString('@param {Game}', $starter->code);
         $this->assertStringContainsString('me.moveToward', $starter->code);
         $this->assertStringContainsString('me.dribble', $starter->code);
         $this->assertStringContainsString('me.shoot', $starter->code);

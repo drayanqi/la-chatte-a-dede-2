@@ -18,6 +18,11 @@ describe('validateScriptCode', () => {
     expect(result).toEqual({ valid: true, errors: [] });
   });
 
+  it('accepts a param-less update reading the sandbox global game', () => {
+    const result = validateScriptCode(`function update() { game.me.stop(); }`, 'javascript');
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
   it('accepts a script prefixed with the editor Game API JSDoc line', () => {
     // The script editor stores this line above update() to type the game
     // parameter for Monaco's TypeScript worker; comments are no-ops in the
