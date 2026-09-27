@@ -126,6 +126,43 @@ button {
   }
 }
 
+/* Attention ring (discoverability pass) — pulses around Teambar buttons
+   only while they have something actionable to say: the customize button
+   begs for a still-default kit, the ready toggle for a complete-but-not-
+   readied lineup. Reduced motion keeps the ring static, not blinking */
+@keyframes lachatadede-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.03);
+  }
+}
+
+.pulse-ring {
+  position: relative;
+}
+
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 2px solid var(--corail);
+  animation: lachatadede-ring-pulse 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring::after {
+    animation: none !important;
+    opacity: 0.6;
+  }
+}
+
 /* Guide code blocks (story 8.4) — Prism token colors, scoped to the guide */
 .guide-code .token.keyword {
   color: var(--code-kw);

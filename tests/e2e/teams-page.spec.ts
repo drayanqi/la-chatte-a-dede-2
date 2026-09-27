@@ -519,4 +519,94 @@ test.describe('Teams Page', () => {
     await expect(page.getByTestId('ranked-open-button')).toBeVisible();
     await expect(page.getByTestId('practice-start-button')).toBeVisible();
   });
+
+  test('should open equipment from the customize button and kill the ring after a save @P1', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/teams');
+    await expect(page.getByTestId('team-bar')).toBeVisible();
+
+    // A fresh default team wears the default kit: the ring pulses
+    const customize = page.getByTestId('team-customize-button');
+    await expect(customize).toBeVisible();
+    await expect(customize).toHaveAttribute('data-default-kit', 'true');
+
+    await customize.click();
+    await expect(page.getByTestId('equipment-modal')).toBeVisible();
+
+    // Pick a custom primary color and save (waitForResponse BEFORE the click)
+    const putPromise = page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+    );
+    await page
+      .locator('[data-testid="equipment-color-swatch"][data-role="primary"][data-color="#9b6ce8"]')
+      .click();
+    await page.getByTestId('equipment-save-button').click();
+    expect((await putPromise).ok()).toBeTruthy();
+
+    await expect(page.getByTestId('equipment-modal')).toBeHidden();
+    // Customized: the ring is dead, the door stays open
+    await expect(customize).toHaveAttribute('data-default-kit', 'false');
+  });
+
+  test('should pulse the ready toggle only when the lineup is complete and unreadied @P1', async ({
+    page,
+    userFactory,
+  }) => {
+    const user = await userFactory.createAuthenticated();
+    await seedAuthToken(page, user.token ?? '');
+
+    await page.goto('/teams');
+    await expect(page.getByTestId('team-bar')).toBeVisible();
+
+    // Incomplete lineup: locked toggle, no ring
+    const readyToggle = page.getByTestId('ready-toggle');
+    await expect(readyToggle).toBeDisabled();
+    await expect(readyToggle).not.toHaveClass('pulse-ring');
+
+    // Assign StarterAI.js to all 5 slots through the on-pitch picker
+    const canvas = page.getByTestId('field-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Canvas not visible');
+    const pitchRect = computePitchRect(canvasBox.width, canvasBox.height);
+    const slots: Array<[number, number]> = [
+      [8, 50], // GK (slot 1)
+      [25, 30], // DEF1 (slot 2)
+      [25, 70], // DEF2 (slot 3)
+      [40, 30], // ATK1 (slot 4)
+      [40, 70], // ATK2 (slot 5)
+    ];
+    const scriptOption = page
+      .getByTestId('picker-script-option')
+      .filter({ hasText: 'StarterAI.js' });
+
+    for (const [x, y] of slots) {
+      const putTacticPromise = page.waitForResponse(
+        (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+      );
+      const spot = percentToScreen(pitchRect, x, y);
+      await page.mouse.click(canvasBox.x + spot.x, canvasBox.y + spot.y);
+      await expect(page.getByTestId('script-picker')).toBeVisible();
+      await scriptOption.click();
+      await putTacticPromise;
+    }
+
+    // Complete + draft: the ring lights up with the matchmaking tooltip
+    await expect(readyToggle).toBeEnabled();
+    await expect(readyToggle).toHaveClass(/pulse-ring/);
+    await expect(readyToggle).toHaveAttribute('data-status', 'draft');
+
+    // Readying the team kills the ring
+    const readyPromise = page.waitForResponse(
+      (response) => response.request().method() === 'PUT' && /\/tactics\//.test(response.url())
+    );
+    await readyToggle.click();
+    expect((await readyPromise).ok()).toBeTruthy();
+    await expect(readyToggle).toHaveAttribute('data-status', 'ready');
+    await expect(readyToggle).not.toHaveClass('pulse-ring');
+  });
 });

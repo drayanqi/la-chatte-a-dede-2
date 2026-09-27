@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option A · Le maillot visible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sora',system-ui,sans-serif;height:100vh;overflow:hidden;color:#12241b;
+  background:radial-gradient(900px 500px at 10% -6%, rgba(255,194,68,.16), transparent 60%),
+             radial-gradient(800px 500px at 92% 108%, rgba(49,196,141,.13), transparent 60%),#e9f5ee;}
+.stage{height:100%;display:flex;flex-direction:column;padding:8px}
+
+/* ---- Teambar ---- */
+.teambar{flex:none;display:flex;align-items:center;gap:7px;height:48px;padding:0 10px;background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(18,36,27,.09);z-index:90}
+.pills{display:flex;align-items:center;gap:4px;min-width:0}
+.pill{position:relative;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;font-size:12.5px;font-weight:600;color:#5b7265;white-space:nowrap;cursor:pointer;border:none;background:transparent}
+.pill.active{background:#f4faf6;color:#12241b;box-shadow:inset 0 0 0 1px rgba(18,36,27,.12),0 8px 24px rgba(18,36,27,.09);font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.ready{background:#31c48d}.dot.draft{background:#ffc244}
+.record{font-size:10px;color:#5b7265;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.spacer{flex:1}
+.btn{border:none;cursor:pointer;border-radius:11px;padding:6px 11px;font-size:12px;font-weight:700;font-family:inherit;white-space:nowrap}
+.btn.ready{background:#31c48d;color:#fff;box-shadow:0 4px 14px rgba(49,196,141,.3)}
+.btn.practice{background:#ffc244;color:#12241b;box-shadow:0 4px 14px rgba(255,194,68,.3)}
+.newteam{border:none;background:transparent;color:#ff6b57;font-weight:700;font-size:12.5px;cursor:pointer;padding:8px 12px;font-family:inherit;flex-shrink:0;white-space:nowrap}
+
+/* ---- A : le maillot visible ---- */
+.jersey-btn{display:grid;place-items:center;width:26px;height:26px;border:none;border-radius:8px;background:transparent;color:#5b7265;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s}
+.jersey-btn:hover{background:rgba(18,36,27,.08);color:#12241b}
+.pill.active .jersey-btn{color:#12241b}
+.menu{position:fixed;z-index:1002;width:216px;background:#fff;border-radius:16px;box-shadow:0 18px 48px rgba(18,36,27,.2);padding:7px;display:none}
+.menu.open{display:flex;flex-direction:column;gap:2px}
+.menu button{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 12px;background:transparent;color:#12241b;border:none;border-radius:11px;cursor:pointer;font-size:12.5px;font-weight:600;font-family:inherit}
+.menu button:hover{background:#f4faf6}
+.menu button.danger{color:#ff6b57}
+.menu .ico{width:20px;text-align:center;font-size:14px}
+
+/* ---- Scene ---- */
+.letterbox{flex:1;margin-top:8px;position:relative;background:#10151f;border-radius:26px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+.wordmark{position:absolute;left:0;right:0;text-align:center;font-weight:800;letter-spacing:.5em;font-size:clamp(18px,2.6vw,30px);color:rgba(255,255,255,.055);user-select:none}
+.wordmark.top{top:4.5%}.wordmark.bottom{bottom:4.5%}
+.pitch-zone{position:absolute;inset:0;display:grid;place-items:center;padding:7% 0}
+.pitch{position:relative;width:min(80%,1000px);aspect-ratio:1.85;border-radius:20px;border:3px solid rgba(255,255,255,.55);
+  background:repeating-linear-gradient(90deg,#3fae62 0 72px,#38a059 72px 144px);
+  box-shadow:0 0 0 8px rgba(255,255,255,.05),0 30px 80px rgba(0,0,0,.45)}
+.halfway{position:absolute;left:50%;top:0;bottom:0;width:3px;background:rgba(255,255,255,.75);transform:translateX(-50%)}
+.circle{position:absolute;left:50%;top:50%;width:118px;height:118px;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.8);border-radius:50%}
+.arc{position:absolute;top:50%;width:300px;height:340px;transform:translateY(-50%);border:3px solid rgba(255,255,255,.8);border-radius:50%}
+.arc.left{left:-215px}.arc.right{right:-215px}
+.goal{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:230px;border-radius:12px;z-index:2}
+.goal.left{left:-16px;border:4px solid #8b5cf6;background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.28) 0 2px,transparent 2px 12px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 2px,transparent 2px 12px),rgba(139,92,246,.22)}
+.goal.right{right:-16px;border:4px solid #ffc244;background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.28) 0 2px,transparent 2px 12px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 2px,transparent 2px 12px),rgba(255,194,68,.2)}
+.player{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%)}
+.player .head{position:relative;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#a78bfa,#8b5cf6 55%,#7c3aed);border:2.5px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,.35);display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px}
+.player .rdot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#31c48d;border:2px solid #fff}
+.player .ptag{margin-top:5px;background:rgba(8,14,20,.8);color:#fff;font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;font-family:'JetBrains Mono',monospace}
+.disc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:116px;height:116px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:1;overflow:hidden}
+.disc img{width:100%;height:100%;object-fit:cover}
+.disc.noimg::after{content:'🐱';font-size:58px}
+.watch{position:absolute;top:14px;left:16px;background:#12241b;color:#fff;font-size:12px;font-weight:700;padding:9px 14px;border-radius:999px;border:none;cursor:pointer;font-family:inherit}
+.optag{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.78);font-size:11.5px;font-weight:600;padding:7px 12px;border-radius:999px;backdrop-filter:blur(4px)}
+
+/* ---- Modal équipement ---- */
+.overlay{position:fixed;inset:0;background:rgba(10,20,14,.45);backdrop-filter:blur(3px);display:none;place-items:center;z-index:1001}
+.overlay.open{display:grid}
+.modal{background:#fff;border-radius:24px;box-shadow:0 18px 48px rgba(18,36,27,.2);padding:24px;width:410px}
+.modal h2{font-size:16px;font-weight:800;margin-bottom:16px}
+.modal label{display:block;font-size:12px;font-weight:600;color:#5b7265;margin-bottom:6px}
+.modal input[type=text]{width:100%;font-family:inherit;font-size:13px;color:#12241b;background:#f4faf6;border:1.5px solid rgba(18,36,27,.12);border-radius:13px;padding:11px 12px;outline:none;margin-bottom:14px}
+.swatches,.crests{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 16px}
+.sw{width:30px;height:30px;border-radius:10px;cursor:pointer;border:none}
+.sw.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px #12241b}
+.cr{width:36px;height:36px;border-radius:11px;cursor:pointer;border:none;background:#f4faf6;font-size:17px}
+.cr.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px #12241b}
+.mbtns{display:flex;justify-content:flex-end;gap:9px;margin-top:6px}
+.mbtn{border:none;cursor:pointer;border-radius:13px;padding:9px 16px;font-size:13px;font-weight:700;font-family:inherit}
+.mbtn.sec{background:#f4faf6;color:#12241b;box-shadow:inset 0 0 0 1px rgba(18,36,27,.12)}
+.mbtn.pri{background:#ff6b57;color:#fff;box-shadow:0 4px 14px rgba(255,107,87,.35)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="teambar">
+    <div class="pills">
+      <div class="pill active" id="pill1">
+        <span class="dot ready"></span>
+        <span>Les Chatons de Didier</span>
+        <span class="record">1240 · 12-5</span>
+        <button class="jersey-btn" data-team="1" title="Options de l'équipe" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+        </button>
+      </div>
+      <div class="pill">
+        <span class="dot draft"></span>
+        <span>Le 4-4-2 de Zoé</span>
+        <button class="jersey-btn" data-team="2" title="Options de l'équipe" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+        </button>
+      </div>
+      <div class="pill">
+        <span class="dot draft"></span>
+        <span>FC Régression</span>
+        <button class="jersey-btn" data-team="3" title="Options de l'équipe" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+        </button>
+      </div>
+      <button class="newteam">+ Nouvelle équipe</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ready">Prêt</button>
+    <button class="btn practice">Test vs Bot</button>
+  </header>
+
+  <main class="letterbox">
+    <div class="wordmark top">LACHATADEDE</div>
+    <div class="wordmark bottom">LACHATADEDE</div>
+    <button class="watch">▶ Watch last match</button>
+    <div class="optag">Option A · le caret devient un maillot cliquable — clique-le</div>
+    <div class="pitch-zone">
+      <div class="pitch">
+        <div class="halfway"></div>
+        <div class="circle"></div>
+        <div class="arc left"></div>
+        <div class="arc right"></div>
+        <div class="goal left"></div>
+        <div class="goal right"></div>
+        <div class="player" style="left:20%;top:66%"><div class="head">1<span class="rdot"></span></div><div class="ptag">StarterAI.js</div></div>
+        <div class="player" style="left:33%;top:28%"><div class="head">2<span class="rdot"></span></div><div class="ptag">StarterAI.js</div></div>
+        <div class="player" style="left:33%;top:72%"><div class="head">3<span class="rdot"></span></div><div class="ptag">StarterAI.js</div></div>
+        <div class="player" style="left:47%;top:28%"><div class="head">4<span class="rdot"></span></div><div class="ptag">StarterAI.js</div></div>
+        <div class="player" style="left:47%;top:72%"><div class="head">5<span class="rdot"></span></div><div class="ptag">StarterAI.js</div></div>
+        <div class="disc"><img src="../../src/assets/watermark.png" alt="DD" onerror="this.parentElement.classList.add('noimg');this.remove()"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="menu" id="menu">
+  <button class="equip"><span class="ico">🎨</span>Équipement</button>
+  <button><span class="ico">✏️</span>Renommer</button>
+  <button><span class="ico">⧉</span>Dupliquer</button>
+  <button class="danger"><span class="ico">🗑</span>Supprimer…</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>🎨 Équipement — Les Chatons de Didier</h2>
+    <label for="eq-name">Nom de l'équipe</label>
+    <input id="eq-name" type="text" value="Les Chatons de Didier">
+    <label>Couleur domicile</label>
+    <div class="swatches">
+      <button class="sw" style="background:#ff6b1a"></button>
+      <button class="sw sel" style="background:#8b5cf6"></button>
+      <button class="sw" style="background:#31c48d"></button>
+      <button class="sw" style="background:#ffc244"></button>
+      <button class="sw" style="background:#ff6b57"></button>
+      <button class="sw" style="background:#4aa8e8"></button>
+      <button class="sw" style="background:#e879a0"></button>
+      <button class="sw" style="background:#22c55e"></button>
+      <button class="sw" style="background:#1a8cff"></button>
+      <button class="sw" style="background:#94a3b8"></button>
+    </div>
+    <label>Couleur extérieure</label>
+    <div class="swatches">
+      <button class="sw" style="background:#ff6b1a"></button>
+      <button class="sw" style="background:#8b5cf6"></button>
+      <button class="sw sel" style="background:#31c48d"></button>
+      <button class="sw" style="background:#ffc244"></button>
+      <button class="sw" style="background:#ff6b57"></button>
+      <button class="sw" style="background:#4aa8e8"></button>
+      <button class="sw" style="background:#e879a0"></button>
+      <button class="sw" style="background:#22c55e"></button>
+      <button class="sw" style="background:#1a8cff"></button>
+      <button class="sw" style="background:#94a3b8"></button>
+    </div>
+    <label>Blason</label>
+    <div class="crests">
+      <button class="cr">⚽</button>
+      <button class="cr sel">🐱</button>
+      <button class="cr">🐓</button>
+      <button class="cr">🔥</button>
+      <button class="cr">⭐</button>
+      <button class="cr">👑</button>
+      <button class="cr">🎯</button>
+      <button class="cr">🚀</button>
+      <button class="cr">🧀</button>
+      <button class="cr">🐸</button>
+    </div>
+    <div class="mbtns">
+      <button class="mbtn sec" id="cancel">Annuler</button>
+      <button class="mbtn pri" id="save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const menu = document.getElementById('menu');
+const overlay = document.getElementById('overlay');
+document.querySelectorAll('.jersey-btn').forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const r = btn.getBoundingClientRect();
+    menu.style.left = Math.min(r.left, window.innerWidth - 230) + 'px';
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.classList.toggle('open');
+  });
+});
+document.addEventListener('click', () => menu.classList.remove('open'));
+menu.addEventListener('click', (e) => e.stopPropagation());
+menu.querySelector('.equip').addEventListener('click', () => {
+  menu.classList.remove('open');
+  overlay.classList.add('open');
+});
+overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+document.getElementById('cancel').addEventListener('click', () => overlay.classList.remove('open'));
+document.getElementById('save').addEventListener('click', () => overlay.classList.remove('open'));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { overlay.classList.remove('open'); menu.classList.remove('open'); } });
+</script>
+</body>
+</html>

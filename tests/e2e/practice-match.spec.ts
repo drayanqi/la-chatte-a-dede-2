@@ -426,6 +426,11 @@ test.describe('Practice Match', () => {
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
     await expect(canvas).toHaveAttribute('data-match-players', '10');
 
+    // Story 7.10: the fresh generation plays the pre-match ceremony — the
+    // score pill only returns at the kickoff. Playback-driving assertions
+    // (pause/scrub/step) must wait for the ceremony to hand over.
+    await expect(page.getByTestId('score-display')).toBeVisible();
+
     // AC #1: position and duration are shown in mm:ss (full match = 03:00)
     const timeDisplay = page.getByTestId('timeline-time-display');
     const counter = page.getByTestId('frame-counter');
@@ -556,6 +561,10 @@ function update(game) {
     await expect(page.getByTestId('replay-loading-overlay')).toBeVisible();
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
+
+    // Story 7.10: playback-driving assertions wait for the ceremony to
+    // hand over (the score pill returns at the kickoff)
+    await expect(page.getByTestId('score-display')).toBeVisible();
 
     // The drawer is up with the replay; open its Logs tab
     await expect(page.getByTestId('replay-drawer')).toBeVisible();
@@ -768,6 +777,10 @@ function update(game) {
     await framesResponse;
     await expect(page.getByTestId('replay-loading-overlay')).toBeHidden();
     await expect(canvas).toHaveAttribute('data-match-players', '10');
+
+    // Story 7.10: playback-driving assertions wait for the ceremony to
+    // hand over (the score pill returns at the kickoff)
+    await expect(page.getByTestId('score-display')).toBeVisible();
 
     // Logs tab + deterministic window: pause (stable-freeze poll, same as
     // 3.8/3.10) then seek Home — every logger emits on the very first

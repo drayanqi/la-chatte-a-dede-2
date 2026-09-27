@@ -172,6 +172,12 @@ export const MatchPage: React.FC = () => {
   // two teams with the same color would paint all 10 players identically.
   // Speed resets with the replay: every match starts at 1x, never the
   // previous match's tempo.
+  // The same-match re-emit guard (story 7.10): the StrictMode double-mount
+  // in dev resolves two loads of the SAME match — the second store write
+  // (fresh array identity) must not restart the engine replay (it used to
+  // kill the pre-match walk and autoplay over the ceremony). The test
+  // hook path carries no match id and stays exempt.
+  const loadedMatchIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (replayFrames.length === 0) return;
     setMatchFrames(replayFrames);
@@ -186,6 +192,9 @@ export const MatchPage: React.FC = () => {
       }
     );
     canvasRef.current?.setTeamColors(homeHex, awayHex);
+    const matchId = replayMatch?.id ?? null;
+    if (matchId !== null && loadedMatchIdRef.current === matchId) return;
+    loadedMatchIdRef.current = matchId;
     // The ceremony rides the same load (story 7.10): the flag is consumed
     // atomically so a store re-emit cannot replay it. The walk phase is
     // armed by the engine's onIntroStart — the overlay rises exactly when

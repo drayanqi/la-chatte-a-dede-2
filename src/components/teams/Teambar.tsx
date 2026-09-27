@@ -13,6 +13,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTacticsStore } from '@/stores/tacticsStore';
 import { EquipmentModal } from '@/components/teams/EquipmentModal';
 import type { EquipmentSavePatch } from '@/components/teams/EquipmentModal';
+import { PLAYER_AWAY_HEX, PLAYER_HOME_HEX } from '@/lib/teamColors';
+import type { TacticConfig } from '@/types';
+
+/**
+ * True while the team still wears the server-default kit (story 7.4):
+ * default hex pair + no crest. The customize button's attention ring only
+ * pulses in that state — once the player has customized anything, the
+ * ring dies. Colors compare case-insensitively (7.4 seeding law).
+ */
+const isDefaultKit = (tactic: TacticConfig): boolean =>
+  tactic.crest == null &&
+  (tactic.colorPrimary ?? PLAYER_HOME_HEX).toLowerCase() === PLAYER_HOME_HEX &&
+  (tactic.colorSecondary ?? PLAYER_AWAY_HEX).toLowerCase() === PLAYER_AWAY_HEX;
 
 interface TeambarProps {
   /** True when all 5 lineup slots have a script assigned (story 3.2 AC #7) */
@@ -45,6 +58,10 @@ export const Teambar: React.FC<TeambarProps> = ({
   // Only user tactics appear as pills (system tactics are not editable in MVP)
   const userTactics = tactics.filter((tactic) => !tactic.isSystem);
   const activeTactic = userTactics.find((tactic) => tactic.id === activeTacticId) ?? null;
+  const activeTacticIsDefaultKit = activeTactic ? isDefaultKit(activeTactic) : false;
+  // The ready ring begs only for an actionable state: a complete lineup
+  // that is not readied yet (a readied or incomplete team needs no pulse)
+  const readyPulse = Boolean(activeTactic && lineupComplete && !activeTactic.isReady);
 
   // Rename state (inline in the pill)
   const [renamingTacticId, setRenamingTacticId] = useState<string | null>(null);
@@ -322,6 +339,22 @@ export const Teambar: React.FC<TeambarProps> = ({
 
       <div style={styles.spacer} />
 
+      {/* Customize button (discoverability pass): the labeled door to the
+          Équipement modal for the ACTIVE team. The pulse ring (CSS class,
+          see tokens.css) shows only while the kit is still the default. */}
+      {activeTactic && (
+        <button
+          data-testid="team-customize-button"
+          data-default-kit={activeTacticIsDefaultKit ? 'true' : 'false'}
+          className={activeTacticIsDefaultKit ? 'pulse-ring' : undefined}
+          style={styles.customizeButton}
+          onClick={() => setEquipmentTacticId(activeTactic.id)}
+          title="Personnalise le nom, les couleurs et le blason de cette équipe"
+        >
+          🎨 Personnaliser l&apos;équipe
+        </button>
+      )}
+
       {activeTactic && (
         <button
           data-testid="ready-toggle"
@@ -329,6 +362,7 @@ export const Teambar: React.FC<TeambarProps> = ({
           data-status={activeTactic.isReady ? 'ready' : 'draft'}
           aria-pressed={activeTactic.isReady}
           disabled={(!lineupComplete && !activeTactic.isReady) || isSavingTactic}
+          className={readyPulse ? 'pulse-ring' : undefined}
           style={{
             ...styles.readyButton,
             ...(activeTactic.isReady ? styles.readyButtonActive : styles.readyButtonIdle),
@@ -340,8 +374,8 @@ export const Teambar: React.FC<TeambarProps> = ({
           title={
             lineupComplete
               ? activeTactic.isReady
-                ? 'Retirer cette équipe du pool classé'
-                : 'Rendre cette équipe challengeable par les autres joueurs'
+                ? 'Retire cette équipe du matchmaking : elle ne sera plus challengeable en classé'
+                : 'Rend cette équipe disponible dans le matchmaking : les autres joueurs pourront la défier en classé'
               : 'Assigne des scripts aux 5 positions pour rendre cette équipe prête'
           }
         >
@@ -634,7 +668,21 @@ const styles: Record<string, React.CSSProperties> = {
   spacer: {
     flex: 1,
   },
+  customizeButton: {
+    position: 'relative',
+    padding: '6px 12px',
+    borderRadius: '13px',
+    fontSize: '12px',
+    fontWeight: 700,
+    background: 'var(--panel2)',
+    color: 'var(--ink)',
+    boxShadow: 'inset 0 0 0 1px var(--line)',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
   readyButton: {
+    position: 'relative',
     padding: '6px 11px',
     borderRadius: '11px',
     fontSize: '12px',

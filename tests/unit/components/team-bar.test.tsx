@@ -584,4 +584,108 @@ describe('Teambar Component', () => {
     rerender(<Teambar lineupComplete={true} isSimulating={true} onStartPractice={onStartPractice} />);
     expect(screen.getByTestId('test-vs-bot-button')).toBeDisabled();
   });
+
+  // ------------------------------------------------------------------
+  // Customize button + attention rings (discoverability pass)
+  // ------------------------------------------------------------------
+
+  it('should open the equipment modal for the active team from the customize button', () => {
+    seedStore(
+      [makeTactic({ colorPrimary: '#ff6b1a', colorSecondary: '#1a8cff', crest: null })],
+      'tactic-1'
+    );
+
+    renderBar();
+
+    expect(screen.queryByTestId('equipment-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('team-customize-button'));
+
+    const modal = screen.getByTestId('equipment-modal');
+    expect(modal).toBeInTheDocument();
+    expect(modal).toHaveAttribute('data-tactic-id', 'tactic-1');
+  });
+
+  it('should pulse the customize ring only while the active team wears the default kit', () => {
+    seedStore(
+      [
+        makeTactic({ colorPrimary: '#ff6b1a', colorSecondary: '#1a8cff', crest: null }),
+        makeTactic({
+          id: 'painted-1',
+          name: 'Peinte',
+          colorPrimary: '#9b6ce8',
+          colorSecondary: '#31c48d',
+          crest: '🦊',
+        }),
+      ],
+      'painted-1'
+    );
+
+    renderBar();
+
+    // A customized team never begs
+    expect(screen.getByTestId('team-customize-button')).toHaveAttribute('data-default-kit', 'false');
+    expect(screen.getByTestId('team-customize-button')).not.toHaveClass('pulse-ring');
+
+    // Switching to the default-kit team lights the ring up
+    fireEvent.click(screen.getByText('Tactic 1'));
+    expect(screen.getByTestId('team-customize-button')).toHaveAttribute('data-default-kit', 'true');
+    expect(screen.getByTestId('team-customize-button')).toHaveClass('pulse-ring');
+  });
+
+  it('should compare the default kit case-insensitively', () => {
+    seedStore(
+      [makeTactic({ colorPrimary: '#FF6B1A', colorSecondary: '#1A8CFF', crest: null })],
+      'tactic-1'
+    );
+
+    renderBar();
+
+    expect(screen.getByTestId('team-customize-button')).toHaveAttribute('data-default-kit', 'true');
+  });
+
+  it('should pulse the ready ring only when the lineup is complete and unreadied', () => {
+    seedStore(
+      [makeTactic({ players: completeLineup, isReady: false })],
+      'tactic-1'
+    );
+
+    const { rerender } = renderBar({ lineupComplete: false });
+    // Incomplete lineup: the toggle is locked, it has nothing to beg for
+    expect(screen.getByTestId('ready-toggle')).not.toHaveClass('pulse-ring');
+
+    rerender(<Teambar lineupComplete={true} isSimulating={false} onStartPractice={() => {}} />);
+    // Complete + draft: actionable -> the ring shows
+    expect(screen.getByTestId('ready-toggle')).toHaveClass('pulse-ring');
+    expect(screen.getByTestId('ready-toggle')).toHaveAttribute('data-status', 'draft');
+  });
+
+  it('should not pulse the ready ring on an already-readied team', () => {
+    seedStore(
+      [makeTactic({ players: completeLineup, isReady: true })],
+      'tactic-1'
+    );
+
+    renderBar({ lineupComplete: true });
+
+    expect(screen.getByTestId('ready-toggle')).not.toHaveClass('pulse-ring');
+  });
+
+  it('should explain the matchmaking effect in the ready toggle tooltips', () => {
+    seedStore([makeTactic({ players: completeLineup, isReady: false })], 'tactic-1');
+
+    const { rerender } = renderBar({ lineupComplete: true });
+    expect(screen.getByTestId('ready-toggle')).toHaveAttribute(
+      'title',
+      'Rend cette équipe disponible dans le matchmaking : les autres joueurs pourront la défier en classé'
+    );
+
+    act(() => {
+      seedStore([makeTactic({ players: completeLineup, isReady: true })], 'tactic-1');
+    });
+    rerender(<Teambar lineupComplete={true} isSimulating={false} onStartPractice={() => {}} />);
+    expect(screen.getByTestId('ready-toggle')).toHaveAttribute(
+      'title',
+      'Retire cette équipe du matchmaking : elle ne sera plus challengeable en classé'
+    );
+  });
 });
